@@ -1,12 +1,16 @@
 // MailDock 前端 API 客户端：封装与后端 REST API（/api/v1）的通信。
-// 统一处理版本前缀、Bearer Token 注入、JSON 解析与错误抛出。
-// Token 持久化到 localStorage，刷新页面或新建实例时自动恢复。
+// 统一处理版本前缀、Cookie 凭据、JSON 解析与错误抛出。
 
 /** API 路径前缀（含版本号），与后端 ApiRouter.API 保持一致。 */
 const API = '/api/v1';
 
-/** localStorage 中保存 Token 的键名。 */
-const TOKEN_KEY = 'maildock_token';
+/** 当前登录用户摘要。 */
+export interface CurrentUser {
+  id: number;
+  primaryEmail: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
 
 /** 邮箱账号（不含授权码，与后端 accountToJson 对齐）。 */
 export interface Account {
@@ -127,52 +131,29 @@ export interface PagedAccounts {
   items: Account[];
 }
 
-/**
- * MailDock API 客户端。每个实例从 localStorage 恢复 Token，
- * 受保护请求自动携带 Authorization 头。
- */
+/** MailDock API 客户端。受保护请求依赖后端 HttpOnly Cookie Session。 */
 export class ApiClient {
-  private token: string | null;
-
-  constructor() {
-    this.token = localStorage.getItem(TOKEN_KEY);
+  /** 恢复当前登录用户。 */
+  me(): Promise<CurrentUser> {
+    return this.request<CurrentUser>('/auth/me', { method: 'GET' });
   }
 
-  /** 返回当前 Token，未登录为 null。 */
-  getToken(): string | null {
-    return this.token;
-  }
-
-  /** 设置并持久化 Token。 */
-  setToken(token: string): void {
-    this.token = token;
-    localStorage.setItem(TOKEN_KEY, token);
-  }
-
-  /** 清除本地 Token。 */
-  clearToken(): void {
-    this.token = null;
-    localStorage.removeItem(TOKEN_KEY);
-  }
-
-  /** 管理员登录，成功保存并返回 Token。 */
-  async login(username: string, password: string): Promise<string> {
-    const body = await this.request<{ token: string }>('/auth/login', {
+  /** 邮箱密码登录，成功后后端设置 HttpOnly Cookie。 */
+  login(email: string, password: string): Promise<CurrentUser> {
+    return this.request<CurrentUser>('/auth/login', {
       method: 'POST',
-      json: { username, password },
-      auth: false,
+      json: { email, password },
     });
-    this.setToken(body.token);
-    return body.token;
   }
 
-  /** 登出，撤销服务端 Token 并清空本地保存。 */
+  /** linux.do OAuth 登录入口。 */
+  linuxDoLoginUrl(): string {
+    return `${API}/auth/linuxdo/start`;
+  }
+
+  /** 登出，撤销服务端 Session 并清理 Cookie。 */
   async logout(): Promise<void> {
-    try {
-      await this.request<void>('/auth/logout', { method: 'POST', raw: true });
-    } finally {
-      this.clearToken();
-    }
+    await this.request<void>('/auth/logout', { method: 'POST', raw: true });
   }
 
   /** 账号列表：支持邮箱搜索、状态过滤、排序、分页，返回 { total, items }。 */
@@ -259,13 +240,13 @@ export class ApiClient {
     });
   }
 
-  /** 附件下载地址（带 token 由调用方处理，这里返回相对路径）。 */
+  /** 附件下载地址。浏览器普通下载会自动携带同站 Cookie。 */
   attachmentUrl(messageId: number, attachmentId: number): string {
     return `${API}/messages/${messageId}/attachments/${attachmentId}`;
   }
 
   /**
-   * 统一请求方法：拼接版本前缀、注入 Token、提交 JSON 或纯文本、解析响应。
+   * 统一请求方法：拼接版本前缀、携带 Cookie、提交 JSON 或纯文本、解析响应。
    * 非 2xx 时抛出携带后端 message 的错误。
    */
   private async request<T>(
@@ -275,14 +256,9 @@ export class ApiClient {
       json?: unknown;
       text?: string;
       raw?: boolean;
-      auth?: boolean;
     }
   ): Promise<T> {
     const headers: Record<string, string> = {};
-    const auth = opts.auth !== false;
-    if (auth && this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
 
     let body: string | undefined;
     if (opts.json !== undefined) {
@@ -293,7 +269,12 @@ export class ApiClient {
       body = opts.text;
     }
 
-    const resp = await fetch(`${API}${path}`, { method: opts.method, headers, body });
+    const resp = await fetch(`${API}${path}`, {
+      method: opts.method,
+      headers,
+      body,
+      credentials: 'include',
+    });
 
     if (!resp.ok) {
       let message = `请求失败 (${resp.status})`;
