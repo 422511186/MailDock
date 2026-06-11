@@ -110,7 +110,7 @@ class AccountServiceTest {
         for (int i = 1; i <= 3; i++) {
             service.createAccount("user" + i + "@163.com", AUTH_CODE);
         }
-        AccountRepository.PagedAccounts page = service.queryAccounts("user", null, 1, 2);
+        AccountRepository.PagedAccounts page = service.queryAccounts("user", null, null, null, 1, 2);
         assertEquals(3, page.total());
         assertEquals(2, page.items().size());
     }

@@ -57,7 +57,11 @@ class WebVerticleTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        if (vertx != null) vertx.close();
+        // 必须等待 vertx 关闭完成（含 SQLite 连接释放）再删库文件，
+        // 否则 Windows 上文件句柄仍被占用，deleteIfExists 抛 FileSystemException。
+        if (vertx != null) {
+            vertx.close().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+        }
         Files.deleteIfExists(dbFile);
     }
 

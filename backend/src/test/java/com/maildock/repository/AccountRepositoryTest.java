@@ -119,11 +119,11 @@ class AccountRepositoryTest {
         for (int i = 1; i <= 5; i++) {
             repo.insert("u" + i + "@163.com", "enc");
         }
-        AccountRepository.PagedAccounts page1 = repo.query(null, null, 1, 2);
+        AccountRepository.PagedAccounts page1 = repo.query(null, null, null, null, 1, 2);
         assertEquals(5, page1.total());
         assertEquals(2, page1.items().size());
 
-        AccountRepository.PagedAccounts page3 = repo.query(null, null, 3, 2);
+        AccountRepository.PagedAccounts page3 = repo.query(null, null, null, null, 3, 2);
         assertEquals(5, page3.total());
         assertEquals(1, page3.items().size(), "第 3 页只剩 1 条");
     }
@@ -135,7 +135,7 @@ class AccountRepositoryTest {
         repo.insert("bob@163.com", "enc");
         repo.insert("alician@gmail.com", "enc");
 
-        AccountRepository.PagedAccounts r = repo.query("alic", null, 1, 20);
+        AccountRepository.PagedAccounts r = repo.query("alic", null, null, null, 1, 20);
         assertEquals(2, r.total());
         for (Account a : r.items()) {
             assertTrue(a.email().contains("alic"));
@@ -151,15 +151,15 @@ class AccountRepositoryTest {
         repo.updateTestStatus(ok.id(), 1700000000000L, true, "连接成功");
         repo.updateTestStatus(fail.id(), 1700000000000L, false, "认证失败");
 
-        AccountRepository.PagedAccounts pendingPage = repo.query(null, "pending", 1, 20);
+        AccountRepository.PagedAccounts pendingPage = repo.query(null, "pending", null, null, 1, 20);
         assertEquals(1, pendingPage.total());
         assertEquals("pending@163.com", pendingPage.items().get(0).email());
 
-        AccountRepository.PagedAccounts okPage = repo.query(null, "ok", 1, 20);
+        AccountRepository.PagedAccounts okPage = repo.query(null, "ok", null, null, 1, 20);
         assertEquals(1, okPage.total());
         assertEquals("ok@163.com", okPage.items().get(0).email());
 
-        AccountRepository.PagedAccounts failPage = repo.query(null, "fail", 1, 20);
+        AccountRepository.PagedAccounts failPage = repo.query(null, "fail", null, null, 1, 20);
         assertEquals(1, failPage.total());
         assertEquals("fail@163.com", failPage.items().get(0).email());
     }

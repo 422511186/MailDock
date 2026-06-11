@@ -83,22 +83,42 @@ describe('AccountsPage', () => {
     expect(await screen.findByText('new@163.com')).toBeInTheDocument();
   });
 
-  it('删除账号后从列表移除', async () => {
-    // 点击删除应调用 deleteAccount 并重新加载
+  it('确认后删除账号并从列表移除', async () => {
+    // 点击删除弹出二次确认，确认后才调用 deleteAccount 并重新加载
     const listAccounts = vi
       .fn()
       .mockResolvedValueOnce(paged([account({ id: 3, email: 'del@163.com' })]))
       .mockResolvedValueOnce(paged([]));
     const api = stubApi({ listAccounts });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findByText('del@163.com');
 
     fireEvent.click(screen.getByRole('button', { name: '删除' }));
 
+    expect(confirmSpy).toHaveBeenCalled();
     await waitFor(() => {
       expect(api.deleteAccount).toHaveBeenCalledWith(3);
     });
+    confirmSpy.mockRestore();
+  });
+
+  it('取消确认时不删除账号', async () => {
+    // 二次确认点取消应中止删除，不调用 deleteAccount
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 3, email: 'del@163.com' })])),
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findByText('del@163.com');
+
+    fireEvent.click(screen.getByRole('button', { name: '删除' }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(api.deleteAccount).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
   });
 
   it('点击账号触发 onOpenAccount', async () => {
