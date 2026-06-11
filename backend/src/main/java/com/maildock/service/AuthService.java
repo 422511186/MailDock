@@ -17,6 +17,7 @@ import java.util.Optional;
 public final class AuthService {
 
     private static final String EMAIL_PASSWORD_PROVIDER = "email_password";
+    private static final String LINUXDO_PROVIDER = "linuxdo";
 
     private final UserRepository userRepo;
     private final IdentityRepository identityRepo;
@@ -80,6 +81,36 @@ public final class AuthService {
         return sessionStore.userId(token).flatMap(userRepo::findById);
     }
 
+    public Optional<LoginResult> loginWithLinuxdoUser(OAuthClient.OAuthUser oauthUser) {
+        if (oauthUser == null || isBlank(oauthUser.providerUid())) {
+            return Optional.empty();
+        }
+
+        String providerUid = oauthUser.providerUid().strip();
+        String primaryEmail = nullableStrip(oauthUser.email());
+        String displayName = nullableStrip(oauthUser.displayName());
+        String avatarUrl = nullableStrip(oauthUser.avatarUrl());
+
+        Optional<UserIdentity> identity = identityRepo.findByProviderUid(LINUXDO_PROVIDER, providerUid);
+        User user;
+        if (identity.isPresent()) {
+            user = userRepo.findById(identity.get().userId()).orElse(null);
+            if (user == null) {
+                return Optional.empty();
+            }
+            userRepo.updateProfile(user.id(), primaryEmail, displayName, avatarUrl);
+        } else {
+            user = userRepo.insert(primaryEmail, displayName, avatarUrl);
+            identityRepo.insert(user.id(), LINUXDO_PROVIDER, providerUid, null);
+        }
+
+        long now = System.currentTimeMillis();
+        userRepo.updateLastLogin(user.id(), now);
+        User updated = userRepo.findById(user.id()).orElse(user);
+        String token = sessionStore.issue(updated.id(), sessionTtl);
+        return Optional.of(new LoginResult(token, updated));
+    }
+
     public Optional<Long> userId(String token) {
         return sessionStore.userId(token);
     }
@@ -104,6 +135,13 @@ public final class AuthService {
 
     private String normalizeEmail(String email) {
         return email.strip().toLowerCase(Locale.ROOT);
+    }
+
+    private String nullableStrip(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.strip();
     }
 
     private boolean isBlank(String s) {
