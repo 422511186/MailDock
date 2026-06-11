@@ -49,6 +49,10 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<AccountStatusFilter | ''>('');
 
+  // 排序
+  const [sortBy, setSortBy] = useState('lastSyncAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
   // 弹窗开关
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -66,6 +70,8 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
       const result = await api.listAccounts({
         email: email || undefined,
         status: status || undefined,
+        sortBy,
+        sortOrder,
         page,
         size: pageSize,
       });
@@ -74,7 +80,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [api, email, status, page, pageSize]);
+  }, [api, email, status, sortBy, sortOrder, page, pageSize]);
 
   useEffect(() => {
     void reload();
@@ -95,6 +101,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
 
   /** 删除账号。 */
   async function handleDelete(id: number) {
+    if (!confirm('确认删除该账号吗？')) return;
     setError('');
     try {
       await api.deleteAccount(id);
@@ -148,6 +155,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
   /** 批量删除。 */
   async function handleDeleteBatch() {
     if (selectedIds.length === 0) return;
+    if (!confirm(`确认删除选中的 ${selectedIds.length} 个账号吗？`)) return;
     setError('');
     setBusy(true);
     try {
@@ -178,6 +186,16 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  /** 切换排序。 */
+  function toggleSort(field: string) {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
+    }
+  }
 
   return (
     <div className="app-main">
@@ -261,9 +279,21 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               </th>
               <th>邮箱</th>
               <th>状态</th>
-              <th>上次测活时间</th>
-              <th>上次收信时间</th>
-              <th className="text-right">操作</th>
+              <th
+                className="cursor-pointer select-none hover:bg-slate-100"
+                onClick={() => toggleSort('lastTestAt')}
+                title="点击排序"
+              >
+                上次测活时间 {sortBy === 'lastTestAt' && (sortOrder === 'desc' ? '↓' : '↑')}
+              </th>
+              <th
+                className="cursor-pointer select-none hover:bg-slate-100"
+                onClick={() => toggleSort('lastSyncAt')}
+                title="点击排序"
+              >
+                上次收信时间 {sortBy === 'lastSyncAt' && (sortOrder === 'desc' ? '↓' : '↑')}
+              </th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -309,7 +339,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                     <td className="text-sm text-slate-500">
                       {formatBeijingTime(a.lastSyncAt)}
                     </td>
-                    <td className="text-right">
+                    <td>
                       <button
                         type="button"
                         className="mr-2"

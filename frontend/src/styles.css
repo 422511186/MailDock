@@ -131,12 +131,12 @@
   }
 
   .app-main th {
-    @apply border-b border-slate-200 bg-slate-50 px-4 py-3 text-left text-xs font-semibold
+    @apply border-b border-slate-200 bg-slate-50 px-4 py-3 text-center text-xs font-semibold
       uppercase tracking-wide text-slate-500;
   }
 
   .app-main td {
-    @apply border-b border-slate-100 px-4 py-3 text-slate-700;
+    @apply border-b border-slate-100 px-4 py-3 text-center text-slate-700;
   }
 
   .app-main tbody tr:last-child td {

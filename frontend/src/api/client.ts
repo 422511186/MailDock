@@ -111,10 +111,12 @@ export interface ImportResult {
 /** 账号三态过滤值：待检测 / 正常 / 异常；不传表示全部。 */
 export type AccountStatusFilter = 'pending' | 'ok' | 'fail';
 
-/** 账号列表查询条件（邮箱子串 + 状态 + 分页）。 */
+/** 账号列表查询条件（邮箱子串 + 状态 + 排序 + 分页）。 */
 export interface AccountQuery {
   email?: string;
   status?: AccountStatusFilter;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   page?: number;
   size?: number;
 }
@@ -173,11 +175,13 @@ export class ApiClient {
     }
   }
 
-  /** 账号列表：支持邮箱搜索、状态过滤、分页，返回 { total, items }。 */
+  /** 账号列表：支持邮箱搜索、状态过滤、排序、分页，返回 { total, items }。 */
   listAccounts(query: AccountQuery = {}): Promise<PagedAccounts> {
     const params = new URLSearchParams();
     if (query.email && query.email.trim()) params.set('email', query.email.trim());
     if (query.status) params.set('status', query.status);
+    if (query.sortBy) params.set('sortBy', query.sortBy);
+    if (query.sortOrder) params.set('sortOrder', query.sortOrder);
     params.set('page', String(query.page ?? 1));
     params.set('size', String(query.size ?? 20));
     return this.request<PagedAccounts>(`/accounts?${params.toString()}`, { method: 'GET' });

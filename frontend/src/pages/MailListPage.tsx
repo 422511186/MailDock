@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ApiClient, MessageSummary } from '../api/client';
 
-/** 每页邮件数量。 */
-const PAGE_SIZE = 20;
+/** 默认每页条数。 */
+const DEFAULT_PAGE_SIZE = 20;
 
 interface MailListPageProps {
   /** API 客户端。 */
@@ -26,6 +26,7 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
   const [items, setItems] = useState<MessageSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -34,7 +35,7 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
     async (targetPage: number) => {
       setError('');
       try {
-        const res = await api.listMessages(accountId, targetPage, PAGE_SIZE);
+        const res = await api.listMessages(accountId, targetPage, pageSize);
         setItems(res.items);
         setTotal(res.total);
         setPage(targetPage);
@@ -42,7 +43,7 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
         setError((e as Error).message);
       }
     },
-    [api, accountId],
+    [api, accountId, pageSize],
   );
 
   // 进入页面或切换账号时加载第一页
@@ -72,7 +73,7 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
     }
   }, [api, accountId, load]);
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div className="app-main">
@@ -127,9 +128,30 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
 
       {/* 分页 */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
-        <span>
-          共 {total} 封邮件，第 {page} / {totalPages} 页
-        </span>
+        <div className="flex items-center gap-3">
+          <span>
+            共 {total} 封邮件，第 {page} / {totalPages} 页
+          </span>
+          <label className="flex items-center gap-1.5">
+            每页
+            <select
+              aria-label="每页条数"
+              value={pageSize}
+              onChange={(e) => {
+                setPage(1);
+                setPageSize(Number(e.target.value));
+              }}
+              className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+            >
+              {[10, 20, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            条
+          </label>
+        </div>
         <div className="flex gap-2">
           <button
             type="button"

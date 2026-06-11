@@ -96,7 +96,7 @@ public final class AccountRepository {
     }
 
     /**
-     * 分页 + 邮箱搜索 + 状态过滤查询账号。
+     * 分页 + 邮箱搜索 + 状态过滤 + 排序查询账号。
      *
      * <p>状态为派生值，不落库：
      * <ul>
@@ -105,12 +105,14 @@ public final class AccountRepository {
      *   <li>{@code fail}：{@code last_test_at > 0 且 last_test_ok = 0}</li>
      * </ul>
      *
-     * @param email  邮箱子串（忽略大小写），null 或空白表示不过滤
-     * @param status 状态过滤 pending/ok/fail，null 或其他值表示不过滤
-     * @param page   页码，从 1 开始
-     * @param size   每页条数
+     * @param email     邮箱子串（忽略大小写），null 或空白表示不过滤
+     * @param status    状态过滤 pending/ok/fail，null 或其他值表示不过滤
+     * @param sortBy    排序字段，默认 last_sync_at
+     * @param sortOrder 排序方向 asc/desc，默认 desc
+     * @param page      页码，从 1 开始
+     * @param size      每页条数
      */
-    public PagedAccounts query(String email, String status, int page, int size) {
+    public PagedAccounts query(String email, String status, String sortBy, String sortOrder, int page, int size) {
         StringBuilder where = new StringBuilder(" WHERE 1=1");
         List<Object> params = new ArrayList<>();
         if (email != null && !email.isBlank()) {
@@ -124,6 +126,13 @@ public final class AccountRepository {
         } else if ("fail".equals(status)) {
             where.append(" AND last_test_at > 0 AND last_test_ok = 0");
         }
+
+        // 排序：白名单防止 SQL 注入
+        String orderField = "last_sync_at";
+        if ("lastTestAt".equals(sortBy)) orderField = "last_test_at";
+        else if ("lastSyncAt".equals(sortBy)) orderField = "last_sync_at";
+        String orderDir = "desc".equalsIgnoreCase(sortOrder) ? "DESC" : "ASC";
+        String orderBy = " ORDER BY " + orderField + " " + orderDir;
 
         long total;
         String countSql = "SELECT COUNT(*) FROM mail_account" + where;
@@ -141,7 +150,7 @@ public final class AccountRepository {
         int safeSize = Math.max(1, size);
         int offset = (safePage - 1) * safeSize;
         List<Account> items = new ArrayList<>();
-        String pageSql = "SELECT * FROM mail_account" + where + " ORDER BY id LIMIT ? OFFSET ?";
+        String pageSql = "SELECT * FROM mail_account" + where + orderBy + " LIMIT ? OFFSET ?";
         try (PreparedStatement ps = db.connection().prepareStatement(pageSql)) {
             int idx = bindParams(ps, params);
             ps.setInt(idx++, safeSize);

@@ -88,15 +88,17 @@ public final class AccountService {
     }
 
     /**
-     * 分页 + 邮箱搜索 + 状态过滤查询账号（薄封装，委托给 repository）。
+     * 分页 + 邮箱搜索 + 状态过滤 + 排序查询账号（薄封装，委托给 repository）。
      *
-     * @param email  邮箱子串（忽略大小写），null 或空白不过滤
-     * @param status 状态过滤 pending/ok/fail，其他值不过滤
-     * @param page   页码，从 1 开始
-     * @param size   每页条数
+     * @param email     邮箱子串（忽略大小写），null 或空白不过滤
+     * @param status    状态过滤 pending/ok/fail，其他值不过滤
+     * @param sortBy    排序字段，默认 lastSyncAt
+     * @param sortOrder 排序方向 asc/desc，默认 desc
+     * @param page      页码，从 1 开始
+     * @param size      每页条数
      */
-    public AccountRepository.PagedAccounts queryAccounts(String email, String status, int page, int size) {
-        return accountRepo.query(email, status, page, size);
+    public AccountRepository.PagedAccounts queryAccounts(String email, String status, String sortBy, String sortOrder, int page, int size) {
+        return accountRepo.query(email, status, sortBy, sortOrder, page, size);
     }
 
     /** 按 id 查找账号。 */

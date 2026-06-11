@@ -128,13 +128,15 @@ public final class ApiRouter {
         router.delete(API + "/accounts/:id").handler(this::handleDeleteAccount);
     }
 
-    /** 账号列表：分页 + 邮箱搜索 + 状态过滤，返回 { total, items }（items 不含授权码）。 */
+    /** 账号列表：分页 + 邮箱搜索 + 状态过滤 + 排序，返回 { total, items }（items 不含授权码）。 */
     private void handleListAccounts(RoutingContext ctx) {
         String email = ctx.request().getParam("email");
         String status = ctx.request().getParam("status");
+        String sortBy = ctx.request().getParam("sortBy");
+        String sortOrder = ctx.request().getParam("sortOrder");
         int page = parseIntOr(ctx.request().getParam("page"), 1);
         int size = parseIntOr(ctx.request().getParam("size"), 20);
-        vertx.executeBlocking(() -> accountService.queryAccounts(email, status, page, size), false)
+        vertx.executeBlocking(() -> accountService.queryAccounts(email, status, sortBy, sortOrder, page, size), false)
                 .onComplete(ar -> {
                     if (ar.failed()) {
                         ctx.fail(ar.cause());
