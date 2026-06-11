@@ -1,0 +1,32 @@
+# Runtime data
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Java / Maven
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Secrets
+.env
+.env.local
