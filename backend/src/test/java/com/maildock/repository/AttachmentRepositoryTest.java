@@ -2,6 +2,7 @@ package com.maildock.repository;
 
 import com.maildock.model.Attachment;
 import com.maildock.model.Message;
+import com.maildock.model.User;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,10 +17,14 @@ class AttachmentRepositoryTest {
 
     private Database db;
     private AccountRepository accountRepo;
+    private UserRepository userRepo;
     private MessageRepository messageRepo;
     private AttachmentRepository repo;
     private Path dbFile;
+    private User userA;
+    private User userB;
     private long messageId;
+    private long otherMessageId;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -27,14 +32,23 @@ class AttachmentRepositoryTest {
         dbFile = Files.createTempFile("maildock-attach-test", ".db");
         db = new Database("jdbc:sqlite:" + dbFile.toAbsolutePath());
         db.initSchema();
+        userRepo = new UserRepository(db);
+        userA = userRepo.insert("a@example.com", "User A", null);
+        userB = userRepo.insert("b@example.com", "User B", null);
         accountRepo = new AccountRepository(db);
         messageRepo = new MessageRepository(db);
         repo = new AttachmentRepository(db);
-        long accountId = accountRepo.insert("owner@163.com", "enc").id();
+        long accountId = accountRepo.insert(userA.id(), "owner@163.com", "enc").id();
+        long otherAccountId = accountRepo.insert(userB.id(), "other@163.com", "enc").id();
         messageId = messageRepo.insert(new Message(
                 0, accountId, 1, "<mid@163.com>", "带附件",
                 "alice@163.com", "owner@163.com", null,
                 1700000000000L, 1700000001000L,
+                "body", null, true, false, 100L, 0L)).id();
+        otherMessageId = messageRepo.insert(new Message(
+                0, otherAccountId, 2, "<other@163.com>", "他人附件",
+                "alice@163.com", "other@163.com", null,
+                1700000000000L, 1700000002000L,
                 "body", null, true, false, 100L, 0L)).id();
     }
 
@@ -88,5 +102,16 @@ class AttachmentRepositoryTest {
         repo.insert(messageId, "b.png", "image/png", 2L, "p/b.png");
         repo.deleteByMessage(messageId);
         assertTrue(repo.findByMessage(messageId).isEmpty());
+    }
+
+    @Test
+    void findByIdForUserReturnsEmptyForOtherUsersAttachment() {
+        Attachment own = repo.insert(messageId, "own.pdf", "application/pdf", 1L,
+                "attachments/1/1/own.pdf");
+        Attachment other = repo.insert(otherMessageId, "other.pdf", "application/pdf", 1L,
+                "attachments/2/2/other.pdf");
+
+        assertTrue(repo.findByIdForUser(userA.id(), messageId, own.id()).isPresent());
+        assertTrue(repo.findByIdForUser(userA.id(), otherMessageId, other.id()).isEmpty());
     }
 }

@@ -3,10 +3,12 @@ package com.maildock.service;
 import com.maildock.model.Account;
 import com.maildock.model.Attachment;
 import com.maildock.model.Message;
+import com.maildock.model.User;
 import com.maildock.repository.AccountRepository;
 import com.maildock.repository.AttachmentRepository;
 import com.maildock.repository.Database;
 import com.maildock.repository.MessageRepository;
+import com.maildock.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,13 +22,17 @@ import static org.junit.jupiter.api.Assertions.*;
 class MailQueryServiceTest {
 
     private Database db;
+    private UserRepository userRepo;
     private AccountRepository accountRepo;
     private MessageRepository messageRepo;
     private AttachmentRepository attachmentRepo;
     private MailQueryService service;
     private Path dbFile;
     private Path attachmentsDir;
+    private User userA;
+    private User userB;
     private long accountId;
+    private long otherAccountId;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -34,11 +40,24 @@ class MailQueryServiceTest {
         attachmentsDir = Files.createTempDirectory("maildock-query-attach");
         db = new Database("jdbc:sqlite:" + dbFile.toAbsolutePath());
         db.initSchema();
+        userRepo = new UserRepository(db);
+        userA = userRepo.insert("a@example.com", "User A", null);
+        userB = userRepo.insert("b@example.com", "User B", null);
         accountRepo = new AccountRepository(db);
         messageRepo = new MessageRepository(db);
         attachmentRepo = new AttachmentRepository(db);
         service = new MailQueryService(messageRepo, attachmentRepo, attachmentsDir);
-        accountId = accountRepo.insert("owner@163.com", "enc").id();
+        accountId = accountRepo.insert(userA.id(), "owner@163.com", "enc").id();
+        otherAccountId = accountRepo.insert(userB.id(), "other@163.com", "enc").id();
+    }
+
+    private Message insertMessageFor(long accountId, long uid, String subject, long receivedAt) {
+        return messageRepo.insert(new Message(
+                0, accountId, uid, "<mid-" + uid + ">", subject,
+                "alice@163.com", "owner@163.com", null,
+                1700000000000L, receivedAt,
+                "纯文本正文", "<p>HTML 正文</p>",
+                false, false, 100L, 0L));
     }
 
     @AfterEach
@@ -64,7 +83,7 @@ class MailQueryServiceTest {
             insertMessage(i, "主题" + i, 1700000000000L + i * 1000L);
         }
 
-        MailQueryService.PagedMessages page = service.list(accountId, 1, 2);
+        MailQueryService.PagedMessages page = service.list(userA.id(), accountId, 1, 2);
 
         assertEquals(5, page.total());
         assertEquals(2, page.items().size());
@@ -78,7 +97,7 @@ class MailQueryServiceTest {
         Message m = insertMessage(1, "带附件", 1700000001000L);
         attachmentRepo.insert(m.id(), "a.pdf", "application/pdf", 10L, "attachments/" + accountId + "/" + m.id() + "/a.pdf");
 
-        MailQueryService.MessageDetail detail = service.getDetail(m.id()).orElseThrow();
+        MailQueryService.MessageDetail detail = service.getDetail(userA.id(), m.id()).orElseThrow();
 
         assertEquals("带附件", detail.message().subject());
         assertEquals(1, detail.attachments().size());
@@ -88,7 +107,7 @@ class MailQueryServiceTest {
     @Test
     void getDetailReturnsEmptyWhenAbsent() {
         // 不存在的邮件返回空
-        assertTrue(service.getDetail(99999).isEmpty());
+        assertTrue(service.getDetail(userA.id(), 99999).isEmpty());
     }
 
     @Test
@@ -97,7 +116,7 @@ class MailQueryServiceTest {
         Message m = insertMessage(1, "未读", 1700000001000L);
         assertFalse(m.isRead());
 
-        service.markRead(m.id(), true);
+        service.markRead(userA.id(), m.id(), true);
 
         assertTrue(messageRepo.findById(m.id()).orElseThrow().isRead());
     }
@@ -114,7 +133,7 @@ class MailQueryServiceTest {
         String relPath = attachmentsDir.getFileName() + "/" + accountId + "/" + m.id() + "/a.pdf";
         Attachment att = attachmentRepo.insert(m.id(), "a.pdf", "application/pdf", (long) data.length, relPath);
 
-        byte[] loaded = service.loadAttachment(m.id(), att.id());
+        byte[] loaded = service.loadAttachment(userA.id(), m.id(), att.id());
 
         assertArrayEquals(data, loaded);
     }
@@ -127,6 +146,39 @@ class MailQueryServiceTest {
         Attachment att = attachmentRepo.insert(m1.id(), "a.pdf", "application/pdf", 10L, "p/a.pdf");
 
         // 用 m2 的 id 去取 m1 的附件，应被拒绝
-        assertThrows(RuntimeException.class, () -> service.loadAttachment(m2.id(), att.id()));
+        assertThrows(RuntimeException.class, () -> service.loadAttachment(userA.id(), m2.id(), att.id()));
+    }
+
+    @Test
+    void getDetailReturnsEmptyForOtherUsersMessage() {
+        Message otherMessage = insertMessageFor(otherAccountId, 10, "other", 1700000003000L);
+
+        assertTrue(service.getDetail(userA.id(), otherMessage.id()).isEmpty());
+    }
+
+    @Test
+    void listRejectsOtherUsersAccountByReturningEmptyPage() {
+        insertMessageFor(otherAccountId, 10, "other", 1700000003000L);
+
+        MailQueryService.PagedMessages page = service.list(userA.id(), otherAccountId, 1, 20);
+
+        assertEquals(0, page.total());
+        assertTrue(page.items().isEmpty());
+    }
+
+    @Test
+    void markReadRejectsOtherUsersMessage() {
+        Message otherMessage = insertMessageFor(otherAccountId, 10, "other", 1700000003000L);
+
+        assertThrows(RuntimeException.class, () -> service.markRead(userA.id(), otherMessage.id(), true));
+    }
+
+    @Test
+    void loadAttachmentRejectsOtherUsersAttachment() {
+        Message otherMessage = insertMessageFor(otherAccountId, 10, "other", 1700000003000L);
+        Attachment att = attachmentRepo.insert(otherMessage.id(), "a.pdf", "application/pdf", 10L,
+                "attachments/" + userB.id() + "/" + otherAccountId + "/" + otherMessage.id() + "/a.pdf");
+
+        assertThrows(RuntimeException.class, () -> service.loadAttachment(userA.id(), otherMessage.id(), att.id()));
     }
 }

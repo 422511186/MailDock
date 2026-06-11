@@ -15,7 +15,7 @@ import java.util.Optional;
  * 标记已读。
  *
  * <p>附件读取会校验附件确实归属于指定邮件，防止越权访问他人附件。落盘路径以库中
- * 存储的相对路径为准（形如 {@code attachments/{accountId}/{messageId}/{filename}}），
+ * 存储的相对路径为准（形如 {@code attachments/{userId}/{accountId}/{messageId}/{filename}}），
  * 相对附件根目录的上一级解析为绝对路径。
  */
 public final class MailQueryService {
@@ -53,15 +53,30 @@ public final class MailQueryService {
         return new PagedMessages(items, total);
     }
 
+    public PagedMessages list(long userId, long accountId, int page, int size) {
+        List<Message> items = messageRepo.listByAccountForUser(userId, accountId, page, size);
+        long total = messageRepo.countByAccountForUser(userId, accountId);
+        return new PagedMessages(items, total);
+    }
+
     /** 获取邮件详情（含附件列表），邮件不存在时返回空。 */
     public Optional<MessageDetail> getDetail(long messageId) {
         return messageRepo.findById(messageId)
                 .map(m -> new MessageDetail(m, attachmentRepo.findByMessage(messageId)));
     }
 
+    public Optional<MessageDetail> getDetail(long userId, long messageId) {
+        return messageRepo.findByIdForUser(userId, messageId)
+                .map(m -> new MessageDetail(m, attachmentRepo.findByMessage(messageId)));
+    }
+
     /** 标记邮件已读 / 未读。 */
     public void markRead(long messageId, boolean read) {
         messageRepo.markRead(messageId, read);
+    }
+
+    public void markRead(long userId, long messageId, boolean read) {
+        messageRepo.markReadForUser(userId, messageId, read);
     }
 
     /**
@@ -77,6 +92,16 @@ public final class MailQueryService {
         if (att.messageId() != messageId) {
             throw new RuntimeException("附件不属于该邮件，拒绝访问");
         }
+        try {
+            return Files.readAllBytes(resolvePath(att.filePath()));
+        } catch (Exception e) {
+            throw new RuntimeException("读取附件文件失败: " + att.filePath(), e);
+        }
+    }
+
+    public byte[] loadAttachment(long userId, long messageId, long attachmentId) {
+        Attachment att = attachmentRepo.findByIdForUser(userId, messageId, attachmentId)
+                .orElseThrow(() -> new RuntimeException("附件不存在: " + attachmentId));
         try {
             return Files.readAllBytes(resolvePath(att.filePath()));
         } catch (Exception e) {

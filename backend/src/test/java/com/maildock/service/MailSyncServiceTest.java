@@ -6,10 +6,12 @@ import com.maildock.mail.ImapClient;
 import com.maildock.model.Account;
 import com.maildock.model.Attachment;
 import com.maildock.model.Message;
+import com.maildock.model.User;
 import com.maildock.repository.AccountRepository;
 import com.maildock.repository.AttachmentRepository;
 import com.maildock.repository.Database;
 import com.maildock.repository.MessageRepository;
+import com.maildock.repository.UserRepository;
 import com.maildock.security.CryptoUtil;
 import jakarta.activation.DataHandler;
 import jakarta.mail.Session;
@@ -43,12 +45,15 @@ class MailSyncServiceTest {
     private static final String AUTH_CODE = "secret-pass";
 
     private Database db;
+    private UserRepository userRepo;
     private AccountRepository accountRepo;
     private MessageRepository messageRepo;
     private AttachmentRepository attachmentRepo;
     private MailSyncService service;
     private Path dbFile;
     private Path attachmentsDir;
+    private User userA;
+    private User userB;
     private long accountId;
 
     @BeforeEach
@@ -57,6 +62,9 @@ class MailSyncServiceTest {
         attachmentsDir = Files.createTempDirectory("maildock-sync-attach");
         db = new Database("jdbc:sqlite:" + dbFile.toAbsolutePath());
         db.initSchema();
+        userRepo = new UserRepository(db);
+        userA = userRepo.insert("a@example.com", "User A", null);
+        userB = userRepo.insert("b@example.com", "User B", null);
         accountRepo = new AccountRepository(db);
         messageRepo = new MessageRepository(db);
         attachmentRepo = new AttachmentRepository(db);
@@ -75,7 +83,7 @@ class MailSyncServiceTest {
 
         service = new MailSyncService(accountRepo, messageRepo, attachmentRepo, crypto, factory, attachmentsDir);
 
-        accountId = accountRepo.insert(EMAIL, crypto.encrypt(AUTH_CODE)).id();
+        accountId = accountRepo.insert(userA.id(), EMAIL, crypto.encrypt(AUTH_CODE)).id();
     }
 
     @AfterEach
@@ -132,7 +140,7 @@ class MailSyncServiceTest {
         deliverText("第一封", "正文1");
         deliverText("第二封", "正文2");
 
-        int newCount = service.refresh(accountId);
+        int newCount = service.refresh(userA.id(), accountId);
 
         assertEquals(2, newCount);
         assertEquals(2, messageRepo.countByAccount(accountId));
@@ -142,10 +150,10 @@ class MailSyncServiceTest {
     void refreshIsIncrementalOnSecondCall() throws Exception {
         // 第二次刷新仅拉取新邮件（增量）
         deliverText("旧邮件", "old");
-        service.refresh(accountId);
+        service.refresh(userA.id(), accountId);
 
         deliverText("新邮件", "new");
-        int secondCount = service.refresh(accountId);
+        int secondCount = service.refresh(userA.id(), accountId);
 
         assertEquals(1, secondCount, "第二次只应拉到 1 封新邮件");
         assertEquals(2, messageRepo.countByAccount(accountId));
@@ -155,9 +163,9 @@ class MailSyncServiceTest {
     void refreshUpdatesLastUid() throws Exception {
         // 刷新后应更新账号的 last_uid 与 last_sync_at
         deliverText("邮件", "body");
-        service.refresh(accountId);
+        service.refresh(userA.id(), accountId);
 
-        Account account = accountRepo.findById(accountId).orElseThrow();
+        Account account = accountRepo.findById(userA.id(), accountId).orElseThrow();
         assertTrue(account.lastUid() > 0, "last_uid 应被更新");
         assertTrue(account.lastSyncAt() > 0, "last_sync_at 应被更新");
         assertTrue(account.uidValidity() > 0, "uid_validity 应被记录");
@@ -167,7 +175,7 @@ class MailSyncServiceTest {
     void refreshPersistsMessageContent() throws Exception {
         // 邮件主题与正文应正确入库
         deliverText("主题内容", "正文内容");
-        service.refresh(accountId);
+        service.refresh(userA.id(), accountId);
 
         Message stored = messageRepo.listByAccount(accountId, 1, 10).get(0);
         assertEquals("主题内容", stored.subject());
@@ -181,7 +189,7 @@ class MailSyncServiceTest {
         byte[] data = "PDF-CONTENT-DATA".getBytes(StandardCharsets.UTF_8);
         deliverWithAttachment("带附件", "report.pdf", data);
 
-        service.refresh(accountId);
+        service.refresh(userA.id(), accountId);
 
         Message stored = messageRepo.listByAccount(accountId, 1, 10).get(0);
         assertTrue(stored.hasAttach(), "应标记含附件");
@@ -200,7 +208,7 @@ class MailSyncServiceTest {
     @Test
     void refreshOnEmptyInboxReturnsZero() {
         // 空收件箱刷新返回 0
-        int newCount = service.refresh(accountId);
+        int newCount = service.refresh(userA.id(), accountId);
         assertEquals(0, newCount);
     }
 
@@ -208,10 +216,30 @@ class MailSyncServiceTest {
     void refreshDoesNotDuplicateOnRepeatedCallsWithoutNewMail() throws Exception {
         // 无新邮件时重复刷新不产生重复入库
         deliverText("邮件", "body");
-        service.refresh(accountId);
-        int second = service.refresh(accountId);
+        service.refresh(userA.id(), accountId);
+        int second = service.refresh(userA.id(), accountId);
 
         assertEquals(0, second);
         assertEquals(1, messageRepo.countByAccount(accountId));
+    }
+
+    @Test
+    void refreshRejectsOtherUsersAccount() {
+        Account other = accountRepo.insert(userB.id(), "other@example.com", "enc");
+
+        assertThrows(RuntimeException.class, () -> service.refresh(userA.id(), other.id()));
+    }
+
+    @Test
+    void storedAttachmentPathIncludesUserId() throws Exception {
+        byte[] data = "PDF-CONTENT-DATA".getBytes(StandardCharsets.UTF_8);
+        deliverWithAttachment("带附件2", "report-user.pdf", data);
+
+        service.refresh(userA.id(), accountId);
+
+        Message stored = messageRepo.listByAccount(accountId, 1, 10).get(0);
+        Attachment att = attachmentRepo.findByMessage(stored.id()).get(0);
+        String expectedPrefix = attachmentsDir.getFileName() + "/" + userA.id() + "/" + accountId + "/";
+        assertTrue(att.filePath().startsWith(expectedPrefix), "实际路径: " + att.filePath());
     }
 }
