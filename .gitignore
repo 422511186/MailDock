@@ -31,3 +31,5 @@ dist/
 .env
 .env.local
 *.properties
+backend/src/main/resources/webroot/
+deploy.sh
