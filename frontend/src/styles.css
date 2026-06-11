@@ -1,0 +1,274 @@
+/* MailDock 全局样式入口：基于 Tailwind CSS。
+   - @tailwind 三段注入 Tailwind 的基础重置、组件层与原子类。
+   - @layer base 提供页面级背景与排版默认值。
+   - @layer components 把历史页面（登录 / 邮件列表 / 邮件详情）用到的语义化 class
+     用 @apply 重新定义为现代化样式，使旧组件无需改动 JSX 即可获得新外观；
+     AccountsPage 等新页面直接使用 Tailwind 原子类。 */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    @apply m-0 p-0;
+  }
+
+  body {
+    @apply bg-slate-100 text-slate-800 antialiased;
+    font-family: system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer components {
+  /* ===== 通用错误提示 ===== */
+  .error {
+    @apply my-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600;
+  }
+
+  /* ===== 顶部栏 ===== */
+  .topbar {
+    @apply sticky top-0 z-20 flex items-center justify-between gap-3
+      border-b border-slate-200/80 px-6 py-3 backdrop-blur-md;
+    background: linear-gradient(
+      to right,
+      theme('colors.white / 90%'),
+      theme('colors.brand.50 / 80%')
+    );
+  }
+
+  /* 品牌区 */
+  .topbar .brand {
+    @apply flex items-center gap-3;
+  }
+
+  .topbar .brand-logo {
+    @apply flex h-10 w-10 items-center justify-center rounded-xl
+      bg-gradient-to-br from-brand-500 to-brand-600 text-white
+      shadow-lg shadow-brand-500/30;
+  }
+
+  .topbar .brand-logo svg {
+    @apply h-6 w-6;
+  }
+
+  .topbar .brand-text {
+    @apply flex flex-col leading-tight;
+  }
+
+  .topbar .brand-name {
+    @apply text-base font-bold tracking-tight text-slate-800;
+  }
+
+  .topbar .brand-sub {
+    @apply text-xs text-slate-400;
+  }
+
+  /* 登出按钮 */
+  .topbar .logout-btn {
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-slate-200
+      bg-white/70 px-3.5 py-2 text-sm font-medium text-slate-600 shadow-sm
+      transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600;
+  }
+
+  .topbar .logout-btn svg {
+    @apply h-4 w-4;
+  }
+
+  /* ===== 登录页 ===== */
+  .login-page {
+    @apply mx-auto mt-[12vh] w-full max-w-sm rounded-2xl border border-slate-200
+      bg-white p-8 shadow-xl shadow-slate-200/60;
+  }
+
+  .login-page h1 {
+    @apply mb-6 text-center text-2xl font-bold text-slate-800;
+  }
+
+  .login-page .field {
+    @apply mb-4 flex flex-col gap-1.5;
+  }
+
+  .login-page .field label {
+    @apply text-sm font-medium text-slate-600;
+  }
+
+  .login-page .field input {
+    @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800
+      outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20;
+  }
+
+  .login-page button[type='submit'] {
+    @apply mt-2 w-full rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-2.5
+      text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition
+      hover:from-brand-600 hover:to-brand-700 disabled:opacity-50;
+  }
+
+  /* ===== 主框架统一容器（邮件列表 / 详情）===== */
+  .app-main {
+    @apply mx-auto max-w-5xl px-6 py-6;
+  }
+
+  .mail-list-toolbar {
+    @apply mb-4 flex items-center gap-3;
+  }
+
+  .mail-list-toolbar button {
+    @apply rounded-lg border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium
+      text-slate-700 transition hover:border-brand-400 hover:text-brand-600 disabled:opacity-50;
+  }
+
+  /* 邮件列表表格 */
+  .app-main table {
+    @apply w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-sm;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .app-main th {
+    @apply border-b border-slate-200 bg-slate-50 px-4 py-3 text-left text-xs font-semibold
+      uppercase tracking-wide text-slate-500;
+  }
+
+  .app-main td {
+    @apply border-b border-slate-100 px-4 py-3 text-slate-700;
+  }
+
+  .app-main tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .app-main tbody tr {
+    @apply cursor-pointer transition hover:bg-brand-50/50;
+  }
+
+  .mail-row.unread td {
+    @apply font-semibold text-slate-900;
+  }
+
+  .mail-row.unread td:first-child::before {
+    content: '';
+    @apply mr-2 inline-block h-2 w-2 rounded-full bg-brand-500 align-middle;
+  }
+
+  /* ===== 邮件详情页 ===== */
+  .app-main article {
+    @apply mt-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm;
+  }
+
+  .app-main article h2 {
+    @apply mt-0 text-xl font-bold text-slate-800;
+  }
+
+  .app-main article dl {
+    @apply my-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 border-y border-slate-200 py-4 text-sm;
+  }
+
+  .app-main article dt {
+    @apply text-slate-500;
+  }
+
+  .app-main article dd {
+    @apply m-0 text-slate-700;
+  }
+
+  .mail-body {
+    @apply mt-4 leading-7 text-slate-700;
+  }
+
+  pre.mail-body {
+    @apply whitespace-pre-wrap break-words;
+    font-family: system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+
+  .app-main article ul {
+    @apply mt-2 list-none p-0;
+  }
+
+  .app-main article li {
+    @apply py-1.5;
+  }
+
+  .app-main article li span {
+    @apply text-xs text-slate-500;
+  }
+
+  /* ===== 按钮样式 ===== */
+  button, .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium
+      transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  button:not([class*="btn-"]):not([class*="link"]):not([class*="logout-btn"]):not([class*="brand-"]) {
+    @apply border-slate-200 bg-white text-slate-700 shadow-sm hover:border-brand-400 hover:text-brand-600;
+  }
+
+  .btn-primary {
+    @apply border-brand-500 bg-gradient-to-r from-brand-500 to-brand-600 text-white
+      shadow-md shadow-brand-500/20 hover:from-brand-600 hover:to-brand-700;
+  }
+
+  .btn-danger {
+    @apply border-rose-500 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white;
+  }
+
+  .link {
+    @apply cursor-pointer text-brand-600 underline-offset-2 hover:underline;
+  }
+
+  /* ===== Loading 遮罩 ===== */
+  .loading-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm;
+  }
+
+  .loading-spinner {
+    @apply h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-brand-500;
+  }
+
+  /* ===== 通知提示 ===== */
+  .toast {
+    @apply fixed right-6 top-20 z-40 max-w-sm rounded-xl border bg-white p-4 shadow-xl
+      animate-slide-in-right;
+  }
+
+  .toast.success {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-800;
+  }
+
+  .toast.info {
+    @apply border-brand-200 bg-brand-50 text-brand-800;
+  }
+
+  /* ===== 动画 ===== */
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slide-up {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes slide-in-right {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out;
+  }
+}

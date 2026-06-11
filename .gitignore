@@ -30,3 +30,4 @@ dist/
 # Secrets
 .env
 .env.local
+*.properties

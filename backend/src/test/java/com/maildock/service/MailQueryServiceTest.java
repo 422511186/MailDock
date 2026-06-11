@@ -1,0 +1,132 @@
+package com.maildock.service;
+
+import com.maildock.model.Account;
+import com.maildock.model.Attachment;
+import com.maildock.model.Message;
+import com.maildock.repository.AccountRepository;
+import com.maildock.repository.AttachmentRepository;
+import com.maildock.repository.Database;
+import com.maildock.repository.MessageRepository;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class MailQueryServiceTest {
+
+    private Database db;
+    private AccountRepository accountRepo;
+    private MessageRepository messageRepo;
+    private AttachmentRepository attachmentRepo;
+    private MailQueryService service;
+    private Path dbFile;
+    private Path attachmentsDir;
+    private long accountId;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        dbFile = Files.createTempFile("maildock-query", ".db");
+        attachmentsDir = Files.createTempDirectory("maildock-query-attach");
+        db = new Database("jdbc:sqlite:" + dbFile.toAbsolutePath());
+        db.initSchema();
+        accountRepo = new AccountRepository(db);
+        messageRepo = new MessageRepository(db);
+        attachmentRepo = new AttachmentRepository(db);
+        service = new MailQueryService(messageRepo, attachmentRepo, attachmentsDir);
+        accountId = accountRepo.insert("owner@163.com", "enc").id();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        db.close();
+        Files.deleteIfExists(dbFile);
+    }
+
+    /** 构造并插入一封邮件，返回入库后的实体。 */
+    private Message insertMessage(long uid, String subject, long receivedAt) {
+        return messageRepo.insert(new Message(
+                0, accountId, uid, "<mid-" + uid + ">", subject,
+                "alice@163.com", "owner@163.com", null,
+                1700000000000L, receivedAt,
+                "纯文本正文", "<p>HTML 正文</p>",
+                false, false, 100L, 0L));
+    }
+
+    @Test
+    void listReturnsPagedResultWithTotal() {
+        // 分页列表应返回当前页邮件与总数
+        for (int i = 1; i <= 5; i++) {
+            insertMessage(i, "主题" + i, 1700000000000L + i * 1000L);
+        }
+
+        MailQueryService.PagedMessages page = service.list(accountId, 1, 2);
+
+        assertEquals(5, page.total());
+        assertEquals(2, page.items().size());
+        // 最新的（i=5）在最前
+        assertEquals("主题5", page.items().get(0).subject());
+    }
+
+    @Test
+    void getDetailReturnsMessageWithAttachments() {
+        // 详情应返回邮件与其附件列表
+        Message m = insertMessage(1, "带附件", 1700000001000L);
+        attachmentRepo.insert(m.id(), "a.pdf", "application/pdf", 10L, "attachments/" + accountId + "/" + m.id() + "/a.pdf");
+
+        MailQueryService.MessageDetail detail = service.getDetail(m.id()).orElseThrow();
+
+        assertEquals("带附件", detail.message().subject());
+        assertEquals(1, detail.attachments().size());
+        assertEquals("a.pdf", detail.attachments().get(0).filename());
+    }
+
+    @Test
+    void getDetailReturnsEmptyWhenAbsent() {
+        // 不存在的邮件返回空
+        assertTrue(service.getDetail(99999).isEmpty());
+    }
+
+    @Test
+    void markReadUpdatesFlag() {
+        // 标记已读
+        Message m = insertMessage(1, "未读", 1700000001000L);
+        assertFalse(m.isRead());
+
+        service.markRead(m.id(), true);
+
+        assertTrue(messageRepo.findById(m.id()).orElseThrow().isRead());
+    }
+
+    @Test
+    void loadAttachmentReturnsBytesWhenBelongsToMessage() throws Exception {
+        // 读取附件：附件确实属于该邮件时返回文件内容
+        Message m = insertMessage(1, "带附件", 1700000001000L);
+        byte[] data = "FILE-DATA".getBytes();
+        // 落盘文件
+        Path dir = attachmentsDir.resolve(String.valueOf(accountId)).resolve(String.valueOf(m.id()));
+        Files.createDirectories(dir);
+        Files.write(dir.resolve("a.pdf"), data);
+        String relPath = attachmentsDir.getFileName() + "/" + accountId + "/" + m.id() + "/a.pdf";
+        Attachment att = attachmentRepo.insert(m.id(), "a.pdf", "application/pdf", (long) data.length, relPath);
+
+        byte[] loaded = service.loadAttachment(m.id(), att.id());
+
+        assertArrayEquals(data, loaded);
+    }
+
+    @Test
+    void loadAttachmentRejectsMismatchedMessage() {
+        // 越权防护：附件不属于指定邮件时抛异常
+        Message m1 = insertMessage(1, "邮件1", 1700000001000L);
+        Message m2 = insertMessage(2, "邮件2", 1700000002000L);
+        Attachment att = attachmentRepo.insert(m1.id(), "a.pdf", "application/pdf", 10L, "p/a.pdf");
+
+        // 用 m2 的 id 去取 m1 的附件，应被拒绝
+        assertThrows(RuntimeException.class, () -> service.loadAttachment(m2.id(), att.id()));
+    }
+}

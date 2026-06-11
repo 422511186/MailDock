@@ -135,36 +135,36 @@ CREATE INDEX idx_attach_message ON mail_attachment(message_id);
 
 ## 5. REST API 设计
 
-所有接口前缀 `/api`，除登录外都需要校验管理员会话 Token（请求头 `Authorization: Bearer <token>`）。
+所有接口前缀 `/api/v1`（含版本号，便于后续版本演进），除登录外都需要校验管理员会话 Token（请求头 `Authorization: Bearer <token>`）。
 
 ### 5.1 认证
 
 ```
-POST /api/auth/login      { username, password } → { token }
-POST /api/auth/logout     → 204
+POST /api/v1/auth/login      { username, password } → { token }
+POST /api/v1/auth/logout     → 204
 ```
 
 ### 5.2 邮箱账号管理
 
 ```
-GET    /api/accounts                → 账号列表（含测活状态，不返回授权码）
-POST   /api/accounts                { email, authCode } → 创建（自动测试 IMAP 连接）
-POST   /api/accounts/:id/test       → 测试连接 { ok, message }（更新测活状态）
-DELETE /api/accounts/:id            → 删除账号及其邮件 / 附件
+GET    /api/v1/accounts                → 账号列表（含测活状态，不返回授权码）
+POST   /api/v1/accounts                { email, authCode } → 创建（自动测试 IMAP 连接）
+POST   /api/v1/accounts/:id/test       → 测试连接 { ok, message }（更新测活状态）
+DELETE /api/v1/accounts/:id            → 删除账号及其邮件 / 附件
 ```
 
 ### 5.3 批量能力
 
 ```
-POST /api/accounts/import
+POST /api/v1/accounts/import
      Content-Type: multipart/form-data 或 text/plain
      文件内容，每行一个账号：  账号 授权码
      （分隔符支持空格 / Tab，忽略空行和 # 开头的注释行）
      可选查询参数：?test=true（导入时顺带测活，默认 false）
                   ?overwrite=true（已存在邮箱覆盖授权码，默认跳过）
-     → { total, success, failed, results: [ { email, status, message } ] }
+     → { total, success, failed, skipped, results: [ { email, status, message } ] }
 
-POST /api/accounts/test-batch
+POST /api/v1/accounts/test-batch
      { ids: [1,2,3] }   // 不传 ids 则测试全部账号
      → { results: [ { id, email, ok, message, latencyMs } ] }
 ```
@@ -172,11 +172,11 @@ POST /api/accounts/test-batch
 ### 5.4 邮件收取与查询
 
 ```
-POST   /api/accounts/:id/refresh             → 触发增量同步 { newCount, syncedAt }
-GET    /api/accounts/:id/messages            ?page=1&size=20 → 邮件列表（分页，摘要字段）
-GET    /api/messages/:id                     → 邮件详情（含正文、附件列表）
-GET    /api/messages/:id/attachments/:attId  → 下载附件（二进制流）
-PATCH  /api/messages/:id/read                { read: true } → 标记已读
+POST   /api/v1/accounts/:id/refresh             → 触发增量同步 { newCount, syncedAt }
+GET    /api/v1/accounts/:id/messages            ?page=1&size=20 → 邮件列表（分页，摘要字段）
+GET    /api/v1/messages/:id                     → 邮件详情（含正文、附件列表）
+GET    /api/v1/messages/:id/attachments/:attId  → 下载附件（二进制流）
+PATCH  /api/v1/messages/:id/read                { read: true } → 标记已读
 ```
 
 设计要点：
@@ -270,12 +270,12 @@ MailDock/
 ├── backend/                          # JDK 21 + Vert.x (Maven)
 │   ├── pom.xml
 │   └── src/main/java/com/maildock/
-│       ├── MainVerticle.java         # 启动入口
+│       ├── MainVerticle.java         # 启动入口：建库、注入依赖、部署 WebVerticle
+│       ├── config/                   # 配置
+│       │   └── AppConfig.java         # 环境变量读取，随机管理员口令
 │       ├── web/                      # HTTP 层
-│       │   ├── WebVerticle.java
-│       │   ├── AuthHandler.java
-│       │   ├── AccountHandler.java
-│       │   └── MailHandler.java
+│       │   ├── WebVerticle.java       # HTTP Server + 静态资源托管
+│       │   └── ApiRouter.java         # /api/v1 路由聚合 + 鉴权中间件
 │       ├── service/                  # 业务逻辑
 │       │   ├── AuthService.java
 │       │   ├── AccountService.java
@@ -285,24 +285,42 @@ MailDock/
 │       │   ├── Database.java          # SQLite 连接 + 写串行化
 │       │   ├── AccountRepository.java
 │       │   ├── MessageRepository.java
-│       │   └── AttachmentRepository.java
+│       │   ├── AttachmentRepository.java
+│       │   └── AdminRepository.java
 │       ├── mail/                     # IMAP 收取与解析
-│       │   ├── ImapClient.java        # 163 连接 + ID 命令
-│       │   └── MailParser.java        # MIME 解析、附件提取
+│       │   ├── ImapClient.java        # 163 连接 + ID 命令 + UID 增量抓取
+│       │   ├── ImapFetchResult.java   # 抓取结果记录
+│       │   ├── ImapMessage.java       # 原始邮件记录
+│       │   ├── MailParser.java        # MIME 解析、附件提取
+│       │   ├── ParsedMail.java        # 解析后邮件记录
+│       │   ├── ParsedAttachment.java  # 解析后附件记录
+│       │   └── FilenameSanitizer.java # 附件文件名安全化
 │       ├── security/                 # 加密、Token
 │       │   ├── CryptoUtil.java        # AES-GCM
 │       │   └── TokenStore.java        # 内存 Token
 │       └── model/                     # 数据模型 / DTO
+│           ├── Account.java
+│           ├── Message.java
+│           ├── Attachment.java
+│           └── Admin.java
 │   └── src/test/java/...             # JUnit + GreenMail 测试
 │
-├── frontend/                         # React + Vite
+├── frontend/                         # React + Vite + TypeScript
 │   ├── package.json
-│   ├── vite.config.ts
+│   ├── vite.config.ts                 # 构建 / 开发代理配置
+│   ├── vitest.config.ts               # 测试配置（jsdom）
 │   └── src/
-│       ├── main.tsx
-│       ├── api/                      # API 客户端封装
+│       ├── main.tsx                   # 入口：挂载 App
+│       ├── App.tsx                    # 根组件：登录态 + 状态驱动视图切换
+│       ├── api/                      # API 客户端封装（fetch）
+│       │   └── client.ts
 │       ├── pages/                    # 登录 / 账号管理 / 邮件列表 / 详情
-│       └── components/
+│       │   ├── LoginPage.tsx
+│       │   ├── AccountsPage.tsx
+│       │   ├── MailListPage.tsx
+│       │   └── MailDetailPage.tsx
+│       └── test/                      # 测试初始化
+│           └── setup.ts
 │
 ├── data/                             # 运行时数据（git 忽略）
 │   ├── maildock.db                   # SQLite 数据库文件
@@ -314,8 +332,8 @@ MailDock/
 
 ### 8.2 关键依赖
 
-- 后端：`vertx-web`、`vertx-jdbc-client`、`sqlite-jdbc`、`jakarta.mail`、`jbcrypt`、`greenmail`(test)、`junit5`。
-- 前端：`react`、`react-router`、`axios`、`vite`。
+- 后端：`vertx-web`、`vertx-jdbc-client`、`sqlite-jdbc`、`jakarta.mail`(angus-mail)、`jbcrypt`、`greenmail`(test)、`junit5`。
+- 前端：`react`、`react-dom`、`vite`、`typescript`；测试用 `vitest` + `@testing-library/react`（jsdom）。视图切换由 App 内的状态机驱动，网络请求用原生 `fetch` 封装（无 react-router / axios 依赖）。
 
 ### 8.3 部署
 
