@@ -45,7 +45,7 @@ class AuthRouteTest {
         IdentityRepository identityRepo = new IdentityRepository(db);
         SessionStore sessionStore = new SessionStore();
         AuthService authService = new AuthService(userRepo, identityRepo, sessionStore, Duration.ofHours(1));
-        authService.ensureDefaultEmailUser("admin", "init-pass");
+        authService.ensureDefaultEmailUser("alice@example.com", "init-pass");
 
         // 仅装配认证相关依赖，账号/邮件 service 传 null（认证路由测试用不到）
         Router router = new ApiRouter(vertx, authService, null, null, null).build();
@@ -68,13 +68,28 @@ class AuthRouteTest {
     }
 
     @Test
-    void loginWithCorrectCredentialsReturnsToken(VertxTestContext ctx) throws Exception {
-        // 正确凭据登录返回 200 与 token
+    void emailLoginSetsHttpOnlyCookieAndMeReturnsUser(VertxTestContext ctx) throws Exception {
+        // 正确凭据登录设置 HttpOnly Cookie，随后 /auth/me 可恢复当前用户
         client.post(port, "localhost", ApiRouter.API + "/auth/login")
-                .sendJsonObject(new JsonObject().put("username", "admin").put("password", "init-pass"))
+                .sendJsonObject(new JsonObject().put("email", "alice@example.com").put("password", "init-pass"))
+                .compose(loginResp -> {
+                    String cookie = loginResp.getHeader("Set-Cookie");
+                    ctx.verify(() -> {
+                        assertEquals(200, loginResp.statusCode());
+                        assertNotNull(cookie);
+                        assertTrue(cookie.contains("maildock_session="));
+                        assertTrue(cookie.contains("HttpOnly"));
+                        assertTrue(cookie.contains("SameSite=Lax"));
+                    });
+                    return client.get(port, "localhost", ApiRouter.API + "/auth/me")
+                            .putHeader("Cookie", cookie)
+                            .send();
+                })
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(200, resp.statusCode());
-                    assertNotNull(resp.bodyAsJsonObject().getString("token"));
+                    JsonObject body = resp.bodyAsJsonObject();
+                    assertEquals("alice@example.com", body.getString("primaryEmail"));
+                    assertEquals("alice@example.com", body.getString("displayName"));
                     ctx.completeNow();
                 })));
         assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
@@ -84,7 +99,7 @@ class AuthRouteTest {
     void loginWithWrongPasswordReturns401(VertxTestContext ctx) throws Exception {
         // 错误密码返回 401
         client.post(port, "localhost", ApiRouter.API + "/auth/login")
-                .sendJsonObject(new JsonObject().put("username", "admin").put("password", "wrong"))
+                .sendJsonObject(new JsonObject().put("email", "alice@example.com").put("password", "wrong"))
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(401, resp.statusCode());
                     ctx.completeNow();
@@ -93,8 +108,20 @@ class AuthRouteTest {
     }
 
     @Test
-    void protectedRouteWithoutTokenReturns401(VertxTestContext ctx) throws Exception {
-        // 未带 Token 访问受保护路由返回 401
+    void meWithoutCookieReturns401(VertxTestContext ctx) throws Exception {
+        // 未带 Cookie 访问 /auth/me 返回 401
+        client.get(port, "localhost", ApiRouter.API + "/auth/me")
+                .send()
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(401, resp.statusCode());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void protectedRouteWithoutCookieReturns401(VertxTestContext ctx) throws Exception {
+        // 未带 Cookie 访问受保护路由返回 401
         client.get(port, "localhost", ApiRouter.API + "/accounts")
                 .send()
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
@@ -105,10 +132,10 @@ class AuthRouteTest {
     }
 
     @Test
-    void protectedRouteWithInvalidTokenReturns401(VertxTestContext ctx) throws Exception {
-        // 无效 Token 访问受保护路由返回 401
+    void protectedRouteWithInvalidCookieReturns401(VertxTestContext ctx) throws Exception {
+        // 无效 Cookie 访问受保护路由返回 401
         client.get(port, "localhost", ApiRouter.API + "/accounts")
-                .putHeader("Authorization", "Bearer bogus-token")
+                .putHeader("Cookie", "maildock_session=bogus-token")
                 .send()
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(401, resp.statusCode());
@@ -118,21 +145,31 @@ class AuthRouteTest {
     }
 
     @Test
-    void logoutRevokesToken(VertxTestContext ctx) throws Exception {
-        // 登录拿到 token，登出后该 token 失效
+    void logoutClearsCookieAndInvalidatesSession(VertxTestContext ctx) throws Exception {
+        // 登录拿到 cookie，登出后该 session 失效并清理 Cookie
         client.post(port, "localhost", ApiRouter.API + "/auth/login")
-                .sendJsonObject(new JsonObject().put("username", "admin").put("password", "init-pass"))
+                .sendJsonObject(new JsonObject().put("email", "alice@example.com").put("password", "init-pass"))
                 .compose(loginResp -> {
-                    String token = loginResp.bodyAsJsonObject().getString("token");
+                    String cookie = loginResp.getHeader("Set-Cookie");
                     return client.post(port, "localhost", ApiRouter.API + "/auth/logout")
-                            .putHeader("Authorization", "Bearer " + token)
+                            .putHeader("Cookie", cookie)
                             .send()
                             .map(logoutResp -> {
-                                ctx.verify(() -> assertEquals(204, logoutResp.statusCode()));
-                                return token;
+                                ctx.verify(() -> {
+                                    assertEquals(204, logoutResp.statusCode());
+                                    String clearCookie = logoutResp.getHeader("Set-Cookie");
+                                    assertNotNull(clearCookie);
+                                    assertTrue(clearCookie.contains("maildock_session="));
+                                    assertTrue(clearCookie.contains("Max-Age=0"));
+                                });
+                                return cookie;
                             });
                 })
-                .onComplete(ctx.succeeding(token -> ctx.verify(() -> {
+                .compose(cookie -> client.get(port, "localhost", ApiRouter.API + "/auth/me")
+                        .putHeader("Cookie", cookie)
+                        .send())
+                .onComplete(ctx.succeeding(meResp -> ctx.verify(() -> {
+                    assertEquals(401, meResp.statusCode());
                     ctx.completeNow();
                 })));
         assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
@@ -142,9 +179,21 @@ class AuthRouteTest {
     void loginWithMissingFieldsReturns400(VertxTestContext ctx) throws Exception {
         // 缺少字段返回 400
         client.post(port, "localhost", ApiRouter.API + "/auth/login")
-                .sendJsonObject(new JsonObject().put("username", "admin"))
+                .sendJsonObject(new JsonObject().put("email", "alice@example.com"))
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(400, resp.statusCode());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void linuxdoStartWithoutOauthConfigReturns500(VertxTestContext ctx) throws Exception {
+        // OAuth 配置缺失时，start 路由返回配置错误
+        client.get(port, "localhost", ApiRouter.API + "/auth/linuxdo/start")
+                .send()
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(500, resp.statusCode());
                     ctx.completeNow();
                 })));
         assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));

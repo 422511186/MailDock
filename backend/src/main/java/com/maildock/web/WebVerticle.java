@@ -12,8 +12,10 @@ import com.maildock.security.CryptoUtil;
 import com.maildock.security.SessionStore;
 import com.maildock.service.AccountService;
 import com.maildock.service.AuthService;
+import com.maildock.service.LinuxDoOAuthService;
 import com.maildock.service.MailQueryService;
 import com.maildock.service.MailSyncService;
+import com.maildock.service.VertxOAuthClient;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.ext.web.Router;
@@ -67,6 +69,8 @@ public final class WebVerticle extends AbstractVerticle {
 
         AuthService authService = new AuthService(
                 userRepo, identityRepo, sessionStore, Duration.ofHours(config.sessionTtlHours()));
+        LinuxDoOAuthService linuxDoOAuthService = new LinuxDoOAuthService(
+                config, authService, new VertxOAuthClient(vertx, config));
         AccountService accountService = new AccountService(
                 accountRepo, messageRepo, attachmentRepo, crypto, accountFactory, attachmentsDir);
         MailSyncService mailSyncService = new MailSyncService(
@@ -74,14 +78,21 @@ public final class WebVerticle extends AbstractVerticle {
         MailQueryService mailQueryService = new MailQueryService(
                 messageRepo, attachmentRepo, attachmentsDir);
 
-        // 认证服务会在后续任务替换为邮箱用户初始化；此处先解除旧 admin 配置依赖。
+        // 可选预制邮箱用户用于初始部署时登录；生产可只配置 OAuth。
         if (config.defaultEmail() != null && config.defaultPassword() != null) {
             authService.ensureDefaultEmailUser(config.defaultEmail(), config.defaultPassword());
         }
 
         // ===== 挂载路由与静态资源 =====
         Router router = new ApiRouter(
-                vertx, authService, accountService, mailSyncService, mailQueryService).build();
+                vertx,
+                authService,
+                linuxDoOAuthService,
+                accountService,
+                mailSyncService,
+                mailQueryService,
+                config.sessionCookieSecure(),
+                Duration.ofHours(config.sessionTtlHours())).build();
 
         // 前端静态资源：打包后的 React 产物放在 classpath 的 webroot 下，由 StaticHandler 托管
         router.route("/*").handler(StaticHandler.create("webroot").setIndexPage("index.html"));
