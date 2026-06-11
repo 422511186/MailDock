@@ -58,6 +58,10 @@ npx vitest run src/pages/LoginPage.test.tsx   # 跑单个测试文件
 
 **前端结构**：无 react-router（虽然 package.json 装了，但 `App.tsx` 用自带状态机 `View` 联合类型在 login/accounts/mailList/mailDetail 间切换）。网络请求走 `api/client.ts` 封装的 `fetch`，Token 由 client 管理。新增页面在 `App.tsx` 的 `View` 类型和渲染分支里挂载。UI 使用 Tailwind CSS 3.4.19，表格列默认居中对齐。账号管理支持复选框批量选择、批量删除、批量测活，删除操作有二次确认。
 
+## 开发策略
+
+**强制要求：必须使用技能 `superpowers:test-driven-development` 进行开发和需求变更，不得绕过 TDD。** 任何新增功能、修改功能或修复 bug，都必须遵循 TDD 流程（先写失败测试 → 写最小实现让测试通过 → 重构），不允许跳过先写测试这一步。
+
 ## 测试策略
 
 - Service 层用 JUnit 5；邮件解析用真实 MIME 样本测试，不依赖网络。
