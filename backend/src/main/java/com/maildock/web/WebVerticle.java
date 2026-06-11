@@ -21,12 +21,11 @@ import io.vertx.ext.web.handler.StaticHandler;
 import java.nio.file.Path;
 
 /**
- * 应用主 Verticle：装配全部依赖、初始化默认管理员、挂载 REST 路由与前端静态资源，并启动 HTTP 服务。
+ * 应用主 Verticle：装配全部依赖、挂载 REST 路由与前端静态资源，并启动 HTTP 服务。
  *
  * <p>阻塞的依赖装配（打开 SQLite、初始化表结构）在 Verticle 部署线程上一次性完成。
  * 运行时的阻塞操作（IMAP、JDBC、磁盘 I/O）由 {@link ApiRouter} 通过 executeBlocking 隔离。
  *
- * <p>若管理员密码为自动生成（环境变量未提供），启动时会把该随机密码打印到日志，供首次登录使用。
  */
 public final class WebVerticle extends AbstractVerticle {
 
@@ -71,16 +70,9 @@ public final class WebVerticle extends AbstractVerticle {
         MailQueryService mailQueryService = new MailQueryService(
                 messageRepo, attachmentRepo, attachmentsDir);
 
-        // ===== 初始化默认管理员 =====
-        authService.ensureDefaultAdmin(config.adminUser(), config.adminPassword());
-        if (config.passwordGenerated()) {
-            // 仅当密码为自动生成时打印，供首次登录使用
-            System.out.println("========================================");
-            System.out.println("MailDock 已生成默认管理员账号：");
-            System.out.println("  用户名: " + config.adminUser());
-            System.out.println("  密码:   " + config.adminPassword());
-            System.out.println("请尽快登录并妥善保存该密码（重启后不会再次打印）。");
-            System.out.println("========================================");
+        // 认证服务会在后续任务替换为邮箱用户初始化；此处先解除旧 admin 配置依赖。
+        if (config.defaultEmail() != null && config.defaultPassword() != null) {
+            authService.ensureDefaultAdmin(config.defaultEmail(), config.defaultPassword());
         }
 
         // ===== 挂载路由与静态资源 =====
