@@ -60,17 +60,34 @@ public final class Database {
     public void initSchema() {
         String[] ddl = {
                 """
-                CREATE TABLE IF NOT EXISTS admin_user (
+                CREATE TABLE IF NOT EXISTS app_user (
                     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username      TEXT NOT NULL UNIQUE,
-                    password_hash TEXT NOT NULL,
-                    created_at    INTEGER NOT NULL
+                    primary_email TEXT,
+                    display_name  TEXT,
+                    avatar_url    TEXT,
+                    created_at    INTEGER NOT NULL,
+                    updated_at    INTEGER NOT NULL,
+                    last_login_at INTEGER DEFAULT 0
+                )
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS user_identity (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id      INTEGER NOT NULL,
+                    provider     TEXT NOT NULL,
+                    provider_uid TEXT NOT NULL,
+                    secret_hash  TEXT,
+                    created_at   INTEGER NOT NULL,
+                    updated_at   INTEGER NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES app_user(id),
+                    UNIQUE (provider, provider_uid)
                 )
                 """,
                 """
                 CREATE TABLE IF NOT EXISTS mail_account (
                     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                    email           TEXT NOT NULL UNIQUE,
+                    user_id          INTEGER NOT NULL,
+                    email           TEXT NOT NULL,
                     auth_code_enc   TEXT NOT NULL,
                     imap_host       TEXT NOT NULL DEFAULT 'imap.163.com',
                     imap_port       INTEGER NOT NULL DEFAULT 993,
@@ -80,7 +97,9 @@ public final class Database {
                     last_test_at    INTEGER,
                     last_test_ok    INTEGER,
                     last_test_msg   TEXT,
-                    created_at      INTEGER NOT NULL
+                    created_at      INTEGER NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES app_user(id),
+                    UNIQUE (user_id, email)
                 )
                 """,
                 """
@@ -117,6 +136,8 @@ public final class Database {
                     FOREIGN KEY (message_id) REFERENCES mail_message(id)
                 )
                 """,
+                "CREATE INDEX IF NOT EXISTS idx_identity_user ON user_identity(user_id)",
+                "CREATE INDEX IF NOT EXISTS idx_account_user ON mail_account(user_id, id)",
                 "CREATE INDEX IF NOT EXISTS idx_msg_account_received ON mail_message(account_id, received_at DESC)",
                 "CREATE INDEX IF NOT EXISTS idx_attach_message ON mail_attachment(message_id)"
         };

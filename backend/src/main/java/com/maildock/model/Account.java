@@ -4,6 +4,7 @@ package com.maildock.model;
  * 163 邮箱账号模型，对应数据库表 mail_account。
  *
  * @param id          主键
+ * @param userId      所属用户 id
  * @param email       邮箱地址
  * @param authCodeEnc 授权码（AES-GCM 加密后的密文）
  * @param imapHost    IMAP 服务器地址
@@ -18,6 +19,7 @@ package com.maildock.model;
  */
 public record Account(
         long id,
+        long userId,
         String email,
         String authCodeEnc,
         String imapHost,
@@ -29,4 +31,20 @@ public record Account(
         boolean lastTestOk,
         String lastTestMsg,
         long createdAt) {
+
+    public Account(long id,
+                   String email,
+                   String authCodeEnc,
+                   String imapHost,
+                   int imapPort,
+                   long lastUid,
+                   long uidValidity,
+                   long lastSyncAt,
+                   long lastTestAt,
+                   boolean lastTestOk,
+                   String lastTestMsg,
+                   long createdAt) {
+        this(id, 0L, email, authCodeEnc, imapHost, imapPort, lastUid, uidValidity,
+                lastSyncAt, lastTestAt, lastTestOk, lastTestMsg, createdAt);
+    }
 }
