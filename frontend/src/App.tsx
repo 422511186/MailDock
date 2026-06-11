@@ -83,6 +83,7 @@ export function App({ api }: AppProps) {
             type="button"
             className="logout-btn"
             onClick={() => void handleLogout()}
+            aria-label="登出"
           >
             <svg
               viewBox="0 0 24 24"
@@ -98,7 +99,7 @@ export function App({ api }: AppProps) {
                 strokeLinejoin="round"
               />
             </svg>
-            登出
+            <span className="logout-text">登出</span>
           </button>
         </header>
         <AccountsPage

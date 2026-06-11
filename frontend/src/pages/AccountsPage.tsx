@@ -63,6 +63,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [testingId, setTestingId] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   /** 按当前条件加载账号列表。 */
   const reload = useCallback(async () => {
@@ -169,15 +170,6 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
     }
   }
 
-  /** 切换全选。 */
-  function toggleSelectAll() {
-    if (selectedIds.length === accounts.length && accounts.length > 0) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(accounts.map(a => a.id));
-    }
-  }
-
   /** 切换单个选择。 */
   function toggleSelect(id: number) {
     setSelectedIds(prev =>
@@ -187,29 +179,56 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  /** 切换排序。 */
-  function toggleSort(field: string) {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-    } else {
-      setSortBy(field);
-      setSortOrder('desc');
-    }
-  }
-
   return (
     <div className="app-main">
+      {/* 顶部操作栏 */}
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-800">邮箱账号管理</h2>
+        <h2 className="text-2xl font-bold text-slate-900">邮箱账号</h2>
         <div className="flex gap-2">
+          {/* 视图切换 */}
+          <div className="hidden sm:flex gap-1 rounded-lg bg-slate-100 p-1">
+            <button
+              type="button"
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                viewMode === 'table'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              onClick={() => setViewMode('table')}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                viewMode === 'grid'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              onClick={() => setViewMode('grid')}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+            </button>
+          </div>
+
           <button
             type="button"
             className="btn-primary"
             onClick={() => setShowAdd(true)}
           >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
             新增账号
           </button>
           <button type="button" onClick={() => setShowImport(true)}>
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
             导入
           </button>
           {selectedIds.length > 0 && (
@@ -218,155 +237,381 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                 批量测活 ({selectedIds.length})
               </button>
               <button type="button" className="btn-danger" onClick={handleDeleteBatch} disabled={busy}>
-                批量删除 ({selectedIds.length})
+                批量删除
               </button>
             </>
           )}
         </div>
       </div>
 
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <p className="error" role="alert">{error}</p>}
 
-      {/* 查询区：邮箱搜索 + 状态过滤 */}
+      {/* 搜索过滤栏 */}
       <form
         onSubmit={handleSearch}
-        className="mb-4 flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+        className="mb-6 flex flex-wrap gap-3"
       >
         <input
           type="text"
-          placeholder="按邮箱搜索"
+          placeholder="搜索邮箱..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          className="min-w-[200px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-brand-500"
+          className="flex-1 min-w-[240px] rounded-lg border-0 bg-white px-4 py-2.5 text-sm shadow-sm ring-1 ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500"
           autoComplete="off"
         />
-        <label htmlFor="status-filter" className="text-sm text-slate-500">
-          状态
-        </label>
         <select
           id="status-filter"
           aria-label="状态过滤"
           value={status}
           onChange={(e) => handleStatusChange(e.target.value)}
-          className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          className="rounded-lg border-0 bg-white px-4 py-2.5 text-sm shadow-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-brand-500"
         >
-          <option value="">全部</option>
+          <option value="">全部状态</option>
           <option value="pending">待检测</option>
           <option value="ok">正常</option>
           <option value="fail">异常</option>
         </select>
-        <button type="submit" className="btn-primary">
-          搜索
-        </button>
+        <select
+          id="sort-by"
+          aria-label="排序方式"
+          value={`${sortBy}-${sortOrder}`}
+          onChange={(e) => {
+            const [field, order] = e.target.value.split('-');
+            setSortBy(field);
+            setSortOrder(order as 'asc' | 'desc');
+          }}
+          className="rounded-lg border-0 bg-white px-4 py-2.5 text-sm shadow-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-brand-500"
+        >
+          <option value="lastSyncAt-desc">最近收信</option>
+          <option value="lastSyncAt-asc">最早收信</option>
+          <option value="lastTestAt-desc">最近测活</option>
+          <option value="lastTestAt-asc">最早测活</option>
+        </select>
       </form>
 
       {/* 账号列表 */}
-      <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-        <table className="w-full">
-          <thead>
-            <tr>
-              <th className="w-12">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.length === accounts.length && accounts.length > 0}
-                  onChange={toggleSelectAll}
-                  aria-label="全选"
-                />
-              </th>
-              <th>邮箱</th>
-              <th>状态</th>
-              <th
-                className="cursor-pointer select-none hover:bg-slate-100"
-                onClick={() => toggleSort('lastTestAt')}
-                title="点击排序"
-              >
-                上次测活时间 {sortBy === 'lastTestAt' && (sortOrder === 'desc' ? '↓' : '↑')}
-              </th>
-              <th
-                className="cursor-pointer select-none hover:bg-slate-100"
-                onClick={() => toggleSort('lastSyncAt')}
-                title="点击排序"
-              >
-                上次收信时间 {sortBy === 'lastSyncAt' && (sortOrder === 'desc' ? '↓' : '↑')}
-              </th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {accounts.length === 0 ? (
+      {viewMode === 'table' ? (
+        <>
+          {/* 桌面端表格 */}
+          <div className="hidden sm:block overflow-hidden rounded-2xl bg-white shadow-sm">
+            <table className="w-full">
+            <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
               <tr>
-                <td colSpan={6} className="py-10 text-center text-slate-400">
-                  暂无账号
-                </td>
+                <th className="w-12 px-6 py-4">
+                  <div className="flex items-center justify-center">
+                    <div className="h-4 w-4 rounded border-2 border-slate-300" />
+                  </div>
+                </th>
+                <th className="px-6 py-4">邮箱</th>
+                <th className="px-6 py-4 text-center">状态</th>
+                <th className="px-6 py-4 text-center">最近测活</th>
+                <th className="px-6 py-4 text-center">最近收信</th>
+                <th className="px-6 py-4 text-center">操作</th>
               </tr>
-            ) : (
-              accounts.map((a) => {
-                const st = statusOf(a);
-                return (
-                  <tr key={a.id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(a.id)}
-                        onChange={() => toggleSelect(a.id)}
-                        aria-label={`选择 ${a.email}`}
-                      />
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="link"
-                        onClick={() => onOpenAccount(a.id)}
-                      >
-                        {a.email}
-                      </button>
-                    </td>
-                    <td>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${st.cls}`}
-                        title={a.lastTestMsg || ''}
-                      >
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {accounts.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-16 text-center">
+                    <svg className="mx-auto mb-4 h-16 w-16 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <p className="text-slate-400">暂无邮箱账号</p>
+                  </td>
+                </tr>
+              ) : (
+                accounts.map((a) => {
+                  const st = statusOf(a);
+                  const isSelected = selectedIds.includes(a.id);
+                  return (
+                    <tr key={a.id} className="hover:bg-slate-50/50 transition">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center">
+                          <div
+                            className="cursor-pointer"
+                            onClick={() => toggleSelect(a.id)}
+                          >
+                            <div
+                              className={`flex h-4 w-4 items-center justify-center rounded border-2 transition ${
+                                isSelected
+                                  ? 'border-brand-500 bg-brand-500'
+                                  : 'border-slate-300 hover:border-brand-400'
+                              }`}
+                            >
+                              {isSelected && (
+                                <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          type="button"
+                          className="link text-sm font-medium text-slate-900 hover:text-brand-600"
+                          onClick={() => onOpenAccount(a.id)}
+                        >
+                          {a.email}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-center">
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${st.cls}`}
+                            title={a.lastTestMsg || ''}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${
+                              st.label === '正常' ? 'bg-emerald-500' : st.label === '异常' ? 'bg-red-500' : 'bg-amber-500'
+                            }`} />
+                            {st.label}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-slate-600">
+                        {formatBeijingTime(a.lastTestAt)}
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-slate-600">
+                        {formatBeijingTime(a.lastSyncAt)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            className="rounded-lg bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                            onClick={() => handleTestOne(a.id)}
+                            disabled={testingId === a.id}
+                          >
+                            {testingId === a.id ? '测活中...' : '测活'}
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg bg-red-50 p-1.5 text-red-600 hover:bg-red-100"
+                            onClick={() => handleDelete(a.id)}
+                            title="删除"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 移动端卡片 */}
+        <div className="sm:hidden space-y-3">
+          {accounts.length === 0 ? (
+            <div className="rounded-2xl bg-white p-16 text-center shadow-sm">
+              <svg className="mx-auto mb-4 h-16 w-16 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <p className="text-slate-400">暂无邮箱账号</p>
+            </div>
+          ) : (
+            accounts.map((a) => {
+              const st = statusOf(a);
+              const isSelected = selectedIds.includes(a.id);
+              return (
+                <div
+                  key={a.id}
+                  className={`overflow-hidden rounded-2xl bg-white shadow-sm transition-all ${
+                    isSelected ? 'ring-2 ring-brand-500' : 'ring-1 ring-slate-200/50'
+                  }`}
+                >
+                  <div className={`h-1 ${isSelected ? 'bg-brand-500' : 'bg-gradient-to-r from-slate-100 to-slate-50'}`} />
+                  <div className="p-5">
+                    <div className="mb-4 flex items-start justify-between">
+                      <div className="cursor-pointer" onClick={() => toggleSelect(a.id)}>
+                        <div
+                          className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-all ${
+                            isSelected ? 'border-brand-500 bg-brand-500' : 'border-slate-300 bg-white hover:border-brand-400'
+                          }`}
+                        >
+                          {isSelected && (
+                            <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${st.cls}`} title={a.lastTestMsg || ''}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${
+                          st.label === '正常' ? 'bg-emerald-500' : st.label === '异常' ? 'bg-red-500' : 'bg-amber-500'
+                        }`} />
                         {st.label}
                       </span>
-                    </td>
-                    <td className="text-sm text-slate-500">
-                      {formatBeijingTime(a.lastTestAt)}
-                    </td>
-                    <td className="text-sm text-slate-500">
-                      {formatBeijingTime(a.lastSyncAt)}
-                    </td>
-                    <td>
+                    </div>
+                    <button
+                      type="button"
+                      className="link mb-4 block w-full break-all text-left text-base font-semibold text-slate-900 hover:text-brand-600"
+                      onClick={() => onOpenAccount(a.id)}
+                    >
+                      {a.email}
+                    </button>
+                    <div className="mb-4 space-y-2 text-xs">
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{formatBeijingTime(a.lastTestAt)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        <span>{formatBeijingTime(a.lastSyncAt)}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
                       <button
                         type="button"
-                        className="mr-2"
+                        className="flex-1 rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
                         onClick={() => handleTestOne(a.id)}
                         disabled={testingId === a.id}
                       >
-                        {testingId === a.id ? '测活中…' : '测活'}
+                        {testingId === a.id ? '测活中...' : '测活'}
                       </button>
                       <button
                         type="button"
-                        className="btn-danger"
+                        className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
                         onClick={() => handleDelete(a.id)}
                       >
-                        删除
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
                       </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {accounts.length === 0 ? (
+          <div className="col-span-full rounded-2xl bg-white p-16 text-center shadow-sm">
+            <svg className="mx-auto mb-4 h-16 w-16 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <p className="text-slate-400">暂无邮箱账号</p>
+          </div>
+        ) : (
+          accounts.map((a) => {
+            const st = statusOf(a);
+            const isSelected = selectedIds.includes(a.id);
+            return (
+              <div
+                key={a.id}
+                className={`group relative overflow-hidden rounded-2xl bg-white shadow-sm transition-all hover:shadow-lg ${
+                  isSelected ? 'ring-2 ring-brand-500' : 'ring-1 ring-slate-200/50'
+                }`}
+              >
+                {/* 顶部装饰条 */}
+                <div className={`h-1 ${isSelected ? 'bg-brand-500' : 'bg-gradient-to-r from-slate-100 to-slate-50'}`} />
+
+                <div className="p-5">
+                  {/* 顶栏：选择框 + 状态 */}
+                  <div className="mb-4 flex items-start justify-between">
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => toggleSelect(a.id)}
+                    >
+                      <div
+                        className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-all ${
+                          isSelected
+                            ? 'border-brand-500 bg-brand-500'
+                            : 'border-slate-300 bg-white hover:border-brand-400'
+                        }`}
+                      >
+                        {isSelected && (
+                          <svg
+                            className="h-3 w-3 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={3}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${st.cls}`}
+                      title={a.lastTestMsg || ''}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${
+                        st.label === '正常' ? 'bg-emerald-500' : st.label === '异常' ? 'bg-red-500' : 'bg-amber-500'
+                      }`} />
+                      {st.label}
+                    </span>
+                  </div>
+
+                  {/* 邮箱地址 */}
+                  <button
+                    type="button"
+                    className="link mb-4 block w-full break-all text-left text-base font-semibold text-slate-900 hover:text-brand-600"
+                    onClick={() => onOpenAccount(a.id)}
+                  >
+                    {a.email}
+                  </button>
+
+                  {/* 信息栏 */}
+                  <div className="mb-4 space-y-2 text-xs">
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>{formatBeijingTime(a.lastTestAt)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <span>{formatBeijingTime(a.lastSyncAt)}</span>
+                    </div>
+                  </div>
+
+                  {/* 操作按钮 */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="flex-1 rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                      onClick={() => handleTestOne(a.id)}
+                      disabled={testingId === a.id}
+                    >
+                      {testingId === a.id ? '测活中...' : '测活'}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
+                      onClick={() => handleDelete(a.id)}
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
+      )}
 
       {/* 分页 */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
-        <div className="flex items-center gap-3">
+      <div className="mt-4 flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <span>
             共 {total} 个账号，第 {page} / {totalPages} 页
           </span>
@@ -448,14 +693,14 @@ function Modal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl animate-slide-up"
+        className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-xl animate-slide-up sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
+          <h3 className="text-base font-semibold text-slate-800 sm:text-lg">{title}</h3>
           <button
             type="button"
-            className="link"
+            className="link text-lg"
             aria-label="关闭"
             onClick={onClose}
           >
@@ -499,7 +744,7 @@ function AddAccountModal({
 
   return (
     <Modal title="新增账号" onClose={onClose}>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:gap-4">
         {error && (
           <p className="error" role="alert">
             {error}
@@ -515,6 +760,7 @@ function AddAccountModal({
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="off"
             placeholder="example@163.com"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-brand-500"
           />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -528,6 +774,7 @@ function AddAccountModal({
             onChange={(e) => setAuthCode(e.target.value)}
             autoComplete="off"
             placeholder="163 邮箱 IMAP 授权码"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-brand-500"
           />
         </div>
         <div className="mt-2 flex justify-end gap-2">
@@ -584,13 +831,13 @@ function ImportModal({
 
   return (
     <Modal title="批量导入账号" onClose={onClose}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:gap-4">
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
-        <p className="text-sm text-slate-500">
+        <p className="text-xs text-slate-500 sm:text-sm">
           每行一个账号，格式：<code className="rounded bg-slate-100 px-1">账号 授权码</code>
           （空格或 Tab 分隔），以 # 开头的行视为注释。
         </p>
@@ -605,11 +852,11 @@ function ImportModal({
             onChange={(e) => setText(e.target.value)}
             placeholder={'a@163.com auth-code-1\nb@163.com auth-code-2'}
             rows={6}
-            className="font-mono text-sm"
+            className="rounded-lg border border-slate-200 px-3 py-2 font-mono text-xs outline-none transition focus:border-brand-500 sm:text-sm"
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <button type="button" onClick={() => fileRef.current?.click()}>
             上传文件
           </button>
@@ -621,7 +868,7 @@ function ImportModal({
             aria-label="上传文件"
             onChange={handleFile}
           />
-          <label className="flex items-center gap-2 text-sm text-slate-500">
+          <label className="flex items-center gap-2 text-xs text-slate-500 sm:text-sm">
             <input
               type="checkbox"
               checked={overwrite}
@@ -632,7 +879,7 @@ function ImportModal({
         </div>
 
         {summary && (
-          <p className="import-summary">
+          <p className="rounded-lg bg-brand-50 p-3 text-xs text-brand-700 sm:text-sm">
             共 {summary.total}，成功 {summary.success}，失败 {summary.failed}，跳过{' '}
             {summary.skipped}
           </p>

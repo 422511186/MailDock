@@ -90,7 +90,7 @@ describe('App', () => {
     // 已登录应跳过登录页，展示账号列表
     const api = stubApi({ getToken: vi.fn().mockReturnValue('tok') });
     render(<App api={api as never} />);
-    expect(await screen.findByText('owner@163.com')).toBeInTheDocument();
+    expect((await screen.findAllByText('owner@163.com')).length).toBeGreaterThan(0);
   });
 
   it('登录成功后进入账号列表', async () => {
@@ -102,7 +102,7 @@ describe('App', () => {
     fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'pw' } });
     fireEvent.click(screen.getByRole('button', { name: '登录' }));
 
-    expect(await screen.findByText('owner@163.com')).toBeInTheDocument();
+    expect((await screen.findAllByText('owner@163.com')).length).toBeGreaterThan(0);
     expect(api.login).toHaveBeenCalledWith('admin', 'pw');
   });
 
@@ -112,7 +112,8 @@ describe('App', () => {
     render(<App api={api as never} />);
 
     // 进入邮件列表
-    fireEvent.click(await screen.findByText('owner@163.com'));
+    const emailLinks = await screen.findAllByText('owner@163.com');
+    fireEvent.click(emailLinks[0]);
     expect(await screen.findByText('一封邮件')).toBeInTheDocument();
 
     // 进入邮件详情
@@ -125,14 +126,14 @@ describe('App', () => {
 
     // 从邮件列表返回账号列表
     fireEvent.click(screen.getByRole('button', { name: /返回/ }));
-    expect(await screen.findByText('owner@163.com')).toBeInTheDocument();
+    expect((await screen.findAllByText('owner@163.com')).length).toBeGreaterThan(0);
   });
 
   it('点击登出回到登录页', async () => {
     // 登出后清空状态并返回登录页
     const api = stubApi({ getToken: vi.fn().mockReturnValue('tok') });
     render(<App api={api as never} />);
-    await screen.findByText('owner@163.com');
+    await screen.findAllByText('owner@163.com');
 
     fireEvent.click(screen.getByRole('button', { name: '登出' }));
 

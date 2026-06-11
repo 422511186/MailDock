@@ -77,8 +77,8 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
 
   return (
     <div className="app-main">
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex gap-2">
+      <div className="mb-4 sm:mb-6">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <button type="button" onClick={onBack}>
             返回
           </button>
@@ -86,7 +86,7 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            {busy ? '刷新中…' : '刷新'}
+            <span className="hidden sm:inline">{busy ? '刷新中…' : '刷新'}</span>
           </button>
         </div>
         <h2 className="text-xl font-semibold text-slate-800">收件箱</h2>
@@ -94,41 +94,46 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
 
       {error && <p className="error" role="alert">{error}</p>}
 
-      <table>
-        <thead>
-          <tr>
-            <th>主题</th>
-            <th>发件人</th>
-            <th>时间</th>
-            <th>附件</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((m) => (
-            <tr key={m.id} className={m.isRead ? 'mail-row' : 'mail-row unread'}>
-              <td>
-                {/* 点击主题进入邮件详情 */}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onOpenMessage(m.id);
-                  }}
-                >
-                  {m.subject}
-                </a>
-              </td>
-              <td>{m.fromAddr}</td>
-              <td>{formatTime(m.receivedAt)}</td>
-              <td>{m.hasAttach ? '📎' : ''}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="space-y-3">
+        {items.map((m) => (
+          <div
+            key={m.id}
+            className={`group rounded-2xl bg-white p-5 shadow-sm transition-all hover:shadow-md cursor-pointer ${
+              m.isRead ? 'ring-1 ring-slate-200' : 'ring-2 ring-brand-300 bg-brand-50/30'
+            }`}
+            onClick={() => onOpenMessage(m.id)}
+          >
+            <div className="mb-3 flex items-start gap-3">
+              {!m.isRead && (
+                <div className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-500" />
+              )}
+              <h3 className={`flex-1 break-all text-base leading-snug ${
+                m.isRead ? 'font-medium text-slate-700' : 'font-semibold text-slate-900'
+              }`}>
+                {m.subject}
+              </h3>
+              {m.hasAttach && (
+                <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <div className="flex items-center gap-2 text-slate-500">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="break-all text-xs">{m.fromAddr}</span>
+              </div>
+              <span className="shrink-0 text-xs text-slate-400 whitespace-nowrap">{formatTime(m.receivedAt)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* 分页 */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
-        <div className="flex items-center gap-3">
+      <div className="mt-4 flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <span>
             共 {total} 封邮件，第 {page} / {totalPages} 页
           </span>

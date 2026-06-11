@@ -53,7 +53,7 @@ export function MailDetailPage({ api, messageId, onBack }: MailDetailPageProps) 
 
   return (
     <div className="app-main">
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <button type="button" onClick={onBack}>
           返回
         </button>
@@ -63,16 +63,16 @@ export function MailDetailPage({ api, messageId, onBack }: MailDetailPageProps) 
 
       {message && (
         <article>
-          <h2>{message.subject}</h2>
+          <h2 className="break-words">{message.subject}</h2>
           <dl>
             <dt>发件人</dt>
-            <dd>{message.fromAddr}</dd>
+            <dd className="break-all">{message.fromAddr}</dd>
             <dt>收件人</dt>
-            <dd>{message.toAddr}</dd>
+            <dd className="break-all">{message.toAddr}</dd>
             {message.ccAddr && (
               <>
                 <dt>抄送</dt>
-                <dd>{message.ccAddr}</dd>
+                <dd className="break-all">{message.ccAddr}</dd>
               </>
             )}
             <dt>时间</dt>
@@ -82,23 +82,27 @@ export function MailDetailPage({ api, messageId, onBack }: MailDetailPageProps) 
           {/* 正文：HTML 优先，回退纯文本 */}
           {message.bodyHtml ? (
             <div
-              className="mail-body"
+              className="mail-body overflow-x-auto"
               dangerouslySetInnerHTML={{ __html: message.bodyHtml }}
             />
           ) : (
-            <pre className="mail-body">{message.bodyText}</pre>
+            <pre className="mail-body overflow-x-auto">{message.bodyText}</pre>
           )}
 
           {message.attachments.length > 0 && (
-            <div>
-              <h3>附件</h3>
-              <ul>
+            <div className="mt-4">
+              <h3 className="mb-2 text-base font-semibold">附件</h3>
+              <ul className="space-y-2">
                 {message.attachments.map((att) => (
-                  <li key={att.id}>
-                    <a href={api.attachmentUrl(message.id, att.id)} download>
+                  <li key={att.id} className="flex flex-wrap items-center gap-2">
+                    <a
+                      href={api.attachmentUrl(message.id, att.id)}
+                      download
+                      className="link break-all"
+                    >
                       {att.filename}
                     </a>
-                    <span>（{formatSize(att.size)}）</span>
+                    <span className="text-xs text-slate-500">（{formatSize(att.size)}）</span>
                   </li>
                 ))}
               </ul>

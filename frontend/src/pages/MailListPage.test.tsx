@@ -118,7 +118,7 @@ describe('MailListPage', () => {
   });
 
   it('未读邮件以醒目方式标识', async () => {
-    // 未读邮件行应带 unread 标记
+    // 未读邮件应带特殊样式（ring-2 ring-brand-300）
     const api = stubApi({
       listMessages: vi.fn().mockResolvedValue({
         total: 2,
@@ -132,12 +132,19 @@ describe('MailListPage', () => {
     render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     await screen.findByText('未读邮件');
 
-    const unreadRow = screen.getByText('未读邮件').closest('tr')!;
-    expect(unreadRow.className).toContain('unread');
+    // 找到包含未读邮件的最外层卡片容器
+    const unreadSubject = screen.getByText('未读邮件');
+    let unreadCard = unreadSubject.closest('div');
+    // 向上查找带 ring-brand-300 的父容器
+    while (unreadCard && !unreadCard.className.includes('ring-brand-300')) {
+      unreadCard = unreadCard.parentElement as HTMLElement;
+    }
+    expect(unreadCard).toBeTruthy();
+    expect(unreadCard!.className).toContain('ring-brand-300');
   });
 
   it('有附件的邮件显示附件标识', async () => {
-    // 含附件的邮件行应展示附件标识
+    // 含附件的邮件应展示 SVG 图标
     const api = stubApi({
       listMessages: vi.fn().mockResolvedValue({
         total: 1,
@@ -148,8 +155,9 @@ describe('MailListPage', () => {
     render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     await screen.findByText('带附件');
 
-    const row = screen.getByText('带附件').closest('tr')!;
-    expect(within(row).getByText('📎')).toBeInTheDocument();
+    const card = screen.getByText('带附件').closest('div')!;
+    // 检查是否有 SVG 附件图标
+    expect(card.querySelector('svg')).toBeInTheDocument();
   });
 
   it('分页：点击下一页加载后续邮件', async () => {
