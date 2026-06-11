@@ -3,12 +3,13 @@ package com.maildock.web;
 import com.maildock.config.AppConfig;
 import com.maildock.mail.ImapClient;
 import com.maildock.repository.AccountRepository;
-import com.maildock.repository.AdminRepository;
 import com.maildock.repository.AttachmentRepository;
 import com.maildock.repository.Database;
+import com.maildock.repository.IdentityRepository;
 import com.maildock.repository.MessageRepository;
+import com.maildock.repository.UserRepository;
 import com.maildock.security.CryptoUtil;
-import com.maildock.security.TokenStore;
+import com.maildock.security.SessionStore;
 import com.maildock.service.AccountService;
 import com.maildock.service.AuthService;
 import com.maildock.service.MailQueryService;
@@ -19,6 +20,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.StaticHandler;
 
 import java.nio.file.Path;
+import java.time.Duration;
 
 /**
  * 应用主 Verticle：装配全部依赖、挂载 REST 路由与前端静态资源，并启动 HTTP 服务。
@@ -48,21 +50,23 @@ public final class WebVerticle extends AbstractVerticle {
         database = new Database("jdbc:sqlite:" + config.dbPath());
         database.initSchema();
 
-        AdminRepository adminRepo = new AdminRepository(database);
+        UserRepository userRepo = new UserRepository(database);
+        IdentityRepository identityRepo = new IdentityRepository(database);
         AccountRepository accountRepo = new AccountRepository(database);
         MessageRepository messageRepo = new MessageRepository(database);
         AttachmentRepository attachmentRepo = new AttachmentRepository(database);
 
         // ===== 装配安全与业务层 =====
         CryptoUtil crypto = new CryptoUtil(config.secretKey());
-        TokenStore tokenStore = new TokenStore();
+        SessionStore sessionStore = new SessionStore();
         Path attachmentsDir = Path.of(config.attachmentsDir());
 
         // 生产环境的 IMAP 客户端工厂：按账号配置直连真实服务器
         AccountService.ImapClientFactory accountFactory = ImapClient::new;
         MailSyncService.ImapClientFactory syncFactory = ImapClient::new;
 
-        AuthService authService = new AuthService(adminRepo, tokenStore);
+        AuthService authService = new AuthService(
+                userRepo, identityRepo, sessionStore, Duration.ofHours(config.sessionTtlHours()));
         AccountService accountService = new AccountService(
                 accountRepo, messageRepo, attachmentRepo, crypto, accountFactory, attachmentsDir);
         MailSyncService mailSyncService = new MailSyncService(
@@ -72,7 +76,7 @@ public final class WebVerticle extends AbstractVerticle {
 
         // 认证服务会在后续任务替换为邮箱用户初始化；此处先解除旧 admin 配置依赖。
         if (config.defaultEmail() != null && config.defaultPassword() != null) {
-            authService.ensureDefaultAdmin(config.defaultEmail(), config.defaultPassword());
+            authService.ensureDefaultEmailUser(config.defaultEmail(), config.defaultPassword());
         }
 
         // ===== 挂载路由与静态资源 =====

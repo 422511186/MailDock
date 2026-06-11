@@ -39,8 +39,8 @@ class WebVerticleTest {
         // 端口 0 让系统分配空闲端口，避免测试端口冲突
         Map<String, String> env = new HashMap<>();
         env.put("MAILDOCK_SECRET_KEY", KEY);
-        env.put("MAILDOCK_ADMIN_USER", "admin");
-        env.put("MAILDOCK_ADMIN_PASS", "init-pass");
+        env.put("MAILDOCK_DEFAULT_EMAIL", "admin");
+        env.put("MAILDOCK_DEFAULT_PASSWORD", "init-pass");
         env.put("MAILDOCK_HTTP_PORT", "0");
         env.put("MAILDOCK_DB_PATH", dbFile.toAbsolutePath().toString());
         env.put("MAILDOCK_ATTACHMENTS_DIR", attachmentsDir.toAbsolutePath().toString());

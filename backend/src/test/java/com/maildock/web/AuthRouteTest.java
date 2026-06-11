@@ -1,8 +1,9 @@
 package com.maildock.web;
 
-import com.maildock.repository.AdminRepository;
 import com.maildock.repository.Database;
-import com.maildock.security.TokenStore;
+import com.maildock.repository.IdentityRepository;
+import com.maildock.repository.UserRepository;
+import com.maildock.security.SessionStore;
 import com.maildock.service.AuthService;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServer;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -39,10 +41,11 @@ class AuthRouteTest {
         db = new Database("jdbc:sqlite:" + dbFile.toAbsolutePath());
         db.initSchema();
 
-        AdminRepository adminRepo = new AdminRepository(db);
-        TokenStore tokenStore = new TokenStore();
-        AuthService authService = new AuthService(adminRepo, tokenStore);
-        authService.ensureDefaultAdmin("admin", "init-pass");
+        UserRepository userRepo = new UserRepository(db);
+        IdentityRepository identityRepo = new IdentityRepository(db);
+        SessionStore sessionStore = new SessionStore();
+        AuthService authService = new AuthService(userRepo, identityRepo, sessionStore, Duration.ofHours(1));
+        authService.ensureDefaultEmailUser("admin", "init-pass");
 
         // 仅装配认证相关依赖，账号/邮件 service 传 null（认证路由测试用不到）
         Router router = new ApiRouter(vertx, authService, null, null, null).build();

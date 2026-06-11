@@ -4,12 +4,13 @@ import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.ServerSetupTest;
 import com.maildock.mail.ImapClient;
 import com.maildock.repository.AccountRepository;
-import com.maildock.repository.AdminRepository;
 import com.maildock.repository.AttachmentRepository;
 import com.maildock.repository.Database;
+import com.maildock.repository.IdentityRepository;
 import com.maildock.repository.MessageRepository;
+import com.maildock.repository.UserRepository;
 import com.maildock.security.CryptoUtil;
-import com.maildock.security.TokenStore;
+import com.maildock.security.SessionStore;
 import com.maildock.service.AccountService;
 import com.maildock.service.AuthService;
 import io.vertx.core.Vertx;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -60,12 +62,13 @@ class AccountRouteTest {
         db = new Database("jdbc:sqlite:" + dbFile.toAbsolutePath());
         db.initSchema();
 
-        AdminRepository adminRepo = new AdminRepository(db);
+        UserRepository userRepo = new UserRepository(db);
+        IdentityRepository identityRepo = new IdentityRepository(db);
         AccountRepository accountRepo = new AccountRepository(db);
         MessageRepository messageRepo = new MessageRepository(db);
         AttachmentRepository attachmentRepo = new AttachmentRepository(db);
         CryptoUtil crypto = new CryptoUtil(KEY);
-        TokenStore tokenStore = new TokenStore();
+        SessionStore sessionStore = new SessionStore();
 
         try {
             greenMail.getUserManager().createUser(EMAIL, EMAIL, AUTH_CODE);
@@ -80,8 +83,8 @@ class AccountRouteTest {
         AccountService accountService =
                 new AccountService(accountRepo, messageRepo, attachmentRepo, crypto, factory, attachmentsDir);
 
-        AuthService authService = new AuthService(adminRepo, tokenStore);
-        authService.ensureDefaultAdmin("admin", "init-pass");
+        AuthService authService = new AuthService(userRepo, identityRepo, sessionStore, Duration.ofHours(1));
+        authService.ensureDefaultEmailUser("admin", "init-pass");
         token = authService.login("admin", "init-pass").orElseThrow();
 
         Router router = new ApiRouter(vertx, authService, accountService, null, null).build();

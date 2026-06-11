@@ -7,12 +7,13 @@ import com.maildock.model.Account;
 import com.maildock.model.Attachment;
 import com.maildock.model.Message;
 import com.maildock.repository.AccountRepository;
-import com.maildock.repository.AdminRepository;
 import com.maildock.repository.AttachmentRepository;
 import com.maildock.repository.Database;
+import com.maildock.repository.IdentityRepository;
 import com.maildock.repository.MessageRepository;
+import com.maildock.repository.UserRepository;
 import com.maildock.security.CryptoUtil;
-import com.maildock.security.TokenStore;
+import com.maildock.security.SessionStore;
 import com.maildock.service.AuthService;
 import com.maildock.service.MailQueryService;
 import com.maildock.service.MailSyncService;
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Date;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -73,12 +75,13 @@ class MailRouteTest {
         db = new Database("jdbc:sqlite:" + dbFile.toAbsolutePath());
         db.initSchema();
 
-        AdminRepository adminRepo = new AdminRepository(db);
+        UserRepository userRepo = new UserRepository(db);
+        IdentityRepository identityRepo = new IdentityRepository(db);
         accountRepo = new AccountRepository(db);
         messageRepo = new MessageRepository(db);
         attachmentRepo = new AttachmentRepository(db);
         CryptoUtil crypto = new CryptoUtil(KEY);
-        TokenStore tokenStore = new TokenStore();
+        SessionStore sessionStore = new SessionStore();
 
         try {
             greenMail.getUserManager().createUser(EMAIL, EMAIL, AUTH_CODE);
@@ -95,8 +98,8 @@ class MailRouteTest {
         MailQueryService mailQueryService =
                 new MailQueryService(messageRepo, attachmentRepo, attachmentsDir);
 
-        AuthService authService = new AuthService(adminRepo, tokenStore);
-        authService.ensureDefaultAdmin("admin", "init-pass");
+        AuthService authService = new AuthService(userRepo, identityRepo, sessionStore, Duration.ofHours(1));
+        authService.ensureDefaultEmailUser("admin", "init-pass");
         token = authService.login("admin", "init-pass").orElseThrow();
 
         accountId = accountRepo.insert(EMAIL, crypto.encrypt(AUTH_CODE)).id();
