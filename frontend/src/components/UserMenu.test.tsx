@@ -32,11 +32,11 @@ describe('UserMenu', () => {
     expect(screen.getByText('alice@example.com')).toBeInTheDocument();
   });
 
-  it('点击「个人资料」触发 onOpenProfile', () => {
+  it('点击「个人中心」触发 onOpenProfile', () => {
     const onOpenProfile = vi.fn();
     render(<UserMenu user={user()} onOpenProfile={onOpenProfile} onLogout={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: '个人资料' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '个人中心' }));
     expect(onOpenProfile).toHaveBeenCalled();
   });
 

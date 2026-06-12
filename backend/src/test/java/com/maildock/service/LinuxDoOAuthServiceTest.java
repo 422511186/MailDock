@@ -99,7 +99,7 @@ class LinuxDoOAuthServiceTest {
     }
 
     @Test
-    void repeatedLinuxdoLoginUpdatesExistingUserProfile() {
+    void repeatedLinuxdoLoginDoesNotOverwriteUserProfile() {
         LinuxDoOAuthService service = serviceWithConfig();
         LinuxDoOAuthService.StartResult first = service.start();
         fakeClient.user = new OAuthClient.OAuthUser("linux-42", "old@example.com", "Old", "old-avatar");
@@ -109,10 +109,11 @@ class LinuxDoOAuthServiceTest {
         fakeClient.user = new OAuthClient.OAuthUser("linux-42", "new@example.com", "New", "new-avatar");
         AuthService.LoginResult secondLogin = service.callback("code-2", second.state()).orElseThrow();
 
+        // 用户ID相同，但资料保持首次创建时的值，不被后续登录覆盖
         assertEquals(firstLogin.user().id(), secondLogin.user().id());
-        assertEquals("new@example.com", secondLogin.user().primaryEmail());
-        assertEquals("New", secondLogin.user().displayName());
-        assertEquals("new-avatar", secondLogin.user().avatarUrl());
+        assertEquals("old@example.com", secondLogin.user().primaryEmail());
+        assertEquals("Old", secondLogin.user().displayName());
+        assertEquals("old-avatar", secondLogin.user().avatarUrl());
         UserIdentity identity = identityRepo.findByProviderUid("linuxdo", "linux-42").orElseThrow();
         assertEquals(firstLogin.user().id(), identity.userId());
     }

@@ -136,7 +136,7 @@ public final class AuthService {
             if (user == null) {
                 return Optional.empty();
             }
-            userRepo.updateProfile(user.id(), primaryEmail, displayName, avatarUrl);
+            // 只在首次创建时更新资料，后续登录不覆盖用户修改的显示名
         } else {
             user = userRepo.insert(primaryEmail, displayName, avatarUrl);
             identityRepo.insert(user.id(), LINUXDO_PROVIDER, providerUid, null);

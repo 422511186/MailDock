@@ -166,7 +166,7 @@ describe('App', () => {
     await screen.findAllByText('owner@163.com');
 
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: '个人资料' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '个人中心' }));
 
     expect(await screen.findByText('个人中心')).toBeInTheDocument();
 

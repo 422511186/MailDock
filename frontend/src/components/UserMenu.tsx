@@ -80,18 +80,7 @@ export function UserMenu({ user, onOpenProfile, onLogout }: UserMenuProps) {
               onOpenProfile();
             }}
           >
-            个人资料
-          </button>
-          <button
-            type="button"
-            className="user-dropdown-item"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onOpenProfile();
-            }}
-          >
-            修改密码
+            个人中心
           </button>
           <button
             type="button"
