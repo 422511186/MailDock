@@ -96,7 +96,7 @@ describe('App', () => {
   it('auth me 失败时展示登录页', async () => {
     const api = stubApi({ me: vi.fn().mockRejectedValue(new Error('未登录')) });
     render(<App api={api as never} />);
-    expect(await screen.findByRole('button', { name: '登录' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /使用 邮箱或用户名 登录/ })).toBeInTheDocument();
   });
 
   it('auth me 成功时直接进入账号列表', async () => {
@@ -113,7 +113,9 @@ describe('App', () => {
     const api = stubApi({ me: vi.fn().mockRejectedValue(new Error('未登录')) });
     render(<App api={api as never} />);
 
-    fireEvent.change(await screen.findByLabelText('邮箱'), { target: { value: 'alice@example.com' } });
+    // 新 LoginPage 默认按钮式，先点开「邮箱或用户名」展开表单
+    fireEvent.click(await screen.findByRole('button', { name: /使用 邮箱或用户名 登录/ }));
+    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'alice@example.com' } });
     fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'pw' } });
     fireEvent.click(screen.getByRole('button', { name: '登录' }));
 
@@ -156,7 +158,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(api.logout).toHaveBeenCalled();
     });
-    expect(await screen.findByRole('button', { name: '登录' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /使用 邮箱或用户名 登录/ })).toBeInTheDocument();
   });
 
   it('从头像菜单进入个人中心，可返回账号列表', async () => {
