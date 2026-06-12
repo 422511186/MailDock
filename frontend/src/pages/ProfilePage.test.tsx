@@ -84,4 +84,18 @@ describe('ProfilePage', () => {
     const btn = screen.getByRole('button', { name: '更新资料' });
     expect(btn.querySelector('svg')).toBeInTheDocument();
   });
+
+  it('头像为圆角方形（rounded-2xl）', () => {
+    const api = stubApi();
+    render(<ProfilePage api={api as never} user={user()} onBack={vi.fn()} onUserUpdated={vi.fn()} />);
+    const avatar = document.querySelector('.rounded-2xl.shadow-lg');
+    expect(avatar).toBeInTheDocument();
+  });
+
+  it('两张卡片标题（资料与头像 / 修改密码）均存在', () => {
+    const api = stubApi();
+    render(<ProfilePage api={api as never} user={user()} onBack={vi.fn()} onUserUpdated={vi.fn()} />);
+    expect(screen.getByRole('heading', { name: '资料与头像' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '修改密码' })).toBeInTheDocument();
+  });
 });
