@@ -216,10 +216,11 @@ MailDock/
 - `POST /api/v1/accounts/import` - 批量导入
 
 **邮件管理**
-- `POST /api/v1/accounts/:id/sync` - 手动同步
-- `GET /api/v1/messages` - 邮件列表
+- `POST /api/v1/accounts/:id/refresh` - 手动同步
+- `GET /api/v1/accounts/:id/messages` - 邮件列表
 - `GET /api/v1/messages/:id` - 邮件详情
 - `GET /api/v1/messages/:id/attachments/:attId` - 下载附件
+- `PATCH /api/v1/messages/:id/read` - 标记已读 / 未读
 
 ## 注意事项
 
