@@ -234,6 +234,48 @@
       hover:from-brand-600 hover:to-brand-700 disabled:opacity-50;
   }
 
+  /* 登录页标题图标 */
+  .login-page h1 {
+    @apply flex items-center justify-center gap-2;
+  }
+
+  .login-page h1 .login-logo {
+    @apply h-7 w-7 text-brand-600;
+  }
+
+  /* 输入框前置图标 */
+  .login-page .input-with-icon {
+    @apply relative;
+  }
+
+  .login-page .input-with-icon .input-icon {
+    @apply pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400;
+  }
+
+  .login-page .input-with-icon input {
+    @apply pl-10;
+  }
+
+  /* 错误提示图标 */
+  .login-page .error {
+    @apply flex items-center gap-2;
+  }
+
+  .login-page .error-icon {
+    @apply h-4 w-4 flex-shrink-0;
+  }
+
+  /* OAuth 按钮图标 */
+  .login-page .oauth-btn {
+    @apply mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300
+      bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition
+      hover:border-brand-400 hover:text-brand-600;
+  }
+
+  .login-page .oauth-icon {
+    @apply h-4 w-4;
+  }
+
   /* ===== 主框架统一容器（邮件列表 / 详情）===== */
   .app-main {
     @apply mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-6;

@@ -45,4 +45,16 @@ describe('LoginPage', () => {
 
     expect(await screen.findByText('邮箱或密码错误')).toBeInTheDocument();
   });
+
+  it('登录失败时错误提示带 slide-down 动画类', async () => {
+    const onLogin = vi.fn().mockRejectedValue(new Error('邮箱或密码错误'));
+    render(<LoginPage onLogin={onLogin} onLinuxDoLogin={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'a@example.com' } });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'wrong' } });
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.className).toContain('animate-slide-down');
+  });
 });

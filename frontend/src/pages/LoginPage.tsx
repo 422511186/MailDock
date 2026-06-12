@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Mail, Lock, AlertCircle, ExternalLink } from 'lucide-react';
 
 /** 登录页组件属性。 */
 interface LoginPageProps {
@@ -34,32 +35,47 @@ export function LoginPage({ onLogin, onLinuxDoLogin }: LoginPageProps) {
 
   return (
     <div className="login-page">
-      <h1>MailDock 登录</h1>
+      <h1>
+        <Mail className="login-logo" aria-hidden="true" />
+        MailDock 登录
+      </h1>
       <form onSubmit={handleSubmit}>
         <div className="field">
           <label htmlFor="email">邮箱</label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-          />
+          <div className="input-with-icon">
+            <Mail className="input-icon" aria-hidden="true" />
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+          </div>
         </div>
         <div className="field">
           <label htmlFor="password">密码</label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-          />
+          <div className="input-with-icon">
+            <Lock className="input-icon" aria-hidden="true" />
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
         </div>
-        {error && <p className="error" role="alert">{error}</p>}
+        {error && (
+          <p className="error animate-slide-down" role="alert">
+            <AlertCircle className="error-icon" aria-hidden="true" />
+            {error}
+          </p>
+        )}
         <button type="submit" disabled={submitting}>登录</button>
-        <button type="button" onClick={onLinuxDoLogin}>
+        <button type="button" className="oauth-btn" onClick={onLinuxDoLogin}>
           使用 linux.do 登录
+          <ExternalLink className="oauth-icon" aria-hidden="true" />
         </button>
       </form>
     </div>
