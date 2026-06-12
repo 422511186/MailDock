@@ -120,4 +120,21 @@ class AuthServiceTest {
         assertFalse(service.authenticated(login.sessionToken()));
         assertTrue(service.userId(login.sessionToken()).isEmpty());
     }
+
+    @Test
+    void hasPasswordTrueForEmailPasswordUser() {
+        service.ensureDefaultEmailUser("alice@example.com", "init-pass");
+        long userId = identityRepo.findByProviderUid("email_password", "alice@example.com")
+                .orElseThrow().userId();
+
+        assertTrue(service.hasPassword(userId));
+    }
+
+    @Test
+    void hasPasswordFalseForLinuxdoUser() {
+        User user = userRepo.insert("linux@example.com", "Linux", null);
+        identityRepo.insert(user.id(), "linuxdo", "42", null);
+
+        assertFalse(service.hasPassword(user.id()));
+    }
 }

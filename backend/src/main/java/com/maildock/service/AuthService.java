@@ -81,6 +81,13 @@ public final class AuthService {
         return sessionStore.userId(token).flatMap(userRepo::findById);
     }
 
+    /** 判断用户是否拥有可修改的邮箱密码身份（存在 email_password 且密码哈希非空）。 */
+    public boolean hasPassword(long userId) {
+        return identityRepo.findByUserAndProvider(userId, EMAIL_PASSWORD_PROVIDER)
+                .map(identity -> !isBlank(identity.secretHash()))
+                .orElse(false);
+    }
+
     public Optional<LoginResult> loginWithLinuxdoUser(OAuthClient.OAuthUser oauthUser) {
         if (oauthUser == null || isBlank(oauthUser.providerUid())) {
             return Optional.empty();
