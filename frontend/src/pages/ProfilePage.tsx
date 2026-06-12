@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { ApiClient, CurrentUser } from '../api/client';
+import { Mail, User, Lock, Save, Info } from 'lucide-react';
 
 interface ProfilePageProps {
   api: ApiClient;
@@ -84,7 +85,7 @@ export function ProfilePage({ api, user, onBack, onUserUpdated }: ProfilePagePro
 
       {/* 资料卡 */}
       <section className="profile-card">
-        <h2>资料与头像</h2>
+        <h2 className="profile-card-title"><User className="profile-card-icon" aria-hidden="true" />资料与头像</h2>
         <div className="profile-card-body">
           <div className="profile-identity">
             {user.avatarUrl ? (
@@ -94,7 +95,7 @@ export function ProfilePage({ api, user, onBack, onUserUpdated }: ProfilePagePro
             )}
             <div className="flex flex-col gap-2">
               <dl className="profile-readonly">
-                <dt>邮箱</dt>
+                <dt><Mail className="profile-readonly-icon" aria-hidden="true" />邮箱</dt>
                 <dd>{user.primaryEmail ?? '—'}</dd>
                 <dt>登录方式</dt>
                 <dd>{user.hasPassword ? '邮箱密码' : 'linux.do'}</dd>
@@ -116,16 +117,19 @@ export function ProfilePage({ api, user, onBack, onUserUpdated }: ProfilePagePro
             </div>
             {profileErr && <p className="error" role="alert">{profileErr}</p>}
             {profileMsg && <p className="success">{profileMsg}</p>}
-            <button type="submit" className="btn-primary" disabled={savingProfile}>更新资料</button>
+            <button type="submit" className="btn-primary" disabled={savingProfile}>
+              <Save className="h-4 w-4" aria-hidden="true" />
+              更新资料
+            </button>
           </form>
         </div>
       </section>
 
       {/* 修改密码卡 */}
       <section className="profile-card">
-        <h2>修改密码</h2>
+        <h2 className="profile-card-title"><Lock className="profile-card-icon" aria-hidden="true" />修改密码</h2>
         {!user.hasPassword && (
-          <p className="profile-note">当前账号通过 linux.do 登录，未设置密码</p>
+          <p className="profile-note"><Info className="profile-note-icon" aria-hidden="true" />当前账号通过 linux.do 登录，未设置密码</p>
         )}
         <form className="profile-form" onSubmit={handlePasswordSubmit}>
           <div className="field">
@@ -164,6 +168,7 @@ export function ProfilePage({ api, user, onBack, onUserUpdated }: ProfilePagePro
           {pwdErr && <p className="error" role="alert">{pwdErr}</p>}
           {pwdMsg && <p className="success">{pwdMsg}</p>}
           <button type="submit" className="btn-primary" disabled={!user.hasPassword || savingPwd}>
+            <Lock className="h-4 w-4" aria-hidden="true" />
             修改密码
           </button>
         </form>

@@ -77,4 +77,11 @@ describe('ProfilePage', () => {
     expect(screen.getByText('当前账号通过 linux.do 登录，未设置密码')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '修改密码' })).toBeDisabled();
   });
+
+  it('更新资料按钮内嵌图标且可访问名保持「更新资料」', () => {
+    const api = stubApi();
+    render(<ProfilePage api={api as never} user={user()} onBack={vi.fn()} onUserUpdated={vi.fn()} />);
+    const btn = screen.getByRole('button', { name: '更新资料' });
+    expect(btn.querySelector('svg')).toBeInTheDocument();
+  });
 });

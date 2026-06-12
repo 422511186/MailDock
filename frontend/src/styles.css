@@ -155,6 +155,29 @@
     @apply mb-4 text-base font-semibold text-slate-800;
   }
 
+  /* 个人中心：卡片标题图标 */
+  .profile-card-title {
+    @apply flex items-center gap-2;
+  }
+
+  .profile-card-title .profile-card-icon {
+    @apply h-5 w-5 text-brand-600;
+  }
+
+  /* 个人中心：只读项图标 */
+  .profile-readonly dt .profile-readonly-icon {
+    @apply mr-1 inline-block h-3.5 w-3.5 align-text-bottom;
+  }
+
+  /* 个人中心：提示图标 */
+  .profile-note {
+    @apply flex items-center gap-2;
+  }
+
+  .profile-note .profile-note-icon {
+    @apply h-4 w-4 shrink-0;
+  }
+
   .profile-card-body {
     @apply flex flex-col gap-6;
   }
