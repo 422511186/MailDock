@@ -121,7 +121,7 @@ public final class ApiRouter {
             return;
         }
         setSessionCookie(ctx, login.get().sessionToken());
-        json(ctx, 200, userJson(login.get().user()));
+        json(ctx, 200, userJson(login.get().user(), true));
     }
 
     /** linux.do OAuth 登录入口：生成 state / PKCE 后跳转到授权地址。 */
@@ -175,7 +175,14 @@ public final class ApiRouter {
             fail(ctx, 401, "未认证或 Session 无效");
             return;
         }
-        json(ctx, 200, userJson(user));
+        vertx.executeBlocking(() -> authService.hasPassword(user.id()), false)
+                .onComplete(ar -> {
+                    if (ar.failed()) {
+                        ctx.fail(ar.cause());
+                        return;
+                    }
+                    json(ctx, 200, userJson(user, ar.result()));
+                });
     }
 
     /** 登出：撤销当前 Session 并清理 Cookie。 */
@@ -599,13 +606,14 @@ public final class ApiRouter {
         return userId;
     }
 
-    private JsonObject userJson(User user) {
+    private JsonObject userJson(User user, boolean hasPassword) {
         return new JsonObject()
                 .put("id", user.id())
                 .put("primaryEmail", user.primaryEmail())
                 .put("displayName", user.displayName())
                 .put("avatarUrl", user.avatarUrl())
-                .put("lastLoginAt", user.lastLoginAt());
+                .put("lastLoginAt", user.lastLoginAt())
+                .put("hasPassword", hasPassword);
     }
 
     /** 安全地读取请求体为 JSON，无体时返回空对象。 */
