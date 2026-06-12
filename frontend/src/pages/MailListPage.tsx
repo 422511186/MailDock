@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { RefreshCw, User, Paperclip } from 'lucide-react';
 import type { ApiClient, MessageSummary } from '../api/client';
 
 /** 默认每页条数。 */
@@ -83,9 +84,7 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
             返回
           </button>
           <button type="button" onClick={() => void handleRefresh()} disabled={busy} className="btn-primary">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">{busy ? '刷新中…' : '刷新'}</span>
           </button>
         </div>
@@ -113,16 +112,12 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
                 {m.subject}
               </h3>
               {m.hasAttach && (
-                <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
+                <Paperclip className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
               )}
             </div>
             <div className="flex items-center justify-between gap-3 text-sm">
               <div className="flex items-center gap-2 text-slate-500">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+                <User className="h-4 w-4" aria-hidden="true" />
                 <span className="break-all text-xs">{m.fromAddr}</span>
               </div>
               <span className="shrink-0 text-xs text-slate-400 whitespace-nowrap">{formatTime(m.receivedAt)}</span>
