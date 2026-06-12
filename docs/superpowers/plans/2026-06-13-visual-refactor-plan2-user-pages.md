@@ -54,9 +54,16 @@
 - 下拉容器 `role="menu"`，菜单项 `role="menuitem"`
 - 头像：有 `avatarUrl` 显示图片，否则首字母方块
 
-**新增菜单项「邮件列表」的回调处理：** UserMenu 新增可选 prop `onOpenMailList?: () => void`。当前 App.tsx 没有"返回账号列表"以外的邮件列表入口，**本任务先让该 prop 可选**，未传时该菜单项仍渲染但点击仅关闭菜单（不报错）。App.tsx 接线留到 Plan 3 或保持可选。
+**新增菜单项「邮件列表」的回调处理（已决策：点击返回账号列表）：**
 
-> 注意：原型有「邮件列表」菜单项，但当前应用的"邮件列表"依赖具体 accountId，没有全局入口。为对齐原型先渲染该项，行为降级为关闭菜单。若评审认为不该出现，可在实现时删除该菜单项并同步删除对应测试。
+原型有「邮件列表」菜单项，但当前应用的邮件列表依赖具体 accountId，没有全局入口。**决策：该菜单项点击后返回账号列表**（账号列表本就是进入各邮箱邮件列表的入口）。
+
+接线方式：
+1. UserMenu 新增 prop `onOpenMailList: () => void`（**必填**，不再可选，避免死按钮）。
+2. Header（Plan 1 已建）需新增 `onOpenMailList` prop 并转发给 UserMenu。
+3. App.tsx 在渲染 Header 处传入 `onOpenMailList={() => setView({ name: 'accounts', user: currentUser })}`（回到账号列表）。
+
+> 因此本任务除改 UserMenu 外，还需**顺带改 Header.tsx（加 onOpenMailList prop + 转发）和 App.tsx（传入回调）**。Header.test.tsx 若断言了 UserMenu 的 props 透传，需同步补 onOpenMailList。Step 4 会处理 Header/App 接线。
 
 ### Step 1: 调整 UserMenu 测试（TDD）
 
@@ -130,7 +137,7 @@ describe('UserMenu', () => {
     expect(onLogout).toHaveBeenCalled();
   });
 
-  it('点击邮件列表触发 onOpenMailList（若提供）并关闭菜单', () => {
+  it('点击邮件列表触发 onOpenMailList 并关闭菜单', () => {
     const onOpenMailList = vi.fn();
     render(
       <UserMenu
@@ -146,12 +153,28 @@ describe('UserMenu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
+  it('未传 onOpenMailList 时点击邮件列表仅关闭菜单（不报错）', () => {
+    // onOpenMailList 是可选 prop，缺省时点击不应抛错
+    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+    expect(() =>
+      fireEvent.click(screen.getByRole('menuitem', { name: '邮件列表' })),
+    ).not.toThrow();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
   it('Esc 关闭菜单', () => {
     render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     expect(screen.getByRole('menu')).toBeInTheDocument();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('展开的下拉菜单带 slide-down 动画类（保留原守护测试）', () => {
+    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+    expect(screen.getByRole('menu').className).toContain('animate-slide-down');
   });
 
   it('无 displayName 时触发按钮回退到邮箱', () => {
@@ -166,6 +189,8 @@ describe('UserMenu', () => {
   });
 });
 ```
+
+> **说明**：`onOpenMailList` 保持**可选**（`?`）。UserMenu 单测覆盖「传了就调用」和「没传不报错」两种；真正的"返回账号列表"行为由 App.tsx 在 Step 4 注入（见下）。
 
 - [ ] **运行测试确认失败**
 
@@ -193,7 +218,7 @@ interface UserMenuProps {
   onOpenProfile: () => void;
   /** 退出登录。 */
   onLogout: () => void;
-  /** 进入邮件列表（可选，未提供时该菜单项仅关闭菜单）。 */
+  /** 进入邮件列表（可选；未提供时该菜单项仅关闭菜单不报错。实际由 Header/App 传入“返回账号列表”回调）。 */
   onOpenMailList?: () => void;
 }
 
@@ -347,7 +372,63 @@ npx vitest run src/components/UserMenu.test.tsx
 
 Expected: 全部 PASS。
 
-### Step 3: 提交 UserMenu
+### Step 3: 接线 Header + App（让「邮件列表」真正可用）
+
+> 你的决策：「邮件列表」菜单项点击后**返回账号列表**。需让 Header 透传 `onOpenMailList`，App 传入实际回调。
+
+- [ ] **Header.tsx 增加 onOpenMailList 透传**
+
+`frontend/src/components/Header.tsx` 的 `HeaderProps` 增加可选 `onOpenMailList?: () => void`，并透传给 `UserMenu`：
+
+```typescript
+export interface HeaderProps {
+  user: CurrentUser | null;
+  onOpenProfile: () => void;
+  onLogout: () => void;
+  onOpenMailList?: () => void;
+}
+
+export function Header({ user, onOpenProfile, onLogout, onOpenMailList }: HeaderProps) {
+  // ...
+  {user && (
+    <UserMenu
+      user={user}
+      onOpenProfile={onOpenProfile}
+      onLogout={onLogout}
+      onOpenMailList={onOpenMailList}
+    />
+  )}
+}
+```
+
+- [ ] **App.tsx 传入回调（返回账号列表）**
+
+在 App.tsx 渲染 Header 的地方（Plan 1 已加），传入回调——回到账号列表视图：
+
+```tsx
+<Header
+  user={currentUser}
+  onOpenProfile={goProfile}
+  onLogout={handleLogout}
+  onOpenMailList={() => setView({ name: 'accounts', user: currentUser })}
+/>
+```
+
+> 注意：App.tsx 的 `view` 是带 user 的联合类型；用当前视图里的 user 构造 `{ name: 'accounts', user }`。按 Plan 1 实际接线方式调整变量名（`currentUser` 或 `view.user`）。
+
+- [ ] **同步 Header.test.tsx**
+
+若 Header.test.tsx 断言了 UserMenu props 透传，补 `onOpenMailList`。否则现有 Header 测试不受影响（新 prop 可选）。
+
+- [ ] **运行受影响测试**
+
+```bash
+npx vitest run src/components/UserMenu.test.tsx src/components/Header.test.tsx
+```
+
+Expected: 全部 PASS。
+
+### Step 4: 提交 UserMenu
 
 - [ ] **提交**
 
@@ -433,6 +514,17 @@ describe('LoginPage', () => {
     fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'wrong' } });
     fireEvent.click(screen.getByRole('button', { name: '登录' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('账号或密码错误');
+  });
+
+  it('错误提示带 slide-down 动画类（保留原守护测试）', async () => {
+    const onLogin = vi.fn().mockRejectedValue(new Error('账号或密码错误'));
+    render(<LoginPage onLogin={onLogin} onLinuxDoLogin={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /使用 邮箱或用户名 登录/ }));
+    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'a@example.com' } });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'wrong' } });
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.className).toContain('animate-slide-down');
   });
 });
 ```
