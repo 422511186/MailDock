@@ -4,12 +4,15 @@ import { LoginPage } from './pages/LoginPage';
 import { AccountsPage } from './pages/AccountsPage';
 import { MailListPage } from './pages/MailListPage';
 import { MailDetailPage } from './pages/MailDetailPage';
+import { UserMenu } from './components/UserMenu';
+import { ProfilePage } from './pages/ProfilePage';
 
 /** 顶层视图状态：登录页 / 账号列表 / 邮件列表 / 邮件详情。 */
 type View =
   | { name: 'loading' }
   | { name: 'login' }
   | { name: 'accounts'; user: CurrentUser }
+  | { name: 'profile'; user: CurrentUser }
   | { name: 'mailList'; user: CurrentUser; accountId: number }
   | { name: 'mailDetail'; user: CurrentUser; accountId: number; messageId: number };
 
@@ -99,38 +102,29 @@ export function App({ api }: AppProps) {
             </div>
           </div>
 
-          {/* 顶部操作区：当前用户与登出 */}
-          <span className="text-sm text-slate-600">
-            {view.user.displayName || view.user.primaryEmail || 'MailDock 用户'}
-          </span>
-          <button
-            type="button"
-            className="logout-btn"
-            onClick={() => void handleLogout()}
-            aria-label="登出"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path
-                d="M15 12H4m0 0 3.5-3.5M4 12l3.5 3.5M14 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span className="logout-text">登出</span>
-          </button>
+          {/* 顶部操作区：用户头像菜单 */}
+          <UserMenu
+            user={view.user}
+            onOpenProfile={() => setView({ name: 'profile', user: view.user })}
+            onLogout={() => void handleLogout()}
+          />
         </header>
         <AccountsPage
           api={api}
           onOpenAccount={(accountId) => setView({ name: 'mailList', user: view.user, accountId })}
         />
       </div>
+    );
+  }
+
+  if (view.name === 'profile') {
+    return (
+      <ProfilePage
+        api={api}
+        user={view.user}
+        onBack={() => setView({ name: 'accounts', user: view.user })}
+        onUserUpdated={(updated) => setView({ name: 'profile', user: updated })}
+      />
     );
   }
 

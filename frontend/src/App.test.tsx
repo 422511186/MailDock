@@ -10,6 +10,7 @@ function user(overrides: Partial<CurrentUser> = {}): CurrentUser {
     primaryEmail: 'alice@example.com',
     displayName: 'Alice',
     avatarUrl: null,
+    hasPassword: true,
     ...overrides,
   };
 }
@@ -81,6 +82,8 @@ function stubApi(overrides: Record<string, unknown> = {}) {
     getMessage: vi.fn().mockResolvedValue(detail({ subject: '邮件详情主题' })),
     markRead: vi.fn().mockResolvedValue({}),
     attachmentUrl: vi.fn((mid: number, aid: number) => `/api/v1/messages/${mid}/attachments/${aid}`),
+    updateDisplayName: vi.fn().mockResolvedValue(user()),
+    changePassword: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -102,6 +105,8 @@ describe('App', () => {
 
     await waitFor(() => expect(api.me).toHaveBeenCalled());
     expect((await screen.findAllByText('owner@163.com')).length).toBeGreaterThan(0);
+    // 用户名移入头像下拉，展开后可见
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     expect(screen.getByText('Alice')).toBeInTheDocument();
   });
 
@@ -146,11 +151,26 @@ describe('App', () => {
     render(<App api={api as never} />);
     await screen.findAllByText('owner@163.com');
 
-    fireEvent.click(screen.getByRole('button', { name: '登出' }));
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '退出登录' }));
 
     await waitFor(() => {
       expect(api.logout).toHaveBeenCalled();
     });
     expect(await screen.findByRole('button', { name: '登录' })).toBeInTheDocument();
+  });
+
+  it('从头像菜单进入个人中心，可返回账号列表', async () => {
+    const api = stubApi();
+    render(<App api={api as never} />);
+    await screen.findAllByText('owner@163.com');
+
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '个人资料' }));
+
+    expect(await screen.findByText('个人中心')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '返回' }));
+    expect((await screen.findAllByText('owner@163.com')).length).toBeGreaterThan(0);
   });
 });
