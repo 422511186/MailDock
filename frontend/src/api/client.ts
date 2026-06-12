@@ -10,6 +10,8 @@ export interface CurrentUser {
   primaryEmail: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  /** 是否拥有可修改的邮箱密码（linux.do 用户为 false）。 */
+  hasPassword: boolean;
 }
 
 /** 邮箱账号（不含授权码，与后端 accountToJson 对齐）。 */
@@ -154,6 +156,23 @@ export class ApiClient {
   /** 登出，撤销服务端 Session 并清理 Cookie。 */
   async logout(): Promise<void> {
     await this.request<void>('/auth/logout', { method: 'POST', raw: true });
+  }
+
+  /** 更新当前用户显示名，返回更新后的用户。 */
+  updateDisplayName(displayName: string): Promise<CurrentUser> {
+    return this.request<CurrentUser>('/users/me', {
+      method: 'PATCH',
+      json: { displayName },
+    });
+  }
+
+  /** 修改当前用户密码（仅邮箱密码用户可用）。 */
+  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+    await this.request<void>('/users/me/password', {
+      method: 'POST',
+      json: { oldPassword, newPassword },
+      raw: true,
+    });
   }
 
   /** 账号列表：支持邮箱搜索、状态过滤、排序、分页，返回 { total, items }。 */
