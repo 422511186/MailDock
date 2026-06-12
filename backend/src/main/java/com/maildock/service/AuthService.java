@@ -115,16 +115,6 @@ public final class AuthService {
         return sessionStore.userId(token);
     }
 
-    /** 临时兼容旧配置入口；后续任务会替换为 {@link #ensureDefaultEmailUser(String, String)}。 */
-    public void ensureDefaultAdmin(String username, String rawPassword) {
-        ensureDefaultEmailUser(username, rawPassword);
-    }
-
-    /** 临时兼容旧 Bearer Token 登录路由。 */
-    public Optional<String> login(String username, String rawPassword) {
-        return loginWithEmailPassword(username, rawPassword).map(LoginResult::sessionToken);
-    }
-
     public void logout(String token) {
         sessionStore.revoke(token);
     }

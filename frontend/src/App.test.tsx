@@ -88,7 +88,6 @@ function stubApi(overrides: Record<string, unknown> = {}) {
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.clear();
   });
 
   it('auth me 失败时展示登录页', async () => {

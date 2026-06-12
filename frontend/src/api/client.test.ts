@@ -7,7 +7,6 @@ describe('ApiClient', () => {
   beforeEach(() => {
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    localStorage.clear();
   });
 
   afterEach(() => {
@@ -31,7 +30,6 @@ describe('ApiClient', () => {
     const user = await client.login('a@example.com', 'pass');
 
     expect(user.primaryEmail).toBe('a@example.com');
-    expect(localStorage.getItem('maildock_token')).toBeNull();
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('/api/v1/auth/login');
     expect(init.method).toBe('POST');
@@ -142,7 +140,6 @@ describe('ApiClient', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('/api/v1/auth/logout');
     expect(init.credentials).toBe('include');
-    expect(localStorage.getItem('maildock_token')).toBeNull();
   });
 
   it('testBatch 提交 id 列表', async () => {
