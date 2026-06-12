@@ -147,11 +147,11 @@
   }
 
   .profile-card-body {
-    @apply grid gap-6 sm:grid-cols-2;
+    @apply flex flex-col gap-6;
   }
 
   .profile-identity {
-    @apply flex items-start gap-4;
+    @apply flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:text-left;
   }
 
   .profile-avatar {

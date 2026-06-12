@@ -92,15 +92,18 @@ export function ProfilePage({ api, user, onBack, onUserUpdated }: ProfilePagePro
             ) : (
               <div className="profile-avatar" aria-hidden="true">{initial(user)}</div>
             )}
-            <dl className="profile-readonly">
-              <dt>邮箱</dt>
-              <dd>{user.primaryEmail ?? '—'}</dd>
-              <dt>登录方式</dt>
-              <dd>{user.hasPassword ? '邮箱密码' : 'linux.do'}</dd>
-            </dl>
+            <div className="flex flex-col gap-2">
+              <dl className="profile-readonly">
+                <dt>邮箱</dt>
+                <dd>{user.primaryEmail ?? '—'}</dd>
+                <dt>登录方式</dt>
+                <dd>{user.hasPassword ? '邮箱密码' : 'linux.do'}</dd>
+              </dl>
+            </div>
           </div>
 
           <form className="profile-form" onSubmit={handleProfileSubmit}>
+            <h3 className="text-sm font-semibold text-slate-700">编辑个人资料</h3>
             <div className="field">
               <label htmlFor="displayName">显示名</label>
               <input

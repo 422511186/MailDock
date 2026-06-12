@@ -21,6 +21,9 @@ dist/
 *.iml
 .vscode/
 
+# 本地开发启动类（仅本机使用，不提交）
+backend/src/main/java/com/maildock/DevLauncher.java
+
 # OS
 .DS_Store
 
