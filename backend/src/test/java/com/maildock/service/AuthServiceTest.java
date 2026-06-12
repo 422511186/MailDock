@@ -137,4 +137,37 @@ class AuthServiceTest {
 
         assertFalse(service.hasPassword(user.id()));
     }
+
+    @Test
+    void changePasswordSucceedsWithCorrectOldPassword() {
+        service.ensureDefaultEmailUser("alice@example.com", "old-pass");
+        long userId = identityRepo.findByProviderUid("email_password", "alice@example.com")
+                .orElseThrow().userId();
+
+        assertEquals(AuthService.ChangePasswordResult.OK,
+                service.changePassword(userId, "old-pass", "new-pass-1"));
+
+        // 旧密码失效，新密码可登录
+        assertTrue(service.loginWithEmailPassword("alice@example.com", "old-pass").isEmpty());
+        assertTrue(service.loginWithEmailPassword("alice@example.com", "new-pass-1").isPresent());
+    }
+
+    @Test
+    void changePasswordRejectsWrongOldPassword() {
+        service.ensureDefaultEmailUser("alice@example.com", "old-pass");
+        long userId = identityRepo.findByProviderUid("email_password", "alice@example.com")
+                .orElseThrow().userId();
+
+        assertEquals(AuthService.ChangePasswordResult.WRONG_OLD_PASSWORD,
+                service.changePassword(userId, "wrong", "new-pass-1"));
+    }
+
+    @Test
+    void changePasswordRejectsLinuxdoUserWithoutPassword() {
+        User user = userRepo.insert("linux@example.com", "Linux", null);
+        identityRepo.insert(user.id(), "linuxdo", "42", null);
+
+        assertEquals(AuthService.ChangePasswordResult.NO_PASSWORD_IDENTITY,
+                service.changePassword(user.id(), "anything", "new-pass-1"));
+    }
 }

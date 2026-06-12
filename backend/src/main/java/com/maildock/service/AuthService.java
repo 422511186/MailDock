@@ -37,6 +37,12 @@ public final class AuthService {
     public record LoginResult(String sessionToken, User user) {
     }
 
+    public enum ChangePasswordResult {
+        OK,
+        WRONG_OLD_PASSWORD,
+        NO_PASSWORD_IDENTITY
+    }
+
     public void ensureDefaultEmailUser(String email, String rawPassword) {
         if (isBlank(email) || isBlank(rawPassword)) {
             return;
@@ -86,6 +92,20 @@ public final class AuthService {
         return identityRepo.findByUserAndProvider(userId, EMAIL_PASSWORD_PROVIDER)
                 .map(identity -> !isBlank(identity.secretHash()))
                 .orElse(false);
+    }
+
+    /** 修改邮箱密码用户的密码：校验旧密码后写入新哈希。新密码长度等校验由调用方负责。 */
+    public ChangePasswordResult changePassword(long userId, String oldPassword, String newPassword) {
+        Optional<UserIdentity> identity = identityRepo.findByUserAndProvider(userId, EMAIL_PASSWORD_PROVIDER);
+        if (identity.isEmpty() || isBlank(identity.get().secretHash())) {
+            return ChangePasswordResult.NO_PASSWORD_IDENTITY;
+        }
+        if (!BCrypt.checkpw(oldPassword, identity.get().secretHash())) {
+            return ChangePasswordResult.WRONG_OLD_PASSWORD;
+        }
+        String hash = BCrypt.hashpw(newPassword, BCrypt.gensalt());
+        identityRepo.updateSecretHash(identity.get().id(), hash);
+        return ChangePasswordResult.OK;
     }
 
     public Optional<LoginResult> loginWithLinuxdoUser(OAuthClient.OAuthUser oauthUser) {
