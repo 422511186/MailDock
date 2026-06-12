@@ -4,7 +4,7 @@ import { LoginPage } from './pages/LoginPage';
 import { AccountsPage } from './pages/AccountsPage';
 import { MailListPage } from './pages/MailListPage';
 import { MailDetailPage } from './pages/MailDetailPage';
-import { UserMenu } from './components/UserMenu';
+import { Header } from './components/Header';
 import { ProfilePage } from './pages/ProfilePage';
 
 /** 顶层视图状态：登录页 / 账号列表 / 邮件列表 / 邮件详情。 */
@@ -71,44 +71,12 @@ export function App({ api }: AppProps) {
 
   if (view.name === 'accounts') {
     return (
-      <div>
-        <header className="topbar">
-          {/* 品牌标识 */}
-          <div className="brand">
-            <span className="brand-logo" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="2.5" y="5" width="19" height="14" rx="2.5" fill="currentColor" opacity="0.15" />
-                <path
-                  d="M3 7.5 12 13l9-5.5"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <rect
-                  x="3"
-                  y="6"
-                  width="18"
-                  height="12"
-                  rx="2"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                />
-              </svg>
-            </span>
-            <div className="brand-text">
-              <span className="brand-name">MailDock</span>
-              <span className="brand-sub">邮箱一站式服务</span>
-            </div>
-          </div>
-
-          {/* 顶部操作区：用户头像菜单 */}
-          <UserMenu
-            user={view.user}
-            onOpenProfile={() => setView({ name: 'profile', user: view.user })}
-            onLogout={() => void handleLogout()}
-          />
-        </header>
+      <div className="min-h-screen bg-slate-50">
+        <Header
+          user={view.user}
+          onOpenProfile={() => setView({ name: 'profile', user: view.user })}
+          onLogout={() => void handleLogout()}
+        />
         <AccountsPage
           api={api}
           onOpenAccount={(accountId) => setView({ name: 'mailList', user: view.user, accountId })}
@@ -119,34 +87,55 @@ export function App({ api }: AppProps) {
 
   if (view.name === 'profile') {
     return (
-      <ProfilePage
-        api={api}
-        user={view.user}
-        onBack={() => setView({ name: 'accounts', user: view.user })}
-        onUserUpdated={(updated) => setView({ name: 'profile', user: updated })}
-      />
+      <div className="min-h-screen bg-slate-50">
+        <Header
+          user={view.user}
+          onOpenProfile={() => setView({ name: 'profile', user: view.user })}
+          onLogout={() => void handleLogout()}
+        />
+        <ProfilePage
+          api={api}
+          user={view.user}
+          onBack={() => setView({ name: 'accounts', user: view.user })}
+          onUserUpdated={(updated) => setView({ name: 'profile', user: updated })}
+        />
+      </div>
     );
   }
 
   if (view.name === 'mailList') {
     return (
-      <MailListPage
-        api={api}
-        accountId={view.accountId}
-        onOpenMessage={(messageId) =>
-          setView({ name: 'mailDetail', user: view.user, accountId: view.accountId, messageId })
-        }
-        onBack={() => setView({ name: 'accounts', user: view.user })}
-      />
+      <div className="min-h-screen bg-slate-50">
+        <Header
+          user={view.user}
+          onOpenProfile={() => setView({ name: 'profile', user: view.user })}
+          onLogout={() => void handleLogout()}
+        />
+        <MailListPage
+          api={api}
+          accountId={view.accountId}
+          onOpenMessage={(messageId) =>
+            setView({ name: 'mailDetail', user: view.user, accountId: view.accountId, messageId })
+          }
+          onBack={() => setView({ name: 'accounts', user: view.user })}
+        />
+      </div>
     );
   }
 
   // view.name === 'mailDetail'
   return (
-    <MailDetailPage
-      api={api}
-      messageId={view.messageId}
-      onBack={() => setView({ name: 'mailList', user: view.user, accountId: view.accountId })}
-    />
+    <div className="min-h-screen bg-slate-50">
+      <Header
+        user={view.user}
+        onOpenProfile={() => setView({ name: 'profile', user: view.user })}
+        onLogout={() => void handleLogout()}
+      />
+      <MailDetailPage
+        api={api}
+        messageId={view.messageId}
+        onBack={() => setView({ name: 'mailList', user: view.user, accountId: view.accountId })}
+      />
+    </div>
   );
 }
