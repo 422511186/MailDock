@@ -121,6 +121,15 @@
       transition hover:bg-slate-50 hover:text-slate-900;
   }
 
+  /* 用户菜单项：图标 + 文字横向排列 */
+  .user-dropdown-item {
+    @apply flex items-center gap-2.5;
+  }
+
+  .user-dropdown-item .user-dropdown-icon {
+    @apply h-4 w-4 shrink-0;
+  }
+
   .user-dropdown-item-danger {
     @apply text-rose-600 hover:bg-rose-50 hover:text-rose-700;
   }

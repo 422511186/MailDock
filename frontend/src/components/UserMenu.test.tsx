@@ -55,4 +55,10 @@ describe('UserMenu', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
+
+  it('展开的下拉菜单带 slide-down 动画类', () => {
+    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+    expect(screen.getByRole('menu').className).toContain('animate-slide-down');
+  });
 });

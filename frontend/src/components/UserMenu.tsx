@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { UserCircle, LogOut } from 'lucide-react';
 import type { CurrentUser } from '../api/client';
 
 interface UserMenuProps {
@@ -64,7 +65,7 @@ export function UserMenu({ user, onOpenProfile, onLogout }: UserMenuProps) {
       </button>
 
       {open && (
-        <div className="user-dropdown" role="menu">
+        <div className="user-dropdown animate-slide-down" role="menu">
           <div className="user-dropdown-head">
             <span className="user-dropdown-name">{name}</span>
             {user.primaryEmail && (
@@ -80,6 +81,7 @@ export function UserMenu({ user, onOpenProfile, onLogout }: UserMenuProps) {
               onOpenProfile();
             }}
           >
+            <UserCircle className="user-dropdown-icon" aria-hidden="true" />
             个人中心
           </button>
           <button
@@ -91,6 +93,7 @@ export function UserMenu({ user, onOpenProfile, onLogout }: UserMenuProps) {
               onLogout();
             }}
           >
+            <LogOut className="user-dropdown-icon" aria-hidden="true" />
             退出登录
           </button>
         </div>
