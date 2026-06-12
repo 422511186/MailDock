@@ -372,4 +372,14 @@ describe('AccountsPage', () => {
       );
     });
   });
+
+  it('删除按钮内嵌图标且可访问名保持「删除」', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'a@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('a@163.com');
+    const delBtn = screen.getAllByRole('button', { name: '删除' })[0];
+    expect(delBtn.querySelector('svg')).toBeInTheDocument();
+  });
 });

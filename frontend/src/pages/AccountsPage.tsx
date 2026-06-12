@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Plus, Upload, Trash2, Mail, Clock } from 'lucide-react';
 import type {
   ApiClient,
   Account,
@@ -228,15 +229,11 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
             className="btn-primary"
             onClick={() => setShowAdd(true)}
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+            <Plus className="h-4 w-4" aria-hidden="true" />
             新增账号
           </button>
           <button type="button" onClick={() => setShowImport(true)}>
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
+            <Upload className="h-4 w-4" aria-hidden="true" />
             导入
           </button>
           {selectedIds.length > 0 && (
@@ -366,9 +363,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               {accounts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-16 text-center">
-                    <svg className="mx-auto mb-4 h-16 w-16 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
+                    <Mail className="mx-auto mb-4 h-16 w-16 text-slate-300" aria-hidden="true" />
                     <p className="text-slate-400">暂无邮箱账号</p>
                   </td>
                 </tr>
@@ -472,9 +467,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                             onClick={() => handleDelete(a.id)}
                             title="删除"
                           >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
                           </button>
                         </div>
                       </td>
@@ -490,9 +483,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
         <div className="sm:hidden space-y-3">
           {accounts.length === 0 ? (
             <div className="rounded-2xl bg-white p-16 text-center shadow-sm">
-              <svg className="mx-auto mb-4 h-16 w-16 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
+              <Mail className="mx-auto mb-4 h-16 w-16 text-slate-300" aria-hidden="true" />
               <p className="text-slate-400">暂无邮箱账号</p>
             </div>
           ) : (
@@ -538,15 +529,11 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                     </button>
                     <div className="mb-4 space-y-2 text-xs">
                       <div className="flex items-center gap-2 text-slate-500">
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>{formatBeijingTime(a.lastTestAt)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-slate-500">
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
+                        <Mail className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>{formatBeijingTime(a.lastSyncAt)}</span>
                       </div>
                     </div>
@@ -564,9 +551,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                         className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
                         onClick={() => handleDelete(a.id)}
                       >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </button>
                     </div>
                   </div>
@@ -580,9 +565,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {accounts.length === 0 ? (
           <div className="col-span-full rounded-2xl bg-white p-16 text-center shadow-sm">
-            <svg className="mx-auto mb-4 h-16 w-16 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
+            <Mail className="mx-auto mb-4 h-16 w-16 text-slate-300" aria-hidden="true" />
             <p className="text-slate-400">暂无邮箱账号</p>
           </div>
         ) : (
@@ -649,15 +632,11 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                   {/* 信息栏 */}
                   <div className="mb-4 space-y-2 text-xs">
                     <div className="flex items-center gap-2 text-slate-500">
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>{formatBeijingTime(a.lastTestAt)}</span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-500">
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
+                      <Mail className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>{formatBeijingTime(a.lastSyncAt)}</span>
                     </div>
                   </div>
@@ -677,9 +656,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                       className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
                       onClick={() => handleDelete(a.id)}
                     >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
