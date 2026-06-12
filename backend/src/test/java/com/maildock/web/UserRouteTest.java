@@ -128,4 +128,69 @@ class UserRouteTest {
                 })));
         assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
     }
+
+    @Test
+    void changePasswordSucceedsReturns204(VertxTestContext ctx) throws Exception {
+        loginCookie()
+                .compose(cookie -> client.post(port, "localhost", ApiRouter.API + "/users/me/password")
+                        .putHeader("Cookie", cookie)
+                        .sendJsonObject(new JsonObject()
+                                .put("oldPassword", "init-pass")
+                                .put("newPassword", "new-pass-1")))
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(204, resp.statusCode());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void changePasswordRejectsShortNewPassword(VertxTestContext ctx) throws Exception {
+        loginCookie()
+                .compose(cookie -> client.post(port, "localhost", ApiRouter.API + "/users/me/password")
+                        .putHeader("Cookie", cookie)
+                        .sendJsonObject(new JsonObject()
+                                .put("oldPassword", "init-pass")
+                                .put("newPassword", "123")))
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(400, resp.statusCode());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void changePasswordRejectsWrongOldPassword(VertxTestContext ctx) throws Exception {
+        loginCookie()
+                .compose(cookie -> client.post(port, "localhost", ApiRouter.API + "/users/me/password")
+                        .putHeader("Cookie", cookie)
+                        .sendJsonObject(new JsonObject()
+                                .put("oldPassword", "wrong")
+                                .put("newPassword", "new-pass-1")))
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(400, resp.statusCode());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void changePasswordRejectsLinuxdoUserWith403(VertxTestContext ctx) throws Exception {
+        // 通过 linux.do 登录路径造一个无密码用户的 session
+        AuthService.LoginResult login = authService.loginWithLinuxdoUser(
+                new com.maildock.service.OAuthClient.OAuthUser("99", "linux@example.com", "Linux", null))
+                .orElseThrow();
+        String cookie = "maildock_session=" + login.sessionToken();
+
+        client.post(port, "localhost", ApiRouter.API + "/users/me/password")
+                .putHeader("Cookie", cookie)
+                .sendJsonObject(new JsonObject()
+                        .put("oldPassword", "x")
+                        .put("newPassword", "new-pass-1"))
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(403, resp.statusCode());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
 }
