@@ -87,4 +87,45 @@ class UserRouteTest {
                 })));
         assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
     }
+
+    @Test
+    void updateDisplayNameSucceeds(VertxTestContext ctx) throws Exception {
+        loginCookie()
+                .compose(cookie -> client.patch(port, "localhost", ApiRouter.API + "/users/me")
+                        .putHeader("Cookie", cookie)
+                        .sendJsonObject(new JsonObject().put("displayName", "新名字")))
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(200, resp.statusCode());
+                    JsonObject body = resp.bodyAsJsonObject();
+                    assertEquals("新名字", body.getString("displayName"));
+                    assertEquals("alice@example.com", body.getString("primaryEmail"));
+                    assertTrue(body.getBoolean("hasPassword"));
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void updateDisplayNameRejectsBlank(VertxTestContext ctx) throws Exception {
+        loginCookie()
+                .compose(cookie -> client.patch(port, "localhost", ApiRouter.API + "/users/me")
+                        .putHeader("Cookie", cookie)
+                        .sendJsonObject(new JsonObject().put("displayName", "  ")))
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(400, resp.statusCode());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void updateDisplayNameWithoutCookieReturns401(VertxTestContext ctx) throws Exception {
+        client.patch(port, "localhost", ApiRouter.API + "/users/me")
+                .sendJsonObject(new JsonObject().put("displayName", "x"))
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(401, resp.statusCode());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
 }

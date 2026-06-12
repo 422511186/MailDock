@@ -170,4 +170,14 @@ class AuthServiceTest {
         assertEquals(AuthService.ChangePasswordResult.NO_PASSWORD_IDENTITY,
                 service.changePassword(user.id(), "anything", "new-pass-1"));
     }
+
+    @Test
+    void updateDisplayNameKeepsEmailAndAvatar() {
+        User user = userRepo.insert("alice2@example.com", "Alice", "http://a/x.png");
+        User updated = service.updateDisplayName(user.id(), "新名").orElseThrow();
+
+        assertEquals("新名", updated.displayName());
+        assertEquals("alice2@example.com", updated.primaryEmail());
+        assertEquals("http://a/x.png", updated.avatarUrl());
+    }
 }

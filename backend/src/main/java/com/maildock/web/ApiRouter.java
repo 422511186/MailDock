@@ -93,6 +93,7 @@ public final class ApiRouter {
         router.get(API + "/auth/me").handler(this::handleMe);
         router.post(API + "/auth/logout").handler(this::handleLogout);
 
+        registerUserRoutes(router);
         registerAccountRoutes(router);
         registerMailRoutes(router);
 
@@ -213,6 +214,68 @@ public final class ApiRouter {
         ctx.put("currentUserId", user.get().id());
         ctx.put("currentUser", user.get());
         ctx.next();
+    }
+
+    // ===== 当前用户资料路由 =====
+
+    private void registerUserRoutes(Router router) {
+        router.patch(API + "/users/me").handler(this::handleUpdateProfile);
+        router.post(API + "/users/me/password").handler(this::handleChangePassword);
+    }
+
+    /** 更新当前用户显示名，仅改 display_name，保留 email/avatar 不被覆盖。 */
+    private void handleUpdateProfile(RoutingContext ctx) {
+        long userId = currentUserId(ctx);
+        JsonObject body = bodyAsJson(ctx);
+        String displayName = body.getString("displayName");
+        if (isBlank(displayName)) {
+            fail(ctx, 400, "显示名不能为空");
+            return;
+        }
+        String trimmed = displayName.strip();
+        if (trimmed.length() > 64) {
+            fail(ctx, 400, "显示名过长");
+            return;
+        }
+        vertx.executeBlocking(() -> {
+            User updated = authService.updateDisplayName(userId, trimmed).orElseThrow();
+            boolean hasPassword = authService.hasPassword(userId);
+            return userJson(updated, hasPassword);
+        }, false).onComplete(ar -> {
+            if (ar.failed()) {
+                ctx.fail(ar.cause());
+                return;
+            }
+            json(ctx, 200, ar.result());
+        });
+    }
+
+    /** 修改当前用户密码：校验新密码长度 → 校验旧密码 → 写新哈希。仅邮箱密码用户可用。 */
+    private void handleChangePassword(RoutingContext ctx) {
+        long userId = currentUserId(ctx);
+        JsonObject body = bodyAsJson(ctx);
+        String oldPassword = body.getString("oldPassword");
+        String newPassword = body.getString("newPassword");
+        if (isBlank(oldPassword) || isBlank(newPassword)) {
+            fail(ctx, 400, "原密码和新密码不能为空");
+            return;
+        }
+        if (newPassword.length() < 6) {
+            fail(ctx, 400, "新密码至少 6 位");
+            return;
+        }
+        vertx.executeBlocking(() -> authService.changePassword(userId, oldPassword, newPassword), false)
+                .onComplete(ar -> {
+                    if (ar.failed()) {
+                        ctx.fail(ar.cause());
+                        return;
+                    }
+                    switch (ar.result()) {
+                        case OK -> ctx.response().setStatusCode(204).end();
+                        case WRONG_OLD_PASSWORD -> fail(ctx, 400, "原密码错误");
+                        case NO_PASSWORD_IDENTITY -> fail(ctx, 403, "当前账号未设置密码，无法修改");
+                    }
+                });
     }
 
     // ===== 账号路由 =====

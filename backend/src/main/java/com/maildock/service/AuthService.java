@@ -108,6 +108,17 @@ public final class AuthService {
         return ChangePasswordResult.OK;
     }
 
+    /** 更新显示名，保留邮箱与头像不变；返回更新后的用户。 */
+    public Optional<User> updateDisplayName(long userId, String displayName) {
+        Optional<User> current = userRepo.findById(userId);
+        if (current.isEmpty()) {
+            return Optional.empty();
+        }
+        User u = current.get();
+        userRepo.updateProfile(u.id(), u.primaryEmail(), displayName, u.avatarUrl());
+        return userRepo.findById(u.id());
+    }
+
     public Optional<LoginResult> loginWithLinuxdoUser(OAuthClient.OAuthUser oauthUser) {
         if (oauthUser == null || isBlank(oauthUser.providerUid())) {
             return Optional.empty();
