@@ -107,18 +107,35 @@ npm install lucide-react
 - OAuth 按钮：`border-2 border-slate-300 hover:border-emerald-500 bg-white hover:bg-emerald-50`，`ExternalLink` 图标
 - 错误提示：`bg-red-50 border-l-4 border-red-500`，`AlertCircle` 图标，`animate-slide-down`
 
-### AccountsPage
+### AccountsPage（参考 design-prototype.html section-5）
 
-- 顶部操作栏：`bg-white border-b border-slate-200 px-6 py-4`，按钮组 `gap-3`
-- 主要操作（添加/导入）：`bg-emerald-600 hover:bg-emerald-700`，`Plus`/`Upload` 图标
-- 次要操作（测活/删除）：`bg-white border-2 border-slate-300 hover:border-slate-400 text-slate-700`，`RefreshCw`/`Trash2`
-- 危险操作（批量删除）：`bg-red-600 hover:bg-red-700`，`Trash2`
-- 搜索框：左侧 `Search` 图标，`border-2 border-slate-200 focus:border-emerald-500`，`w-80`（移动端 `w-full`）
-- 状态筛选按钮组：未选中 `bg-white border-2 border-slate-200 text-slate-600`，选中 `bg-emerald-50 border-emerald-500 text-emerald-700`
-- 表格：表头 `bg-slate-50 text-slate-700 font-semibold`，排序 `ChevronUp`/`ChevronDown`，行 `hover:bg-slate-50`，状态 `CheckCircle2`/`XCircle`/`Clock`
-- 复选框：`accent-blue-600 w-4 h-4`
-- 行内操作：测试 `text-emerald-600` + `RefreshCw`，删除 `text-red-600` + `Trash2`
-- 模态框：遮罩 `bg-black/50 animate-fade-in`，卡片 `bg-white rounded-xl shadow-2xl animate-slide-up max-w-md`，标题 `PlusCircle`/`Upload`，关闭 `X` + `hover:bg-slate-100 rounded-full`
+**查询/操作工具栏**（白色卡片容器）：
+- 容器：`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm mb-4`
+- 搜索框：`relative flex-1 min-w-[240px]`，左侧 `Search` 图标（绝对定位 `absolute left-0 pl-3`），输入框 `rounded-lg border border-slate-200 py-2 pl-10 pr-4 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100`
+- 按钮组：`flex gap-2`
+  - 批量测活：`border border-slate-200 bg-white px-4 py-2 text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50`，`CheckCircle` 图标
+  - 批量删除：`border border-rose-200 bg-rose-50 px-4 py-2 text-rose-600 hover:bg-rose-100 disabled:opacity-50`，`Trash2` 图标
+  - 添加账号：`bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-white shadow-lg shadow-emerald-500/30 hover:from-emerald-600 hover:to-emerald-700`，`Plus` 图标
+- 已选中提示条（有选中时显示）：`mt-3 rounded-lg bg-emerald-50 px-4 py-2`，左侧 `CheckCircle` 图标 + "已选中 X 个账号"，右侧"取消选择"按钮
+
+**表格**（白色卡片容器）：
+- 容器：`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm`
+- 表头：`border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white`，列标题 `text-xs font-semibold uppercase tracking-wide text-slate-500`
+- 复选框：表头/已选中用 `text-emerald-600`，未选中用 `text-blue-600`
+- 邮箱列：头像圆形 `h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md`（首字母居中），邮箱地址 `font-medium text-slate-800`
+- 状态徽章：`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium`
+  - 正常：`bg-emerald-100 text-emerald-700`，圆点 `h-1.5 w-1.5 rounded-full bg-emerald-500`
+  - 待测试：`bg-amber-100 text-amber-700`，圆点 `bg-amber-500`
+  - 异常：`bg-rose-100 text-rose-700`，圆点 `bg-rose-500`
+- 选中行：`bg-emerald-50/50 hover:bg-emerald-50`
+- 未选中行：`hover:bg-emerald-50/50`
+- 操作列：三点菜单 `MoreVertical` 图标（`text-slate-400 hover:text-slate-600`）
+
+**模态框**（保持现有）：
+- 遮罩：`bg-black/50 animate-fade-in`
+- 卡片：`bg-white rounded-xl shadow-2xl animate-slide-up max-w-md`
+- 标题：`PlusCircle`/`Upload` 图标
+- 关闭：`X` + `hover:bg-slate-100 rounded-full`
 
 ### MailListPage
 
