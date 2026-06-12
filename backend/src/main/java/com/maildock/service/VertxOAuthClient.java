@@ -4,8 +4,11 @@ import com.maildock.config.AppConfig;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.net.ProxyOptions;
+import io.vertx.core.net.ProxyType;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
+import io.vertx.ext.web.client.WebClientOptions;
 
 import java.util.concurrent.TimeUnit;
 
@@ -20,8 +23,20 @@ public final class VertxOAuthClient implements OAuthClient {
     private final AppConfig config;
 
     public VertxOAuthClient(Vertx vertx, AppConfig config) {
-        this.client = WebClient.create(vertx);
+        this.client = WebClient.create(vertx, webClientOptions(config));
         this.config = config;
+    }
+
+    /** 根据配置构建 WebClient 选项；配置了代理主机时让出站请求经 HTTP 代理转发。 */
+    private static WebClientOptions webClientOptions(AppConfig config) {
+        WebClientOptions options = new WebClientOptions();
+        if (config.httpProxyHost() != null && config.httpProxyPort() > 0) {
+            options.setProxyOptions(new ProxyOptions()
+                    .setType(ProxyType.HTTP)
+                    .setHost(config.httpProxyHost())
+                    .setPort(config.httpProxyPort()));
+        }
+        return options;
     }
 
     @Override

@@ -51,6 +51,18 @@ class AppConfigTest {
         assertNull(config.defaultPassword());
         assertFalse(config.sessionCookieSecure());
         assertEquals(24, config.sessionTtlHours());
+        assertEquals("/", config.frontendUrl());
+    }
+
+    @Test
+    void parsesFrontendUrl() {
+        // OAuth 回调后重定向到此地址；前后端分离开发时指向前端开发服务器
+        Map<String, String> env = baseEnv();
+        env.put("MAILDOCK_FRONTEND_URL", "http://localhost:5173/");
+
+        AppConfig config = AppConfig.from(env);
+
+        assertEquals("http://localhost:5173/", config.frontendUrl());
     }
 
     @Test
@@ -149,5 +161,27 @@ class AppConfigTest {
         AppConfig config = AppConfig.from(env);
 
         assertEquals(8080, config.httpPort());
+    }
+
+    @Test
+    void parsesHttpProxyHostAndPort() {
+        // OAuth 出站请求可经 HTTP 代理，便于内网或需要代理才能访问 linux.do 的环境
+        Map<String, String> env = baseEnv();
+        env.put("MAILDOCK_HTTP_PROXY_HOST", "127.0.0.1");
+        env.put("MAILDOCK_HTTP_PROXY_PORT", "7890");
+
+        AppConfig config = AppConfig.from(env);
+
+        assertEquals("127.0.0.1", config.httpProxyHost());
+        assertEquals(7890, config.httpProxyPort());
+    }
+
+    @Test
+    void absentHttpProxyLeavesHostNull() {
+        // 未配置代理时直连，不应误启用代理
+        AppConfig config = AppConfig.from(baseEnv());
+
+        assertNull(config.httpProxyHost());
+        assertEquals(0, config.httpProxyPort());
     }
 }

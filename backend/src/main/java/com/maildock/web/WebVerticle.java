@@ -92,7 +92,8 @@ public final class WebVerticle extends AbstractVerticle {
                 mailSyncService,
                 mailQueryService,
                 config.sessionCookieSecure(),
-                Duration.ofHours(config.sessionTtlHours())).build();
+                Duration.ofHours(config.sessionTtlHours()),
+                config.frontendUrl()).build();
 
         // 前端静态资源：打包后的 React 产物放在 classpath 的 webroot 下，由 StaticHandler 托管
         router.route("/*").handler(StaticHandler.create("webroot").setIndexPage("index.html"));

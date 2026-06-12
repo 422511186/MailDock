@@ -1,10 +1,13 @@
 package com.maildock.web;
 
+import com.maildock.config.AppConfig;
 import com.maildock.repository.Database;
 import com.maildock.repository.IdentityRepository;
 import com.maildock.repository.UserRepository;
 import com.maildock.security.SessionStore;
 import com.maildock.service.AuthService;
+import com.maildock.service.LinuxDoOAuthService;
+import com.maildock.service.OAuthClient;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
@@ -20,6 +23,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -197,5 +202,60 @@ class AuthRouteTest {
                     ctx.completeNow();
                 })));
         assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void linuxdoCallbackRedirectsToConfiguredFrontendUrl(VertxTestContext ctx) throws Exception {
+        // OAuth 回调成功后应重定向到配置的前端地址，而非写死的 "/"，
+        // 便于前后端分离开发时跳回前端开发服务器
+        UserRepository userRepo = new UserRepository(db);
+        IdentityRepository identityRepo = new IdentityRepository(db);
+        SessionStore sessionStore = new SessionStore();
+        AuthService authService = new AuthService(userRepo, identityRepo, sessionStore, Duration.ofHours(1));
+        LinuxDoOAuthService oauth = new LinuxDoOAuthService(oauthConfig(), authService, new FakeOAuthClient());
+        LinuxDoOAuthService.StartResult start = oauth.start();
+
+        Router router = new ApiRouter(vertx, authService, oauth, null, null, null,
+                false, Duration.ofHours(1), "http://localhost:5173/").build();
+        HttpServer oauthServer = vertx.createHttpServer().requestHandler(router);
+        int oauthPort = oauthServer.listen(0).toCompletionStage().toCompletableFuture()
+                .get(10, TimeUnit.SECONDS).actualPort();
+
+        client.get(oauthPort, "localhost",
+                        ApiRouter.API + "/auth/linuxdo/callback?code=code-1&state=" + start.state())
+                .followRedirects(false)
+                .send()
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(302, resp.statusCode());
+                    assertEquals("http://localhost:5173/", resp.getHeader("Location"));
+                    oauthServer.close();
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    private AppConfig oauthConfig() {
+        Map<String, String> env = new HashMap<>();
+        env.put("MAILDOCK_SECRET_KEY", "0123456789abcdef0123456789abcdef");
+        env.put("MAILDOCK_LINUXDO_CLIENT_ID", "client-id");
+        env.put("MAILDOCK_LINUXDO_CLIENT_SECRET", "client-secret");
+        env.put("MAILDOCK_LINUXDO_AUTH_URL", "https://connect.linux.do/oauth2/authorize");
+        env.put("MAILDOCK_LINUXDO_TOKEN_URL", "https://connect.linux.do/oauth2/token");
+        env.put("MAILDOCK_LINUXDO_USERINFO_URL", "https://connect.linux.do/api/user");
+        env.put("MAILDOCK_PUBLIC_BASE_URL", "https://maildock.example");
+        return AppConfig.from(env);
+    }
+
+    private static final class FakeOAuthClient implements OAuthClient {
+        @Override
+        public TokenResponse exchangeCode(String tokenUrl, String clientId, String clientSecret,
+                                          String code, String redirectUri, String codeVerifier) {
+            return new TokenResponse("access-token");
+        }
+
+        @Override
+        public OAuthUser fetchUser(String userinfoUrl, String accessToken) {
+            return new OAuthUser("linux-42", "linux@example.com", "linux name", "avatar");
+        }
     }
 }

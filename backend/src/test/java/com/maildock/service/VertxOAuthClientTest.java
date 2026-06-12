@@ -91,6 +91,38 @@ class VertxOAuthClientTest {
     }
 
     @Test
+    void exchangeCodeRoutesThroughConfiguredProxy() throws Exception {
+        // 起一个充当 HTTP 代理的服务器：拦截出站请求并直接应答，
+        // 证明配置代理后流量经代理转发，而非直连目标地址
+        AtomicReference<String> proxiedUri = new AtomicReference<>();
+        Router proxyRouter = Router.router(vertx);
+        proxyRouter.route().handler(BodyHandler.create());
+        proxyRouter.route().handler(rc -> {
+            proxiedUri.set(rc.request().absoluteURI());
+            rc.json(new JsonObject().put("access_token", "via-proxy"));
+        });
+        HttpServer proxy = vertx.createHttpServer().requestHandler(proxyRouter);
+        int proxyPort = proxy.listen(0).toCompletionStage().toCompletableFuture()
+                .get(10, TimeUnit.SECONDS).actualPort();
+
+        // tokenUrl 指向本地无人监听端口：若直连必然连接失败，唯有走代理才能成功
+        VertxOAuthClient client = new VertxOAuthClient(vertx, proxyConfig("127.0.0.1", proxyPort));
+
+        OAuthClient.TokenResponse token = client.exchangeCode(
+                "http://127.0.0.1:1/token",
+                "client-id",
+                "client-secret",
+                "code-1",
+                "https://maildock.example/api/v1/auth/linuxdo/callback",
+                "verifier-1");
+
+        assertEquals("via-proxy", token.accessToken());
+        assertTrue(proxiedUri.get().endsWith("/token"), "代理应收到指向 /token 的出站请求");
+
+        proxy.close().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+    }
+
+    @Test
     void fetchUserSendsBearerTokenAndMapsConfiguredFields() {
         VertxOAuthClient client = new VertxOAuthClient(vertx, config());
 
@@ -114,6 +146,14 @@ class VertxOAuthClientTest {
         env.put("MAILDOCK_LINUXDO_EMAIL_FIELD", "mail");
         env.put("MAILDOCK_LINUXDO_NAME_FIELD", "name");
         env.put("MAILDOCK_LINUXDO_AVATAR_FIELD", "avatar");
+        return AppConfig.from(env);
+    }
+
+    private AppConfig proxyConfig(String proxyHost, int proxyPort) {
+        Map<String, String> env = new HashMap<>();
+        env.put("MAILDOCK_SECRET_KEY", KEY);
+        env.put("MAILDOCK_HTTP_PROXY_HOST", proxyHost);
+        env.put("MAILDOCK_HTTP_PROXY_PORT", String.valueOf(proxyPort));
         return AppConfig.from(env);
     }
 }

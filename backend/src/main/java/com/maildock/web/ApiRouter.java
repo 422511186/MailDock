@@ -45,6 +45,7 @@ public final class ApiRouter {
     private final MailQueryService mailQueryService;
     private final boolean sessionCookieSecure;
     private final long sessionMaxAgeSeconds;
+    private final String frontendUrl;
 
     public ApiRouter(Vertx vertx,
                      AuthService authService,
@@ -52,7 +53,7 @@ public final class ApiRouter {
                      MailSyncService mailSyncService,
                      MailQueryService mailQueryService) {
         this(vertx, authService, null, accountService, mailSyncService, mailQueryService,
-                false, Duration.ofHours(24));
+                false, Duration.ofHours(24), "/");
     }
 
     public ApiRouter(Vertx vertx,
@@ -62,7 +63,8 @@ public final class ApiRouter {
                      MailSyncService mailSyncService,
                      MailQueryService mailQueryService,
                      boolean sessionCookieSecure,
-                     Duration sessionTtl) {
+                     Duration sessionTtl,
+                     String frontendUrl) {
         this.vertx = vertx;
         this.authService = authService;
         this.linuxDoOAuthService = linuxDoOAuthService;
@@ -71,6 +73,7 @@ public final class ApiRouter {
         this.mailQueryService = mailQueryService;
         this.sessionCookieSecure = sessionCookieSecure;
         this.sessionMaxAgeSeconds = Math.max(1, sessionTtl.toSeconds());
+        this.frontendUrl = (frontendUrl == null || frontendUrl.isBlank()) ? "/" : frontendUrl;
     }
 
     /** 构建并返回配置好的 Router。 */
@@ -160,7 +163,7 @@ public final class ApiRouter {
                     setSessionCookie(ctx, login.sessionToken());
                     ctx.response()
                             .setStatusCode(302)
-                            .putHeader("Location", "/")
+                            .putHeader("Location", frontendUrl)
                             .end();
                 });
     }

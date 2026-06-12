@@ -31,6 +31,8 @@ import java.util.Properties;
  * @param publicBaseUrl         外部访问基础 URL，用于 OAuth callback
  * @param sessionCookieSecure   是否给 session cookie 添加 Secure
  * @param sessionTtlHours       session 有效小时数
+ * @param httpProxyHost         OAuth 出站请求的 HTTP 代理主机，缺省时为 null（直连）
+ * @param httpProxyPort         OAuth 出站请求的 HTTP 代理端口，缺省时为 0
  * @param httpPort              HTTP 监听端口
  * @param dbPath                SQLite 数据库文件路径
  * @param attachmentsDir        附件落盘根目录
@@ -50,8 +52,11 @@ public record AppConfig(
         String linuxdoNameField,
         String linuxdoAvatarField,
         String publicBaseUrl,
+        String frontendUrl,
         boolean sessionCookieSecure,
         int sessionTtlHours,
+        String httpProxyHost,
+        int httpProxyPort,
         int httpPort,
         String dbPath,
         String attachmentsDir) {
@@ -96,6 +101,9 @@ public record AppConfig(
         String linuxdoNameField = nullableStrip(config.get("MAILDOCK_LINUXDO_NAME_FIELD"));
         String linuxdoAvatarField = nullableStrip(config.get("MAILDOCK_LINUXDO_AVATAR_FIELD"));
         String publicBaseUrl = nullableStrip(config.get("MAILDOCK_PUBLIC_BASE_URL"));
+        String frontendUrl = orDefault(config.get("MAILDOCK_FRONTEND_URL"), "/");
+        String httpProxyHost = nullableStrip(config.get("MAILDOCK_HTTP_PROXY_HOST"));
+        int httpProxyPort = parsePositiveInt(config.get("MAILDOCK_HTTP_PROXY_PORT"), 0);
         boolean sessionCookieSecure = "true".equalsIgnoreCase(nullableStrip(config.get("MAILDOCK_SESSION_COOKIE_SECURE")));
         int sessionTtlHours = parsePositiveInt(config.get("MAILDOCK_SESSION_TTL_HOURS"), DEFAULT_SESSION_TTL_HOURS);
         int httpPort = parsePort(config.get("MAILDOCK_HTTP_PORT"));
@@ -117,8 +125,11 @@ public record AppConfig(
                 linuxdoNameField,
                 linuxdoAvatarField,
                 publicBaseUrl,
+                frontendUrl,
                 sessionCookieSecure,
                 sessionTtlHours,
+                httpProxyHost,
+                httpProxyPort,
                 httpPort,
                 dbPath,
                 attachmentsDir);
