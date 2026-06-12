@@ -106,8 +106,7 @@ describe('App', () => {
     await waitFor(() => expect(api.me).toHaveBeenCalled());
     expect((await screen.findAllByText('owner@163.com')).length).toBeGreaterThan(0);
     // 用户名移入头像下拉，展开后可见
-    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
-    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
   });
 
   it('登录成功后进入账号列表', async () => {

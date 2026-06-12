@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { UserCircle, LogOut } from 'lucide-react';
+import { UserCircle, Mail, LogOut, ChevronDown } from 'lucide-react';
 import type { CurrentUser } from '../api/client';
 
 interface UserMenuProps {
@@ -9,6 +9,8 @@ interface UserMenuProps {
   onOpenProfile: () => void;
   /** 退出登录。 */
   onLogout: () => void;
+  /** 进入邮件列表（可选；未提供时该菜单项仅关闭菜单不报错。实际由 Header/App 传入“返回账号列表”回调）。 */
+  onOpenMailList?: () => void;
 }
 
 /** 取头像首字母：优先显示名，其次邮箱，再退化为 ?。 */
@@ -18,11 +20,11 @@ function initial(user: CurrentUser): string {
 }
 
 /**
- * 右上角用户头像 + 下拉菜单。
- * 头像有 avatarUrl 时显示图片，否则显示首字母方块。
- * 下拉菜单含用户名/邮箱与菜单项：个人资料、修改密码、退出登录。
+ * 右上角用户菜单：触发按钮显示头像 + 用户名 + 箭头。
+ * 展开后富信息头部（大头像 + 用户名 + 邮箱）+ 三个菜单项。
+ * 对齐 design-prototype.html section-1。
  */
-export function UserMenu({ user, onOpenProfile, onLogout }: UserMenuProps) {
+export function UserMenu({ user, onOpenProfile, onLogout, onOpenMailList }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -48,54 +50,105 @@ export function UserMenu({ user, onOpenProfile, onLogout }: UserMenuProps) {
   const name = user.displayName || user.primaryEmail || 'MailDock 用户';
 
   return (
-    <div className="user-menu" ref={rootRef}>
+    <div className="relative" ref={rootRef}>
+      {/* 触发按钮 */}
       <button
         type="button"
-        className="user-avatar"
+        className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 transition hover:border-slate-300 hover:shadow-sm"
         aria-label="用户菜单"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
         {user.avatarUrl ? (
-          <img src={user.avatarUrl} alt="" className="user-avatar-img" />
+          <img
+            src={user.avatarUrl}
+            alt=""
+            className="h-7 w-7 rounded-full object-cover ring-2 ring-white"
+          />
         ) : (
-          <span aria-hidden="true">{initial(user)}</span>
+          <span
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-slate-400 to-slate-500 text-xs font-semibold text-white"
+            aria-hidden="true"
+          >
+            {initial(user)}
+          </span>
         )}
+        <span className="max-w-[10rem] truncate text-sm font-medium text-slate-700">{name}</span>
+        <ChevronDown className="h-4 w-4 text-slate-400" aria-hidden="true" />
       </button>
 
+      {/* 下拉菜单 */}
       {open && (
-        <div className="user-dropdown animate-slide-down" role="menu">
-          <div className="user-dropdown-head">
-            <span className="user-dropdown-name">{name}</span>
-            {user.primaryEmail && (
-              <span className="user-dropdown-email">{user.primaryEmail}</span>
-            )}
+        <div
+          className="absolute right-0 top-full z-30 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-300/50 animate-slide-down"
+          role="menu"
+        >
+          {/* 富信息头部 */}
+          <div className="border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4">
+            <div className="flex items-center gap-3">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt=""
+                  className="h-12 w-12 rounded-full object-cover ring-2 ring-white shadow-md"
+                />
+              ) : (
+                <span
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-slate-400 to-slate-500 text-lg font-semibold text-white shadow-md"
+                  aria-hidden="true"
+                >
+                  {initial(user)}
+                </span>
+              )}
+              <div className="flex-1 overflow-hidden">
+                <div className="truncate font-semibold text-slate-800">{name}</div>
+                {user.primaryEmail && (
+                  <div className="truncate text-xs text-slate-500">{user.primaryEmail}</div>
+                )}
+              </div>
+            </div>
           </div>
-          <button
-            type="button"
-            className="user-dropdown-item"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onOpenProfile();
-            }}
-          >
-            <UserCircle className="user-dropdown-icon" aria-hidden="true" />
-            个人中心
-          </button>
-          <button
-            type="button"
-            className="user-dropdown-item user-dropdown-item-danger"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onLogout();
-            }}
-          >
-            <LogOut className="user-dropdown-icon" aria-hidden="true" />
-            退出登录
-          </button>
+
+          {/* 菜单项 */}
+          <div className="p-2">
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onOpenProfile();
+              }}
+            >
+              <UserCircle className="h-5 w-5 text-slate-400" aria-hidden="true" />
+              <span>个人中心</span>
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onOpenMailList?.();
+              }}
+            >
+              <Mail className="h-5 w-5 text-slate-400" aria-hidden="true" />
+              <span>邮件列表</span>
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-rose-600 transition hover:bg-rose-50"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onLogout();
+              }}
+            >
+              <LogOut className="h-5 w-5" aria-hidden="true" />
+              <span>退出登录</span>
+            </button>
+          </div>
         </div>
       )}
     </div>

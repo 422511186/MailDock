@@ -76,6 +76,7 @@ export function App({ api }: AppProps) {
           user={view.user}
           onOpenProfile={() => setView({ name: 'profile', user: view.user })}
           onLogout={() => void handleLogout()}
+          onOpenMailList={() => setView({ name: 'accounts', user: view.user })}
         />
         <AccountsPage
           api={api}
@@ -92,6 +93,7 @@ export function App({ api }: AppProps) {
           user={view.user}
           onOpenProfile={() => setView({ name: 'profile', user: view.user })}
           onLogout={() => void handleLogout()}
+          onOpenMailList={() => setView({ name: 'accounts', user: view.user })}
         />
         <ProfilePage
           api={api}
@@ -110,6 +112,7 @@ export function App({ api }: AppProps) {
           user={view.user}
           onOpenProfile={() => setView({ name: 'profile', user: view.user })}
           onLogout={() => void handleLogout()}
+          onOpenMailList={() => setView({ name: 'accounts', user: view.user })}
         />
         <MailListPage
           api={api}
@@ -130,6 +133,7 @@ export function App({ api }: AppProps) {
         user={view.user}
         onOpenProfile={() => setView({ name: 'profile', user: view.user })}
         onLogout={() => void handleLogout()}
+        onOpenMailList={() => setView({ name: 'accounts', user: view.user })}
       />
       <MailDetailPage
         api={api}
