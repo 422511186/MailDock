@@ -70,6 +70,19 @@ public final class IdentityRepository {
         }
     }
 
+    public Optional<UserIdentity> findByUserAndProvider(long userId, String provider) {
+        String sql = "SELECT * FROM user_identity WHERE user_id = ? AND provider = ?";
+        try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+            ps.setLong(1, userId);
+            ps.setString(2, provider);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(map(rs)) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("按 user/provider 查询用户身份失败: " + userId + "/" + provider, e);
+        }
+    }
+
     public void updateSecretHash(long id, String secretHash) {
         db.runWrite(() -> {
             String sql = "UPDATE user_identity SET secret_hash = ?, updated_at = ? WHERE id = ?";

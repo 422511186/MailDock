@@ -62,4 +62,23 @@ class IdentityRepositoryTest {
 
         assertEquals("new", identityRepo.findById(identity.id()).orElseThrow().secretHash());
     }
+
+    @Test
+    void findByUserAndProviderReturnsMatchingIdentity() {
+        User user = userRepo.insert("alice@example.com", "Alice", null);
+        identityRepo.insert(user.id(), "email_password", "alice@example.com", "hash-1");
+
+        UserIdentity found = identityRepo.findByUserAndProvider(user.id(), "email_password").orElseThrow();
+
+        assertEquals("email_password", found.provider());
+        assertEquals("hash-1", found.secretHash());
+    }
+
+    @Test
+    void findByUserAndProviderReturnsEmptyWhenNoSuchProvider() {
+        User user = userRepo.insert("bob@example.com", "Bob", null);
+        identityRepo.insert(user.id(), "linuxdo", "42", null);
+
+        assertTrue(identityRepo.findByUserAndProvider(user.id(), "email_password").isEmpty());
+    }
 }
