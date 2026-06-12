@@ -173,6 +173,77 @@ describe('AccountsPage', () => {
     });
   });
 
+  it('点击表头全选框选中当前页全部账号', async () => {
+    // 点击表头「全选」应选中当前页所有账号，批量测活按钮显示对应数量
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(
+        paged([
+          account({ id: 1, email: 'a@163.com' }),
+          account({ id: 2, email: 'b@163.com' }),
+          account({ id: 3, email: 'c@163.com' }),
+        ]),
+      ),
+    });
+
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('a@163.com');
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '全选' }));
+
+    expect(await screen.findByRole('button', { name: /批量测活 \(3\)/ })).toBeInTheDocument();
+  });
+
+  it('全选后再次点击表头全选框取消全选', async () => {
+    // 已全选时再次点击表头复选框应清空选中，批量操作按钮消失
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(
+        paged([
+          account({ id: 1, email: 'a@163.com' }),
+          account({ id: 2, email: 'b@163.com' }),
+        ]),
+      ),
+    });
+
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('a@163.com');
+
+    const selectAll = screen.getByRole('checkbox', { name: '全选' });
+    fireEvent.click(selectAll);
+    expect(await screen.findByRole('button', { name: /批量测活 \(2\)/ })).toBeInTheDocument();
+
+    fireEvent.click(selectAll);
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /批量测活/ })).not.toBeInTheDocument();
+    });
+  });
+
+  it('全选后取消某行选择时表头全选框变为未选中', async () => {
+    // 全选后取消其中一个账号，表头全选框应不再处于选中(aria-checked)状态
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(
+        paged([
+          account({ id: 1, email: 'a@163.com' }),
+          account({ id: 2, email: 'b@163.com' }),
+        ]),
+      ),
+    });
+
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('a@163.com');
+
+    const selectAll = screen.getByRole('checkbox', { name: '全选' });
+    fireEvent.click(selectAll);
+    expect(selectAll).toHaveAttribute('aria-checked', 'true');
+
+    // 取消第一行（桌面端表格）的选择
+    fireEvent.click(screen.getByRole('checkbox', { name: '选择 a@163.com' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('checkbox', { name: '全选' })).toHaveAttribute('aria-checked', 'false');
+    });
+    expect(await screen.findByRole('button', { name: /批量测活 \(1\)/ })).toBeInTheDocument();
+  });
+
   it('单个账号测活后刷新列表', async () => {
     // 点击某账号行的「测活」应调用 testConnection 并重新加载
     const api = stubApi({

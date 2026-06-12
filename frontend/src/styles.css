@@ -208,8 +208,13 @@
       transition disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm;
   }
 
-  button:not([class*="btn-"]):not([class*="link"]):not([class*="logout-btn"]):not([class*="brand-"]) {
+  button:not([class*="btn-"]):not([class*="link"]):not([class*="logout-btn"]):not([class*="brand-"]):not(.checkbox-btn) {
     @apply border-slate-200 bg-white text-slate-700 shadow-sm hover:border-brand-400 hover:text-brand-600;
+  }
+
+  /* 复选框按钮：排除全局 button 样式 */
+  .checkbox-btn {
+    all: unset;
   }
 
   .btn-primary {

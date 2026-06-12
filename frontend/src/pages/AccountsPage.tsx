@@ -177,6 +177,14 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
     );
   }
 
+  /** 当前页是否已全选（有账号且每个都在选中集合内）。 */
+  const allSelected = accounts.length > 0 && accounts.every(a => selectedIds.includes(a.id));
+
+  /** 切换全选：已全选则清空，否则选中当前页全部账号。 */
+  function toggleSelectAll() {
+    setSelectedIds(allSelected ? [] : accounts.map(a => a.id));
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
@@ -299,7 +307,52 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               <tr>
                 <th className="w-12 px-6 py-4">
                   <div className="flex items-center justify-center">
-                    <div className="h-4 w-4 rounded border-2 border-slate-300" />
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={allSelected}
+                      aria-label="全选"
+                      onClick={toggleSelectAll}
+                      className="checkbox-btn"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '18px',
+                        height: '18px',
+                        minWidth: '18px',
+                        minHeight: '18px',
+                        padding: 0,
+                        margin: 0,
+                        border: '2px solid',
+                        borderRadius: '4px',
+                        boxSizing: 'border-box',
+                        flexShrink: 0,
+                        transition: 'all 0.2s',
+                        backgroundColor: allSelected ? 'rgb(59, 130, 246)' : 'white',
+                        borderColor: allSelected ? 'rgb(59, 130, 246)' : 'rgb(203, 213, 225)',
+                        boxShadow: allSelected ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' : 'none'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!allSelected) e.currentTarget.style.borderColor = 'rgb(96, 165, 250)';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!allSelected) e.currentTarget.style.borderColor = 'rgb(203, 213, 225)';
+                      }}
+                    >
+                      <svg
+                        className={`text-white transition-all duration-200 ${
+                          allSelected ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
+                        }`}
+                        style={{ width: '12px', height: '12px' }}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3.5}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
                   </div>
                 </th>
                 <th className="px-6 py-4">邮箱</th>
@@ -327,24 +380,52 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                     <tr key={a.id} className="hover:bg-slate-50/50 transition">
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center">
-                          <div
-                            className="cursor-pointer"
+                          <button
+                            type="button"
+                            role="checkbox"
+                            aria-checked={isSelected}
+                            aria-label={`选择 ${a.email}`}
                             onClick={() => toggleSelect(a.id)}
+                            className="checkbox-btn"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '18px',
+                              height: '18px',
+                              minWidth: '18px',
+                              minHeight: '18px',
+                              padding: 0,
+                              margin: 0,
+                              border: '2px solid',
+                              borderRadius: '4px',
+                              boxSizing: 'border-box',
+                              flexShrink: 0,
+                              transition: 'all 0.2s',
+                              backgroundColor: isSelected ? 'rgb(59, 130, 246)' : 'white',
+                              borderColor: isSelected ? 'rgb(59, 130, 246)' : 'rgb(203, 213, 225)',
+                              boxShadow: isSelected ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' : 'none'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isSelected) e.currentTarget.style.borderColor = 'rgb(96, 165, 250)';
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isSelected) e.currentTarget.style.borderColor = 'rgb(203, 213, 225)';
+                            }}
                           >
-                            <div
-                              className={`flex h-4 w-4 items-center justify-center rounded border-2 transition ${
-                                isSelected
-                                  ? 'border-brand-500 bg-brand-500'
-                                  : 'border-slate-300 hover:border-brand-400'
+                            <svg
+                              className={`text-white transition-all duration-200 ${
+                                isSelected ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
                               }`}
+                              style={{ width: '12px', height: '12px' }}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={3.5}
                             >
-                              {isSelected && (
-                                <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </div>
-                          </div>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
                         </div>
                       </td>
                       <td className="px-6 py-4">
