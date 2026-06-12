@@ -3,9 +3,11 @@ package com.maildock.web;
 import com.maildock.model.Account;
 import com.maildock.model.Attachment;
 import com.maildock.model.Message;
+import com.maildock.model.User;
 import com.maildock.repository.AccountRepository;
 import com.maildock.service.AccountService;
 import com.maildock.service.AuthService;
+import com.maildock.service.LinuxDoOAuthService;
 import com.maildock.service.MailQueryService;
 import com.maildock.service.MailSyncService;
 import io.vertx.core.Vertx;
@@ -15,13 +17,14 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 
+import java.time.Duration;
 import java.util.Optional;
 
 /**
  * 构建 REST API 的路由表。把路由构建逻辑独立出来，便于测试注入各 service 并用 WebClient 直接打路由。
  *
- * <p>所有接口前缀 {@code /api}。除 {@code /api/auth/login} 外，{@code /api} 下的路由都需要
- * 校验管理员会话 Token（请求头 {@code Authorization: Bearer <token>}）。
+ * <p>所有接口前缀 {@code /api/v1}。除登录与 OAuth 入口外，{@code /api/v1} 下的路由都需要
+ * 校验 HttpOnly Cookie Session。
  *
  * <p>阻塞操作（IMAP 收取、JDBC、磁盘 I/O）通过 {@link Vertx#executeBlocking} 隔离，
  * 不在事件循环线程上直接执行。所有阻塞任务都以 {@code ordered=false} 提交，进 worker 池并行执行，
@@ -32,23 +35,45 @@ public final class ApiRouter {
 
     /** API 路径前缀（含版本号）。所有 REST 接口都挂在该前缀下，便于后续版本演进。 */
     public static final String API = "/api/v1";
+    private static final String SESSION_COOKIE = "maildock_session";
 
     private final Vertx vertx;
     private final AuthService authService;
+    private final LinuxDoOAuthService linuxDoOAuthService;
     private final AccountService accountService;
     private final MailSyncService mailSyncService;
     private final MailQueryService mailQueryService;
+    private final boolean sessionCookieSecure;
+    private final long sessionMaxAgeSeconds;
+    private final String frontendUrl;
 
     public ApiRouter(Vertx vertx,
                      AuthService authService,
                      AccountService accountService,
                      MailSyncService mailSyncService,
                      MailQueryService mailQueryService) {
+        this(vertx, authService, null, accountService, mailSyncService, mailQueryService,
+                false, Duration.ofHours(24), "/");
+    }
+
+    public ApiRouter(Vertx vertx,
+                     AuthService authService,
+                     LinuxDoOAuthService linuxDoOAuthService,
+                     AccountService accountService,
+                     MailSyncService mailSyncService,
+                     MailQueryService mailQueryService,
+                     boolean sessionCookieSecure,
+                     Duration sessionTtl,
+                     String frontendUrl) {
         this.vertx = vertx;
         this.authService = authService;
+        this.linuxDoOAuthService = linuxDoOAuthService;
         this.accountService = accountService;
         this.mailSyncService = mailSyncService;
         this.mailQueryService = mailQueryService;
+        this.sessionCookieSecure = sessionCookieSecure;
+        this.sessionMaxAgeSeconds = Math.max(1, sessionTtl.toSeconds());
+        this.frontendUrl = (frontendUrl == null || frontendUrl.isBlank()) ? "/" : frontendUrl;
     }
 
     /** 构建并返回配置好的 Router。 */
@@ -56,13 +81,16 @@ public final class ApiRouter {
         Router router = Router.router(vertx);
         router.route().handler(BodyHandler.create());
 
-        // 认证路由（无需 Token）
+        // 认证路由（无需 Session）
         router.post(API + "/auth/login").handler(this::handleLogin);
+        router.get(API + "/auth/linuxdo/start").handler(this::handleLinuxdoStart);
+        router.get(API + "/auth/linuxdo/callback").handler(this::handleLinuxdoCallback);
 
-        // Token 鉴权中间件：保护该前缀下除登录外的所有路由
+        // Cookie Session 鉴权中间件：保护该前缀下除登录 / OAuth 入口外的所有路由
         router.route(API + "/*").handler(this::authMiddleware);
 
-        // 登出（需已登录）
+        // 当前用户与登出（需已登录）
+        router.get(API + "/auth/me").handler(this::handleMe);
         router.post(API + "/auth/logout").handler(this::handleLogout);
 
         registerAccountRoutes(router);
@@ -75,44 +103,108 @@ public final class ApiRouter {
 
     // ===== 认证 =====
 
-    /** 管理员登录：校验用户名密码，成功返回 Token。 */
+    /** 邮箱密码登录：校验凭据，成功设置 Session Cookie 并返回当前用户。 */
     private void handleLogin(RoutingContext ctx) {
         JsonObject body = bodyAsJson(ctx);
-        String username = body.getString("username");
+        String email = body.getString("email");
+        if (isBlank(email)) {
+            email = body.getString("username");
+        }
         String password = body.getString("password");
-        if (isBlank(username) || isBlank(password)) {
-            fail(ctx, 400, "用户名和密码不能为空");
+        if (isBlank(email) || isBlank(password)) {
+            fail(ctx, 400, "邮箱和密码不能为空");
             return;
         }
-        Optional<String> token = authService.login(username, password);
-        if (token.isEmpty()) {
-            fail(ctx, 401, "用户名或密码错误");
+        Optional<AuthService.LoginResult> login = authService.loginWithEmailPassword(email, password);
+        if (login.isEmpty()) {
+            fail(ctx, 401, "邮箱或密码错误");
             return;
         }
-        json(ctx, 200, new JsonObject().put("token", token.get()));
+        setSessionCookie(ctx, login.get().sessionToken());
+        json(ctx, 200, userJson(login.get().user()));
     }
 
-    /** 登出：撤销当前 Token。 */
+    /** linux.do OAuth 登录入口：生成 state / PKCE 后跳转到授权地址。 */
+    private void handleLinuxdoStart(RoutingContext ctx) {
+        if (linuxDoOAuthService == null) {
+            fail(ctx, 500, "linux.do OAuth 配置不完整");
+            return;
+        }
+        try {
+            LinuxDoOAuthService.StartResult start = linuxDoOAuthService.start();
+            ctx.response()
+                    .setStatusCode(302)
+                    .putHeader("Location", start.redirectUrl())
+                    .end();
+        } catch (Exception e) {
+            ctx.fail(e);
+        }
+    }
+
+    /** linux.do OAuth 回调：换取用户信息、签发 session，再回到前端首页。 */
+    private void handleLinuxdoCallback(RoutingContext ctx) {
+        if (linuxDoOAuthService == null) {
+            fail(ctx, 500, "linux.do OAuth 配置不完整");
+            return;
+        }
+        String code = ctx.request().getParam("code");
+        String state = ctx.request().getParam("state");
+        vertx.executeBlocking(() -> linuxDoOAuthService.callback(code, state), false)
+                .onComplete(ar -> {
+                    if (ar.failed()) {
+                        ctx.fail(ar.cause());
+                        return;
+                    }
+                    if (ar.result().isEmpty()) {
+                        fail(ctx, 400, "linux.do OAuth 登录失败");
+                        return;
+                    }
+                    AuthService.LoginResult login = ar.result().get();
+                    setSessionCookie(ctx, login.sessionToken());
+                    ctx.response()
+                            .setStatusCode(302)
+                            .putHeader("Location", frontendUrl)
+                            .end();
+                });
+    }
+
+    /** 返回当前登录用户摘要。 */
+    private void handleMe(RoutingContext ctx) {
+        User user = ctx.get("currentUser");
+        if (user == null) {
+            fail(ctx, 401, "未认证或 Session 无效");
+            return;
+        }
+        json(ctx, 200, userJson(user));
+    }
+
+    /** 登出：撤销当前 Session 并清理 Cookie。 */
     private void handleLogout(RoutingContext ctx) {
-        String token = bearerToken(ctx);
+        String token = sessionToken(ctx);
         if (token != null) {
             authService.logout(token);
         }
+        clearSessionCookie(ctx);
         ctx.response().setStatusCode(204).end();
     }
 
-    /** Token 鉴权中间件：登录接口放行，其余 /api 路由需有效 Token。 */
+    /** Cookie Session 鉴权中间件：登录与 OAuth 入口放行，其余 /api 路由需有效 Session。 */
     private void authMiddleware(RoutingContext ctx) {
-        // 登录接口无需鉴权
-        if (ctx.request().path().equals(API + "/auth/login")) {
+        String path = ctx.request().path();
+        if (path.equals(API + "/auth/login")
+                || path.equals(API + "/auth/linuxdo/start")
+                || path.equals(API + "/auth/linuxdo/callback")) {
             ctx.next();
             return;
         }
-        String token = bearerToken(ctx);
-        if (token == null || !authService.authenticated(token)) {
-            fail(ctx, 401, "未认证或 Token 无效");
+        String token = sessionToken(ctx);
+        Optional<User> user = authService.currentUser(token);
+        if (user.isEmpty()) {
+            fail(ctx, 401, "未认证或 Session 无效");
             return;
         }
+        ctx.put("currentUserId", user.get().id());
+        ctx.put("currentUser", user.get());
         ctx.next();
     }
 
@@ -136,7 +228,8 @@ public final class ApiRouter {
         String sortOrder = ctx.request().getParam("sortOrder");
         int page = parseIntOr(ctx.request().getParam("page"), 1);
         int size = parseIntOr(ctx.request().getParam("size"), 20);
-        vertx.executeBlocking(() -> accountService.queryAccounts(email, status, sortBy, sortOrder, page, size), false)
+        long userId = currentUserId(ctx);
+        vertx.executeBlocking(() -> accountService.queryAccounts(userId, email, status, sortBy, sortOrder, page, size), false)
                 .onComplete(ar -> {
                     if (ar.failed()) {
                         ctx.fail(ar.cause());
@@ -162,7 +255,8 @@ public final class ApiRouter {
             fail(ctx, 400, "邮箱和授权码不能为空");
             return;
         }
-        vertx.executeBlocking(() -> accountService.createAccount(email, authCode), false)
+        long userId = currentUserId(ctx);
+        vertx.executeBlocking(() -> accountService.createAccount(userId, email, authCode), false)
                 .onComplete(ar -> {
                     if (ar.failed()) {
                         ctx.fail(ar.cause());
@@ -175,10 +269,11 @@ public final class ApiRouter {
     /** 单个测活：返回 { ok, message }，并持久化测活状态。 */
     private void handleTestConnection(RoutingContext ctx) {
         long id = pathId(ctx);
-        vertx.executeBlocking(() -> accountService.testConnection(id), false)
+        long userId = currentUserId(ctx);
+        vertx.executeBlocking(() -> accountService.testConnection(userId, id), false)
                 .onComplete(ar -> {
                     if (ar.failed()) {
-                        ctx.fail(ar.cause());
+                        failFromThrowable(ctx, ar.cause());
                         return;
                     }
                     boolean ok = ar.result();
@@ -201,7 +296,8 @@ public final class ApiRouter {
                 ids.add(idsArr.getLong(i));
             }
         }
-        vertx.executeBlocking(() -> accountService.testBatch(ids), false)
+        long userId = currentUserId(ctx);
+        vertx.executeBlocking(() -> accountService.testBatch(userId, ids), false)
                 .onComplete(ar -> {
                     if (ar.failed()) {
                         ctx.fail(ar.cause());
@@ -229,7 +325,8 @@ public final class ApiRouter {
         boolean test = "true".equalsIgnoreCase(ctx.request().getParam("test"));
         boolean overwrite = "true".equalsIgnoreCase(ctx.request().getParam("overwrite"));
         final String content = text;
-        vertx.executeBlocking(() -> accountService.importFromText(content, test, overwrite), false)
+        long userId = currentUserId(ctx);
+        vertx.executeBlocking(() -> accountService.importFromText(userId, content, test, overwrite), false)
                 .onComplete(ar -> {
                     if (ar.failed()) {
                         ctx.fail(ar.cause());
@@ -255,12 +352,13 @@ public final class ApiRouter {
     /** 删除账号：级联清理邮件 / 附件，返回 204。 */
     private void handleDeleteAccount(RoutingContext ctx) {
         long id = pathId(ctx);
+        long userId = currentUserId(ctx);
         vertx.executeBlocking(() -> {
-            accountService.deleteAccount(id);
+            accountService.deleteAccount(userId, id);
             return null;
         }, false).onComplete(ar -> {
             if (ar.failed()) {
-                ctx.fail(ar.cause());
+                failFromThrowable(ctx, ar.cause());
                 return;
             }
             ctx.response().setStatusCode(204).end();
@@ -279,7 +377,8 @@ public final class ApiRouter {
         for (int i = 0; i < idsArr.size(); i++) {
             ids.add(idsArr.getLong(i));
         }
-        vertx.executeBlocking(() -> accountService.deleteBatch(ids), false)
+        long userId = currentUserId(ctx);
+        vertx.executeBlocking(() -> accountService.deleteBatch(userId, ids), false)
                 .onComplete(ar -> {
                     if (ar.failed()) {
                         ctx.fail(ar.cause());
@@ -316,10 +415,11 @@ public final class ApiRouter {
     /** 刷新某账号：触发增量同步，返回 { newCount, syncedAt }。 */
     private void handleRefresh(RoutingContext ctx) {
         long id = pathId(ctx);
-        vertx.executeBlocking(() -> mailSyncService.refresh(id), false)
+        long userId = currentUserId(ctx);
+        vertx.executeBlocking(() -> mailSyncService.refresh(userId, id), false)
                 .onComplete(ar -> {
                     if (ar.failed()) {
-                        ctx.fail(ar.cause());
+                        failFromThrowable(ctx, ar.cause());
                         return;
                     }
                     json(ctx, 200, new JsonObject()
@@ -333,7 +433,8 @@ public final class ApiRouter {
         long id = pathId(ctx);
         int page = parseIntOr(ctx.request().getParam("page"), 1);
         int size = parseIntOr(ctx.request().getParam("size"), 20);
-        vertx.executeBlocking(() -> mailQueryService.list(id, page, size), false)
+        long userId = currentUserId(ctx);
+        vertx.executeBlocking(() -> mailQueryService.list(userId, id, page, size), false)
                 .onComplete(ar -> {
                     if (ar.failed()) {
                         ctx.fail(ar.cause());
@@ -353,7 +454,8 @@ public final class ApiRouter {
     /** 邮件详情：返回正文与附件列表，不存在返回 404。 */
     private void handleMessageDetail(RoutingContext ctx) {
         long id = pathId(ctx);
-        vertx.executeBlocking(() -> mailQueryService.getDetail(id), false)
+        long userId = currentUserId(ctx);
+        vertx.executeBlocking(() -> mailQueryService.getDetail(userId, id), false)
                 .onComplete(ar -> {
                     if (ar.failed()) {
                         ctx.fail(ar.cause());
@@ -372,10 +474,11 @@ public final class ApiRouter {
     private void handleDownloadAttachment(RoutingContext ctx) {
         long messageId = pathId(ctx);
         long attId = parseIntOr(ctx.pathParam("attId"), -1);
-        vertx.executeBlocking(() -> mailQueryService.loadAttachment(messageId, attId), false)
+        long userId = currentUserId(ctx);
+        vertx.executeBlocking(() -> mailQueryService.loadAttachment(userId, messageId, attId), false)
                 .onComplete(ar -> {
                     if (ar.failed()) {
-                        ctx.fail(ar.cause());
+                        failFromThrowable(ctx, ar.cause());
                         return;
                     }
                     ctx.response()
@@ -390,12 +493,13 @@ public final class ApiRouter {
         long id = pathId(ctx);
         JsonObject body = bodyAsJson(ctx);
         boolean read = body.getBoolean("read", true);
+        long userId = currentUserId(ctx);
         vertx.executeBlocking(() -> {
-            mailQueryService.markRead(id, read);
+            mailQueryService.markRead(userId, id, read);
             return null;
         }, false).onComplete(ar -> {
             if (ar.failed()) {
-                ctx.fail(ar.cause());
+                failFromThrowable(ctx, ar.cause());
                 return;
             }
             json(ctx, 200, new JsonObject().put("id", id).put("read", read));
@@ -448,14 +552,60 @@ public final class ApiRouter {
 
     // ===== 辅助方法 =====
 
-    /** 从 Authorization 头中提取 Bearer Token，无则返回 null。 */
-    private String bearerToken(RoutingContext ctx) {
-        String header = ctx.request().getHeader("Authorization");
-        if (header == null || !header.startsWith("Bearer ")) {
+    /** 从 Cookie 头中提取 session token，无则返回 null。 */
+    private String sessionToken(RoutingContext ctx) {
+        String header = ctx.request().getHeader("Cookie");
+        if (header == null || header.isBlank()) {
             return null;
         }
-        String token = header.substring("Bearer ".length()).strip();
-        return token.isEmpty() ? null : token;
+        String[] parts = header.split(";");
+        for (String part : parts) {
+            String cookie = part.strip();
+            String prefix = SESSION_COOKIE + "=";
+            if (cookie.startsWith(prefix)) {
+                String token = cookie.substring(prefix.length()).strip();
+                return token.isEmpty() ? null : token;
+            }
+        }
+        return null;
+    }
+
+    private void setSessionCookie(RoutingContext ctx, String token) {
+        ctx.response().putHeader("Set-Cookie", sessionCookieValue(token, sessionMaxAgeSeconds));
+    }
+
+    private void clearSessionCookie(RoutingContext ctx) {
+        ctx.response().putHeader("Set-Cookie", sessionCookieValue("", 0));
+    }
+
+    private String sessionCookieValue(String token, long maxAgeSeconds) {
+        StringBuilder cookie = new StringBuilder()
+                .append(SESSION_COOKIE).append("=").append(token == null ? "" : token)
+                .append("; Path=/")
+                .append("; Max-Age=").append(maxAgeSeconds)
+                .append("; HttpOnly")
+                .append("; SameSite=Lax");
+        if (sessionCookieSecure) {
+            cookie.append("; Secure");
+        }
+        return cookie.toString();
+    }
+
+    private long currentUserId(RoutingContext ctx) {
+        Long userId = ctx.get("currentUserId");
+        if (userId == null) {
+            throw new IllegalStateException("当前用户不存在");
+        }
+        return userId;
+    }
+
+    private JsonObject userJson(User user) {
+        return new JsonObject()
+                .put("id", user.id())
+                .put("primaryEmail", user.primaryEmail())
+                .put("displayName", user.displayName())
+                .put("avatarUrl", user.avatarUrl())
+                .put("lastLoginAt", user.lastLoginAt());
     }
 
     /** 安全地读取请求体为 JSON，无体时返回空对象。 */
@@ -479,6 +629,19 @@ public final class ApiRouter {
     /** 以错误状态码结束请求，响应体为统一的 JSON 错误结构。 */
     private void fail(RoutingContext ctx, int status, String message) {
         json(ctx, status, new JsonObject().put("error", status).put("message", message));
+    }
+
+    private void failFromThrowable(RoutingContext ctx, Throwable cause) {
+        if (isNotFound(cause)) {
+            fail(ctx, 404, cause.getMessage());
+            return;
+        }
+        ctx.fail(cause);
+    }
+
+    private boolean isNotFound(Throwable t) {
+        String message = t != null ? t.getMessage() : null;
+        return message != null && (message.contains("不存在") || message.contains("不属于"));
     }
 
     /** 全局异常处理：未被业务捕获的异常映射为 500。 */

@@ -1,7 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { App } from './App';
-import type { Account, MessageDetail, MessageSummary } from './api/client';
+import type { Account, CurrentUser, MessageDetail, MessageSummary } from './api/client';
+
+/** 构造当前用户。 */
+function user(overrides: Partial<CurrentUser> = {}): CurrentUser {
+  return {
+    id: 1,
+    primaryEmail: 'alice@example.com',
+    displayName: 'Alice',
+    avatarUrl: null,
+    ...overrides,
+  };
+}
 
 /** 构造账号。 */
 function account(overrides: Partial<Account> = {}): Account {
@@ -60,9 +71,10 @@ function detail(overrides: Partial<MessageDetail> = {}): MessageDetail {
 /** 构造一个最小可用的 API 客户端桩。 */
 function stubApi(overrides: Record<string, unknown> = {}) {
   return {
-    getToken: vi.fn().mockReturnValue(null),
-    login: vi.fn().mockResolvedValue('tok'),
+    me: vi.fn().mockResolvedValue(user()),
+    login: vi.fn().mockResolvedValue(user()),
     logout: vi.fn().mockResolvedValue(undefined),
+    linuxDoLoginUrl: vi.fn().mockReturnValue('/api/v1/auth/linuxdo/start'),
     listAccounts: vi.fn().mockResolvedValue({ total: 1, items: [account()] }),
     listMessages: vi.fn().mockResolvedValue({ total: 1, items: [summary({ subject: '一封邮件' })] }),
     refresh: vi.fn().mockResolvedValue({ newCount: 0, syncedAt: 0 }),
@@ -76,39 +88,38 @@ function stubApi(overrides: Record<string, unknown> = {}) {
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.clear();
   });
 
-  it('未登录时展示登录页', () => {
-    // 无 token 应显示登录界面
-    const api = stubApi();
+  it('auth me 失败时展示登录页', async () => {
+    const api = stubApi({ me: vi.fn().mockRejectedValue(new Error('未登录')) });
     render(<App api={api as never} />);
-    expect(screen.getByRole('button', { name: '登录' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '登录' })).toBeInTheDocument();
   });
 
-  it('已有 token 时直接进入账号列表', async () => {
-    // 已登录应跳过登录页，展示账号列表
-    const api = stubApi({ getToken: vi.fn().mockReturnValue('tok') });
+  it('auth me 成功时直接进入账号列表', async () => {
+    const api = stubApi({ me: vi.fn().mockResolvedValue(user()) });
     render(<App api={api as never} />);
+
+    await waitFor(() => expect(api.me).toHaveBeenCalled());
     expect((await screen.findAllByText('owner@163.com')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Alice')).toBeInTheDocument();
   });
 
   it('登录成功后进入账号列表', async () => {
-    // 提交登录后应调用 api.login 并展示账号列表
-    const api = stubApi();
+    const api = stubApi({ me: vi.fn().mockRejectedValue(new Error('未登录')) });
     render(<App api={api as never} />);
 
-    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'admin' } });
+    fireEvent.change(await screen.findByLabelText('邮箱'), { target: { value: 'alice@example.com' } });
     fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'pw' } });
     fireEvent.click(screen.getByRole('button', { name: '登录' }));
 
     expect((await screen.findAllByText('owner@163.com')).length).toBeGreaterThan(0);
-    expect(api.login).toHaveBeenCalledWith('admin', 'pw');
+    expect(api.login).toHaveBeenCalledWith('alice@example.com', 'pw');
   });
 
   it('点击账号进入邮件列表，再点击邮件进入详情，并能逐级返回', async () => {
     // 账号列表 -> 邮件列表 -> 邮件详情 -> 返回邮件列表 -> 返回账号列表
-    const api = stubApi({ getToken: vi.fn().mockReturnValue('tok') });
+    const api = stubApi();
     render(<App api={api as never} />);
 
     // 进入邮件列表
@@ -131,7 +142,7 @@ describe('App', () => {
 
   it('点击登出回到登录页', async () => {
     // 登出后清空状态并返回登录页
-    const api = stubApi({ getToken: vi.fn().mockReturnValue('tok') });
+    const api = stubApi();
     render(<App api={api as never} />);
     await screen.findAllByText('owner@163.com');
 

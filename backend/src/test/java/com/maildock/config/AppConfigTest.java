@@ -44,61 +44,112 @@ class AppConfigTest {
         // 可选配置缺省时使用默认值
         AppConfig config = AppConfig.from(baseEnv());
 
-        assertEquals("admin", config.adminUser());
         assertEquals(8080, config.httpPort());
         assertTrue(config.dbPath().endsWith("maildock.db"), "默认数据库路径应指向 maildock.db");
         assertTrue(config.attachmentsDir().endsWith("attachments"), "默认附件目录应为 attachments");
-        assertNotNull(config.adminPassword());
-        assertFalse(config.adminPassword().isBlank(), "默认管理员密码不应为空");
+        assertNull(config.defaultEmail());
+        assertNull(config.defaultPassword());
+        assertFalse(config.sessionCookieSecure());
+        assertEquals(24, config.sessionTtlHours());
+        assertEquals("/", config.frontendUrl());
     }
 
     @Test
-    void generatesRandomPasswordWhenAbsent() {
-        // 未提供管理员密码时，自动生成一个随机密码并标记为已生成
-        AppConfig config = AppConfig.from(baseEnv());
-
-        assertTrue(config.passwordGenerated(), "缺省密码应标记为自动生成");
-        assertTrue(config.adminPassword().length() >= 12, "随机密码应有足够长度");
-    }
-
-    @Test
-    void randomPasswordDiffersBetweenRuns() {
-        // 每次生成的随机密码应不同
-        String p1 = AppConfig.from(baseEnv()).adminPassword();
-        String p2 = AppConfig.from(baseEnv()).adminPassword();
-
-        assertNotEquals(p1, p2, "两次自动生成的密码应不同");
-    }
-
-    @Test
-    void providedPasswordIsNotMarkedGenerated() {
-        // 显式提供密码时不标记为自动生成
+    void parsesFrontendUrl() {
+        // OAuth 回调后重定向到此地址；前后端分离开发时指向前端开发服务器
         Map<String, String> env = baseEnv();
-        env.put("MAILDOCK_ADMIN_PASS", "s3cret");
+        env.put("MAILDOCK_FRONTEND_URL", "http://localhost:5173/");
 
         AppConfig config = AppConfig.from(env);
 
-        assertFalse(config.passwordGenerated(), "显式密码不应标记为自动生成");
-        assertEquals("s3cret", config.adminPassword());
+        assertEquals("http://localhost:5173/", config.frontendUrl());
+    }
+
+    @Test
+    void parsesDefaultUserOauthAndSessionConfig() {
+        Map<String, String> env = baseEnv();
+        env.put("MAILDOCK_DEFAULT_EMAIL", "Admin@Example.COM ");
+        env.put("MAILDOCK_DEFAULT_PASSWORD", "secret");
+        env.put("MAILDOCK_LINUXDO_CLIENT_ID", "cid");
+        env.put("MAILDOCK_LINUXDO_CLIENT_SECRET", "csecret");
+        env.put("MAILDOCK_LINUXDO_AUTH_URL", "https://connect.linux.do/oauth2/authorize");
+        env.put("MAILDOCK_LINUXDO_TOKEN_URL", "https://connect.linux.do/oauth2/token");
+        env.put("MAILDOCK_LINUXDO_USERINFO_URL", "https://connect.linux.do/api/user");
+        env.put("MAILDOCK_LINUXDO_SCOPE", "read");
+        env.put("MAILDOCK_LINUXDO_USER_ID_FIELD", "id");
+        env.put("MAILDOCK_LINUXDO_EMAIL_FIELD", "email");
+        env.put("MAILDOCK_LINUXDO_NAME_FIELD", "username");
+        env.put("MAILDOCK_LINUXDO_AVATAR_FIELD", "avatar_url");
+        env.put("MAILDOCK_PUBLIC_BASE_URL", "https://maildock.example");
+        env.put("MAILDOCK_SESSION_COOKIE_SECURE", "true");
+        env.put("MAILDOCK_SESSION_TTL_HOURS", "12");
+
+        AppConfig config = AppConfig.from(env);
+
+        assertEquals("Admin@Example.COM", config.defaultEmail());
+        assertEquals("secret", config.defaultPassword());
+        assertEquals("cid", config.linuxdoClientId());
+        assertEquals("csecret", config.linuxdoClientSecret());
+        assertEquals("https://connect.linux.do/oauth2/authorize", config.linuxdoAuthUrl());
+        assertEquals("https://connect.linux.do/oauth2/token", config.linuxdoTokenUrl());
+        assertEquals("https://connect.linux.do/api/user", config.linuxdoUserinfoUrl());
+        assertEquals("read", config.linuxdoScope());
+        assertEquals("id", config.linuxdoUserIdField());
+        assertEquals("email", config.linuxdoEmailField());
+        assertEquals("username", config.linuxdoNameField());
+        assertEquals("avatar_url", config.linuxdoAvatarField());
+        assertEquals("https://maildock.example", config.publicBaseUrl());
+        assertTrue(config.sessionCookieSecure());
+        assertEquals(12, config.sessionTtlHours());
+    }
+
+    @Test
+    void missingDefaultUserDoesNotGeneratePassword() {
+        AppConfig config = AppConfig.from(baseEnv());
+
+        assertNull(config.defaultEmail());
+        assertNull(config.defaultPassword());
+    }
+
+    @Test
+    void blankDefaultUserDoesNotGeneratePassword() {
+        Map<String, String> env = baseEnv();
+        env.put("MAILDOCK_DEFAULT_EMAIL", " ");
+        env.put("MAILDOCK_DEFAULT_PASSWORD", " ");
+
+        AppConfig config = AppConfig.from(env);
+
+        assertNull(config.defaultEmail());
+        assertNull(config.defaultPassword());
     }
 
     @Test
     void overridesOptionalValuesFromEnv() {
         // 环境变量覆盖可选配置
         Map<String, String> env = baseEnv();
-        env.put("MAILDOCK_ADMIN_USER", "root");
-        env.put("MAILDOCK_ADMIN_PASS", "s3cret");
+        env.put("MAILDOCK_DEFAULT_EMAIL", "root@example.com");
+        env.put("MAILDOCK_DEFAULT_PASSWORD", "s3cret");
         env.put("MAILDOCK_HTTP_PORT", "9090");
         env.put("MAILDOCK_DB_PATH", "/tmp/custom.db");
         env.put("MAILDOCK_ATTACHMENTS_DIR", "/tmp/att");
 
         AppConfig config = AppConfig.from(env);
 
-        assertEquals("root", config.adminUser());
-        assertEquals("s3cret", config.adminPassword());
+        assertEquals("root@example.com", config.defaultEmail());
+        assertEquals("s3cret", config.defaultPassword());
         assertEquals(9090, config.httpPort());
         assertEquals("/tmp/custom.db", config.dbPath());
         assertEquals("/tmp/att", config.attachmentsDir());
+    }
+
+    @Test
+    void invalidSessionTtlFallsBackToDefault() {
+        Map<String, String> env = baseEnv();
+        env.put("MAILDOCK_SESSION_TTL_HOURS", "0");
+
+        AppConfig config = AppConfig.from(env);
+
+        assertEquals(24, config.sessionTtlHours());
     }
 
     @Test
@@ -110,5 +161,27 @@ class AppConfigTest {
         AppConfig config = AppConfig.from(env);
 
         assertEquals(8080, config.httpPort());
+    }
+
+    @Test
+    void parsesHttpProxyHostAndPort() {
+        // OAuth 出站请求可经 HTTP 代理，便于内网或需要代理才能访问 linux.do 的环境
+        Map<String, String> env = baseEnv();
+        env.put("MAILDOCK_HTTP_PROXY_HOST", "127.0.0.1");
+        env.put("MAILDOCK_HTTP_PROXY_PORT", "7890");
+
+        AppConfig config = AppConfig.from(env);
+
+        assertEquals("127.0.0.1", config.httpProxyHost());
+        assertEquals(7890, config.httpProxyPort());
+    }
+
+    @Test
+    void absentHttpProxyLeavesHostNull() {
+        // 未配置代理时直连，不应误启用代理
+        AppConfig config = AppConfig.from(baseEnv());
+
+        assertNull(config.httpProxyHost());
+        assertEquals(0, config.httpProxyPort());
     }
 }

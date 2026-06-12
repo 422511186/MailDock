@@ -71,10 +71,14 @@ public final class AccountService {
      * @param authCode 明文授权码
      * @return 创建后的账号
      */
+    public Account createAccount(long userId, String email, String authCode) {
+        String enc = crypto.encrypt(authCode);
+        return accountRepo.insert(userId, email, enc);
+    }
+
     public Account createAccount(String email, String authCode) {
         String enc = crypto.encrypt(authCode);
-        Account created = accountRepo.insert(email, enc);
-        return created;
+        return accountRepo.insert(email, enc);
     }
 
     /** 解密账号中存储的授权码，返回明文。 */
@@ -83,6 +87,10 @@ public final class AccountService {
     }
 
     /** 列出全部账号。 */
+    public List<Account> listAccounts(long userId) {
+        return accountRepo.listAll(userId);
+    }
+
     public List<Account> listAccounts() {
         return accountRepo.listAll();
     }
@@ -97,11 +105,19 @@ public final class AccountService {
      * @param page      页码，从 1 开始
      * @param size      每页条数
      */
+    public AccountRepository.PagedAccounts queryAccounts(long userId, String email, String status, String sortBy, String sortOrder, int page, int size) {
+        return accountRepo.query(userId, email, status, sortBy, sortOrder, page, size);
+    }
+
     public AccountRepository.PagedAccounts queryAccounts(String email, String status, String sortBy, String sortOrder, int page, int size) {
         return accountRepo.query(email, status, sortBy, sortOrder, page, size);
     }
 
     /** 按 id 查找账号。 */
+    public Optional<Account> findById(long userId, long id) {
+        return accountRepo.findById(userId, id);
+    }
+
     public Optional<Account> findById(long id) {
         return accountRepo.findById(id);
     }
@@ -111,9 +127,19 @@ public final class AccountService {
      *
      * @return 是否连通成功
      */
+    public boolean testConnection(long userId, long accountId) {
+        Account account = accountRepo.findById(userId, accountId)
+                .orElseThrow(() -> new RuntimeException("账号不存在: " + accountId));
+        return testConnection(userId, account);
+    }
+
     public boolean testConnection(long accountId) {
         Account account = accountRepo.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("账号不存在: " + accountId));
+        return testConnection(account.userId(), account);
+    }
+
+    private boolean testConnection(long userId, Account account) {
         long start = System.currentTimeMillis();
         boolean ok;
         String msg;
@@ -126,7 +152,11 @@ public final class AccountService {
             ok = false;
             msg = rootMessage(e);
         }
-        accountRepo.updateTestStatus(accountId, System.currentTimeMillis(), ok, msg);
+        if (userId > 0) {
+            accountRepo.updateTestStatus(userId, account.id(), System.currentTimeMillis(), ok, msg);
+        } else {
+            accountRepo.updateTestStatus(account.id(), System.currentTimeMillis(), ok, msg);
+        }
         return ok;
     }
 
@@ -136,6 +166,19 @@ public final class AccountService {
      * @param ids 账号 id 列表；传 null 表示测试全部账号
      * @return 每个账号的测活结果
      */
+    public List<TestResult> testBatch(long userId, List<Long> ids) {
+        List<Account> targets;
+        if (ids == null) {
+            targets = accountRepo.listAll(userId);
+        } else {
+            targets = new ArrayList<>();
+            for (Long id : ids) {
+                accountRepo.findById(userId, id).ifPresent(targets::add);
+            }
+        }
+        return testAccounts(userId, targets);
+    }
+
     public List<TestResult> testBatch(List<Long> ids) {
         List<Account> targets;
         if (ids == null) {
@@ -146,7 +189,10 @@ public final class AccountService {
                 accountRepo.findById(id).ifPresent(targets::add);
             }
         }
+        return testAccounts(0L, targets);
+    }
 
+    private List<TestResult> testAccounts(long userId, List<Account> targets) {
         List<TestResult> results = new ArrayList<>();
         for (Account account : targets) {
             long start = System.currentTimeMillis();
@@ -161,7 +207,11 @@ public final class AccountService {
                 msg = rootMessage(e);
             }
             long latency = System.currentTimeMillis() - start;
-            accountRepo.updateTestStatus(account.id(), System.currentTimeMillis(), ok, msg);
+            if (userId > 0) {
+                accountRepo.updateTestStatus(userId, account.id(), System.currentTimeMillis(), ok, msg);
+            } else {
+                accountRepo.updateTestStatus(account.id(), System.currentTimeMillis(), ok, msg);
+            }
             results.add(new TestResult(account.id(), account.email(), ok, msg, latency));
         }
         return results;
@@ -170,7 +220,26 @@ public final class AccountService {
     /**
      * 删除账号，并级联清理其邮件、附件记录及落盘附件文件。
      */
+    public void deleteAccount(long userId, long accountId) {
+        accountRepo.findById(userId, accountId)
+                .orElseThrow(() -> new RuntimeException("账号不存在: " + accountId));
+        deleteAccountData(accountId);
+        accountRepo.delete(userId, accountId);
+        deleteDirQuietly(attachmentsDir.resolve(String.valueOf(userId)).resolve(String.valueOf(accountId)));
+    }
+
     public void deleteAccount(long accountId) {
+        Account account = accountRepo.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("账号不存在: " + accountId));
+        deleteAccountData(accountId);
+        accountRepo.delete(accountId);
+        deleteDirQuietly(attachmentsDir.resolve(String.valueOf(accountId)));
+        if (account.userId() > 0) {
+            deleteDirQuietly(attachmentsDir.resolve(String.valueOf(account.userId())).resolve(String.valueOf(accountId)));
+        }
+    }
+
+    private void deleteAccountData(long accountId) {
         // 先清理该账号下所有邮件的附件（记录 + 文件），再删邮件，最后删账号
         List<Message> messages = messageRepo.listAllByAccount(accountId);
         for (Message m : messages) {
@@ -180,10 +249,6 @@ public final class AccountService {
             attachmentRepo.deleteByMessage(m.id());
         }
         messageRepo.deleteByAccount(accountId);
-        accountRepo.delete(accountId);
-
-        // 清理该账号的附件目录
-        deleteDirQuietly(attachmentsDir.resolve(String.valueOf(accountId)));
     }
 
     /**
@@ -193,6 +258,20 @@ public final class AccountService {
      * @param ids 待删除账号 id 列表
      * @return 实际删除的账号数量
      */
+    public int deleteBatch(long userId, List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+        int deleted = 0;
+        for (Long id : ids) {
+            if (accountRepo.findById(userId, id).isPresent()) {
+                deleteAccount(userId, id);
+                deleted++;
+            }
+        }
+        return deleted;
+    }
+
     public int deleteBatch(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return 0;
@@ -215,6 +294,59 @@ public final class AccountService {
      * @param test      导入后是否对成功导入的账号测活（false 则仅入库不测活）
      * @param overwrite 已存在邮箱是否覆盖授权码（false 则跳过）
      */
+    public ImportResult importFromText(long userId, String text, boolean test, boolean overwrite) {
+        List<ImportItem> items = new ArrayList<>();
+        int total = 0, success = 0, failed = 0, skipped = 0;
+
+        for (String rawLine : text.split("\n")) {
+            String line = rawLine.strip();
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+            total++;
+
+            String[] parts = line.split("\\s+", 2);
+            if (parts.length < 2 || parts[0].isBlank() || parts[1].isBlank()) {
+                failed++;
+                items.add(new ImportItem(parts.length > 0 ? parts[0] : line, "failed", "格式错误：应为 账号 授权码"));
+                continue;
+            }
+
+            String email = parts[0].strip();
+            String authCode = parts[1].strip();
+
+            try {
+                Optional<Account> existing = accountRepo.findByEmail(userId, email);
+                if (existing.isPresent()) {
+                    if (!overwrite) {
+                        skipped++;
+                        items.add(new ImportItem(email, "skipped", "邮箱已存在，已跳过"));
+                        continue;
+                    }
+                    // 覆盖授权码
+                    accountRepo.updateAuthCode(userId, existing.get().id(), crypto.encrypt(authCode));
+                    if (test) {
+                        testConnection(userId, existing.get().id());
+                    }
+                    success++;
+                    items.add(new ImportItem(email, "success", "已覆盖授权码"));
+                } else {
+                    Account created = accountRepo.insert(userId, email, crypto.encrypt(authCode));
+                    if (test) {
+                        testConnection(userId, created.id());
+                    }
+                    success++;
+                    items.add(new ImportItem(email, "success", "导入成功"));
+                }
+            } catch (Exception e) {
+                failed++;
+                items.add(new ImportItem(email, "failed", rootMessage(e)));
+            }
+        }
+
+        return new ImportResult(total, success, failed, skipped, items);
+    }
+
     public ImportResult importFromText(String text, boolean test, boolean overwrite) {
         List<ImportItem> items = new ArrayList<>();
         int total = 0, success = 0, failed = 0, skipped = 0;
@@ -244,7 +376,6 @@ public final class AccountService {
                         items.add(new ImportItem(email, "skipped", "邮箱已存在，已跳过"));
                         continue;
                     }
-                    // 覆盖授权码
                     accountRepo.updateAuthCode(existing.get().id(), crypto.encrypt(authCode));
                     if (test) {
                         testConnection(existing.get().id());

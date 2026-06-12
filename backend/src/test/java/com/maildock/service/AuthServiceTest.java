@@ -1,35 +1,40 @@
 package com.maildock.service;
 
-import com.maildock.repository.AdminRepository;
+import com.maildock.model.User;
+import com.maildock.model.UserIdentity;
 import com.maildock.repository.Database;
-import com.maildock.security.TokenStore;
+import com.maildock.repository.IdentityRepository;
+import com.maildock.repository.UserRepository;
+import com.maildock.security.SessionStore;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mindrot.jbcrypt.BCrypt;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
+import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class AuthServiceTest {
 
     private Database db;
-    private AdminRepository adminRepo;
-    private TokenStore tokenStore;
+    private UserRepository userRepo;
+    private IdentityRepository identityRepo;
+    private SessionStore sessionStore;
     private AuthService service;
     private Path dbFile;
 
     @BeforeEach
     void setUp() throws Exception {
-        // 每个测试使用独立的临时 SQLite 文件库
         dbFile = Files.createTempFile("maildock-auth-test", ".db");
         db = new Database("jdbc:sqlite:" + dbFile.toAbsolutePath());
         db.initSchema();
-        adminRepo = new AdminRepository(db);
-        tokenStore = new TokenStore();
-        service = new AuthService(adminRepo, tokenStore);
+        userRepo = new UserRepository(db);
+        identityRepo = new IdentityRepository(db);
+        sessionStore = new SessionStore();
+        service = new AuthService(userRepo, identityRepo, sessionStore, Duration.ofHours(1));
     }
 
     @AfterEach
@@ -39,72 +44,80 @@ class AuthServiceTest {
     }
 
     @Test
-    void ensureDefaultAdminCreatesWhenAbsent() {
-        // 首次启动且无管理员时，按给定凭据创建默认管理员
-        assertEquals(0, adminRepo.count());
+    void ensureDefaultEmailUserCreatesUserAndIdentity() {
+        service.ensureDefaultEmailUser("Alice@Example.COM", "init-pass");
 
-        service.ensureDefaultAdmin("admin", "init-pass");
-
-        assertEquals(1, adminRepo.count());
-        // 密码以哈希形式存储，不应是明文
-        assertNotEquals("init-pass", adminRepo.findByUsername("admin").orElseThrow().passwordHash());
+        UserIdentity identity = identityRepo
+                .findByProviderUid("email_password", "alice@example.com")
+                .orElseThrow();
+        assertTrue(BCrypt.checkpw("init-pass", identity.secretHash()));
+        assertEquals("alice@example.com", userRepo.findById(identity.userId()).orElseThrow().primaryEmail());
     }
 
     @Test
-    void ensureDefaultAdminDoesNothingWhenAdminExists() {
-        // 已有管理员时不重复创建
-        service.ensureDefaultAdmin("admin", "init-pass");
-        service.ensureDefaultAdmin("admin", "another-pass");
+    void ensureDefaultEmailUserUpdatesExistingPassword() {
+        service.ensureDefaultEmailUser("alice@example.com", "old-pass");
+        service.ensureDefaultEmailUser("alice@example.com", "new-pass");
 
-        assertEquals(1, adminRepo.count());
+        UserIdentity identity = identityRepo
+                .findByProviderUid("email_password", "alice@example.com")
+                .orElseThrow();
+
+        assertTrue(BCrypt.checkpw("new-pass", identity.secretHash()));
     }
 
     @Test
-    void loginWithCorrectCredentialsReturnsToken() {
-        // 凭据正确时登录返回有效 Token
-        service.ensureDefaultAdmin("admin", "init-pass");
+    void emailPasswordLoginReturnsSessionAndUser() {
+        service.ensureDefaultEmailUser("alice@example.com", "init-pass");
 
-        Optional<String> token = service.login("admin", "init-pass");
+        AuthService.LoginResult result = service.loginWithEmailPassword("alice@example.com", "init-pass")
+                .orElseThrow();
 
-        assertTrue(token.isPresent());
-        assertTrue(tokenStore.isValid(token.get()));
-        assertEquals("admin", tokenStore.subject(token.get()));
+        assertEquals("alice@example.com", result.user().primaryEmail());
+        assertEquals(result.user().id(), sessionStore.userId(result.sessionToken()).orElseThrow());
     }
 
     @Test
-    void loginWithWrongPasswordReturnsEmpty() {
-        // 密码错误时登录失败，返回空
-        service.ensureDefaultAdmin("admin", "init-pass");
+    void emailPasswordLoginRejectsWrongPassword() {
+        service.ensureDefaultEmailUser("alice@example.com", "init-pass");
 
-        assertTrue(service.login("admin", "wrong-pass").isEmpty());
+        assertTrue(service.loginWithEmailPassword("alice@example.com", "wrong").isEmpty());
     }
 
     @Test
-    void loginWithUnknownUserReturnsEmpty() {
-        // 用户名不存在时登录失败
-        service.ensureDefaultAdmin("admin", "init-pass");
+    void emailPasswordLoginUpdatesLastLoginAt() {
+        service.ensureDefaultEmailUser("alice@example.com", "init-pass");
 
-        assertTrue(service.login("nobody", "init-pass").isEmpty());
+        User before = service.loginWithEmailPassword("alice@example.com", "init-pass").orElseThrow().user();
+        User after = userRepo.findById(before.id()).orElseThrow();
+
+        assertTrue(after.lastLoginAt() > 0);
     }
 
     @Test
-    void logoutRevokesToken() {
-        // 登出后 Token 失效
-        service.ensureDefaultAdmin("admin", "init-pass");
-        String token = service.login("admin", "init-pass").orElseThrow();
+    void currentUserReturnsSessionUser() {
+        service.ensureDefaultEmailUser("alice@example.com", "init-pass");
+        AuthService.LoginResult login = service.loginWithEmailPassword("alice@example.com", "init-pass")
+                .orElseThrow();
 
-        service.logout(token);
+        User current = service.currentUser(login.sessionToken()).orElseThrow();
 
-        assertFalse(tokenStore.isValid(token));
+        assertEquals(login.user().id(), current.id());
+        assertEquals("alice@example.com", current.primaryEmail());
     }
 
     @Test
-    void authenticatedReflectsTokenValidity() {
-        // authenticated 反映 Token 是否有效
-        service.ensureDefaultAdmin("admin", "init-pass");
-        String token = service.login("admin", "init-pass").orElseThrow();
+    void userIdAuthenticatedAndLogoutReflectSessionState() {
+        service.ensureDefaultEmailUser("alice@example.com", "init-pass");
+        AuthService.LoginResult login = service.loginWithEmailPassword("alice@example.com", "init-pass")
+                .orElseThrow();
 
-        assertTrue(service.authenticated(token));
-        assertFalse(service.authenticated("bogus-token"));
+        assertTrue(service.authenticated(login.sessionToken()));
+        assertEquals(login.user().id(), service.userId(login.sessionToken()).orElseThrow());
+
+        service.logout(login.sessionToken());
+
+        assertFalse(service.authenticated(login.sessionToken()));
+        assertTrue(service.userId(login.sessionToken()).isEmpty());
     }
 }

@@ -20,7 +20,7 @@ import java.nio.file.Path;
  * <p>增量依据账号已存邮件的最大 UID。若服务器返回的 UIDVALIDITY 与库中记录不一致
  * （邮箱重建等），视为需要全量重新拉取，从 UID 0 开始。
  *
- * <p>附件落盘路径为 {@code attachments/{accountId}/{messageId}/{清洗后的文件名}}，
+ * <p>附件落盘路径为 {@code attachments/{userId}/{accountId}/{messageId}/{清洗后的文件名}}，
  * 库中存储该相对路径。文件名经 {@link FilenameSanitizer} 清洗以防路径穿越。
  *
  * <p>本服务内含阻塞的 IMAP 与磁盘 I/O，应在 worker 线程（executeBlocking）中调用，
@@ -64,6 +64,17 @@ public final class MailSyncService {
     public int refresh(long accountId) {
         Account account = accountRepo.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("账号不存在: " + accountId));
+        return refresh(account.userId(), account);
+    }
+
+    public int refresh(long userId, long accountId) {
+        Account account = accountRepo.findById(userId, accountId)
+                .orElseThrow(() -> new RuntimeException("账号不存在: " + accountId));
+        return refresh(userId, account);
+    }
+
+    private int refresh(long userId, Account account) {
+        long accountId = account.id();
 
         // 确定增量起点：UIDVALIDITY 变化时从 0 重新全量拉取
         long lastUid = messageRepo.maxUid(accountId);
@@ -86,7 +97,7 @@ public final class MailSyncService {
         long maxUid = lastUid;
         for (ImapMessage im : result.messages()) {
             try {
-                storeMessage(accountId, im);
+                storeMessage(userId, accountId, im);
                 newCount++;
                 maxUid = Math.max(maxUid, im.uid());
             } catch (Exception e) {
@@ -97,12 +108,16 @@ public final class MailSyncService {
         }
 
         // 更新增量游标与同步时间
-        accountRepo.updateSyncState(accountId, maxUid, result.uidValidity(), System.currentTimeMillis());
+        if (userId > 0) {
+            accountRepo.updateSyncState(userId, accountId, maxUid, result.uidValidity(), System.currentTimeMillis());
+        } else {
+            accountRepo.updateSyncState(accountId, maxUid, result.uidValidity(), System.currentTimeMillis());
+        }
         return newCount;
     }
 
     /** 解析单封邮件，正文入库、附件落盘并记录元数据。 */
-    private void storeMessage(long accountId, ImapMessage im) throws Exception {
+    private void storeMessage(long userId, long accountId, ImapMessage im) throws Exception {
         ParsedMail parsed = MailParser.parse(im.message());
         boolean hasAttach = !parsed.attachments().isEmpty();
 
@@ -117,23 +132,25 @@ public final class MailSyncService {
 
         // 落盘附件并记录
         for (ParsedAttachment att : parsed.attachments()) {
-            storeAttachment(accountId, saved.id(), att);
+            storeAttachment(userId, accountId, saved.id(), att);
         }
     }
 
-    /** 将单个附件落盘到 attachments/{accountId}/{messageId}/，并写入元数据。 */
-    private void storeAttachment(long accountId, long messageId, ParsedAttachment att) throws Exception {
+    /** 将单个附件落盘到 attachments/{userId}/{accountId}/{messageId}/，并写入元数据。 */
+    private void storeAttachment(long userId, long accountId, long messageId, ParsedAttachment att) throws Exception {
         String safeName = FilenameSanitizer.sanitize(att.filename());
 
-        // 落盘目录：{attachmentsDir}/{accountId}/{messageId}/
-        Path dir = attachmentsDir.resolve(String.valueOf(accountId)).resolve(String.valueOf(messageId));
+        // 落盘目录：{attachmentsDir}/{userId}/{accountId}/{messageId}/
+        Path dir = attachmentsDir.resolve(String.valueOf(userId))
+                .resolve(String.valueOf(accountId))
+                .resolve(String.valueOf(messageId));
         Files.createDirectories(dir);
         Path target = dir.resolve(safeName);
         Files.write(target, att.content());
 
-        // 库中存相对路径：attachments/{accountId}/{messageId}/{safeName}
+        // 库中存相对路径：attachments/{userId}/{accountId}/{messageId}/{safeName}
         String relativePath = attachmentsDir.getFileName()
-                + "/" + accountId + "/" + messageId + "/" + safeName;
+                + "/" + userId + "/" + accountId + "/" + messageId + "/" + safeName;
 
         attachmentRepo.insert(messageId, safeName, att.contentType(),
                 (long) att.content().length, relativePath);

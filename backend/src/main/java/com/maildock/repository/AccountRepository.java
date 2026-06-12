@@ -19,9 +19,14 @@ import java.util.Optional;
 public final class AccountRepository {
 
     private final Database db;
+    private Long compatibilityUserId;
 
     public AccountRepository(Database db) {
         this.db = db;
+    }
+
+    public Account insert(String email, String authCodeEnc) {
+        return insert(compatibilityUserId(), email, authCodeEnc);
     }
 
     /**
@@ -30,19 +35,20 @@ public final class AccountRepository {
      * @param email       邮箱地址
      * @param authCodeEnc 授权码密文
      */
-    public Account insert(String email, String authCodeEnc) {
+    public Account insert(long userId, String email, String authCodeEnc) {
         return db.runWrite(() -> {
             long now = System.currentTimeMillis();
-            String sql = "INSERT INTO mail_account (email, auth_code_enc, created_at) VALUES (?, ?, ?)";
+            String sql = "INSERT INTO mail_account (user_id, email, auth_code_enc, created_at) VALUES (?, ?, ?, ?)";
             try (PreparedStatement ps = db.connection().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                ps.setString(1, email);
-                ps.setString(2, authCodeEnc);
-                ps.setLong(3, now);
+                ps.setLong(1, userId);
+                ps.setString(2, email);
+                ps.setString(3, authCodeEnc);
+                ps.setLong(4, now);
                 ps.executeUpdate();
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     keys.next();
                     long id = keys.getLong(1);
-                    return findById(id).orElseThrow();
+                    return findById(userId, id).orElseThrow();
                 }
             } catch (SQLException e) {
                 throw new RuntimeException("插入邮箱账号失败: " + email, e);
@@ -50,7 +56,6 @@ public final class AccountRepository {
         });
     }
 
-    /** 按主键查找账号。 */
     public Optional<Account> findById(long id) {
         String sql = "SELECT * FROM mail_account WHERE id = ?";
         try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
@@ -63,9 +68,22 @@ public final class AccountRepository {
         }
     }
 
-    /** 按邮箱地址查找账号。 */
+    /** 按主键查找账号。 */
+    public Optional<Account> findById(long userId, long id) {
+        String sql = "SELECT * FROM mail_account WHERE user_id = ? AND id = ?";
+        try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+            ps.setLong(1, userId);
+            ps.setLong(2, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(map(rs)) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("按 id 查询账号失败: " + id, e);
+        }
+    }
+
     public Optional<Account> findByEmail(String email) {
-        String sql = "SELECT * FROM mail_account WHERE email = ?";
+        String sql = "SELECT * FROM mail_account WHERE email = ? ORDER BY id LIMIT 1";
         try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
             ps.setString(1, email);
             try (ResultSet rs = ps.executeQuery()) {
@@ -76,7 +94,20 @@ public final class AccountRepository {
         }
     }
 
-    /** 列出全部账号，按 id 升序。 */
+    /** 按邮箱地址查找账号。 */
+    public Optional<Account> findByEmail(long userId, String email) {
+        String sql = "SELECT * FROM mail_account WHERE user_id = ? AND email = ?";
+        try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+            ps.setLong(1, userId);
+            ps.setString(2, email);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(map(rs)) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("按邮箱查询账号失败: " + email, e);
+        }
+    }
+
     public List<Account> listAll() {
         String sql = "SELECT * FROM mail_account ORDER BY id";
         List<Account> result = new ArrayList<>();
@@ -84,6 +115,23 @@ public final class AccountRepository {
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 result.add(map(rs));
+            }
+            return result;
+        } catch (SQLException e) {
+            throw new RuntimeException("查询账号列表失败", e);
+        }
+    }
+
+    /** 列出全部账号，按 id 升序。 */
+    public List<Account> listAll(long userId) {
+        String sql = "SELECT * FROM mail_account WHERE user_id = ? ORDER BY id";
+        List<Account> result = new ArrayList<>();
+        try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+            ps.setLong(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    result.add(map(rs));
+                }
             }
             return result;
         } catch (SQLException e) {
@@ -112,9 +160,10 @@ public final class AccountRepository {
      * @param page      页码，从 1 开始
      * @param size      每页条数
      */
-    public PagedAccounts query(String email, String status, String sortBy, String sortOrder, int page, int size) {
-        StringBuilder where = new StringBuilder(" WHERE 1=1");
+    public PagedAccounts query(long userId, String email, String status, String sortBy, String sortOrder, int page, int size) {
+        StringBuilder where = new StringBuilder(" WHERE user_id = ?");
         List<Object> params = new ArrayList<>();
+        params.add(userId);
         if (email != null && !email.isBlank()) {
             where.append(" AND LOWER(email) LIKE ?");
             params.add("%" + email.strip().toLowerCase() + "%");
@@ -175,7 +224,74 @@ public final class AccountRepository {
         return idx;
     }
 
+    public PagedAccounts query(String email, String status, String sortBy, String sortOrder, int page, int size) {
+        StringBuilder where = new StringBuilder(" WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+        if (email != null && !email.isBlank()) {
+            where.append(" AND LOWER(email) LIKE ?");
+            params.add("%" + email.strip().toLowerCase() + "%");
+        }
+        if ("pending".equals(status)) {
+            where.append(" AND (last_test_at IS NULL OR last_test_at = 0)");
+        } else if ("ok".equals(status)) {
+            where.append(" AND last_test_at > 0 AND last_test_ok = 1");
+        } else if ("fail".equals(status)) {
+            where.append(" AND last_test_at > 0 AND last_test_ok = 0");
+        }
+
+        String orderField = "last_sync_at";
+        if ("lastTestAt".equals(sortBy)) orderField = "last_test_at";
+        else if ("lastSyncAt".equals(sortBy)) orderField = "last_sync_at";
+        String orderDir = "desc".equalsIgnoreCase(sortOrder) ? "DESC" : "ASC";
+        String orderBy = " ORDER BY " + orderField + " " + orderDir;
+
+        long total;
+        String countSql = "SELECT COUNT(*) FROM mail_account" + where;
+        try (PreparedStatement ps = db.connection().prepareStatement(countSql)) {
+            bindParams(ps, params);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                total = rs.getLong(1);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("统计账号总数失败", e);
+        }
+
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, size);
+        int offset = (safePage - 1) * safeSize;
+        List<Account> items = new ArrayList<>();
+        String pageSql = "SELECT * FROM mail_account" + where + orderBy + " LIMIT ? OFFSET ?";
+        try (PreparedStatement ps = db.connection().prepareStatement(pageSql)) {
+            int idx = bindParams(ps, params);
+            ps.setInt(idx++, safeSize);
+            ps.setInt(idx, offset);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    items.add(map(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("分页查询账号失败", e);
+        }
+        return new PagedAccounts(total, items);
+    }
+
     /** 删除账号。 */
+    public void delete(long userId, long id) {
+        db.runWrite(() -> {
+            String sql = "DELETE FROM mail_account WHERE user_id = ? AND id = ?";
+            try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+                ps.setLong(1, userId);
+                ps.setLong(2, id);
+                ps.executeUpdate();
+                return null;
+            } catch (SQLException e) {
+                throw new RuntimeException("删除账号失败: " + id, e);
+            }
+        });
+    }
+
     public void delete(long id) {
         db.runWrite(() -> {
             String sql = "DELETE FROM mail_account WHERE id = ?";
@@ -190,6 +306,21 @@ public final class AccountRepository {
     }
 
     /** 更新账号的授权码密文（批量导入覆盖时使用）。 */
+    public void updateAuthCode(long userId, long id, String authCodeEnc) {
+        db.runWrite(() -> {
+            String sql = "UPDATE mail_account SET auth_code_enc = ? WHERE user_id = ? AND id = ?";
+            try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+                ps.setString(1, authCodeEnc);
+                ps.setLong(2, userId);
+                ps.setLong(3, id);
+                ps.executeUpdate();
+                return null;
+            } catch (SQLException e) {
+                throw new RuntimeException("更新授权码失败: " + id, e);
+            }
+        });
+    }
+
     public void updateAuthCode(long id, String authCodeEnc) {
         db.runWrite(() -> {
             String sql = "UPDATE mail_account SET auth_code_enc = ? WHERE id = ?";
@@ -205,6 +336,23 @@ public final class AccountRepository {
     }
 
     /** 更新增量同步状态：last_uid / uid_validity / last_sync_at。 */
+    public void updateSyncState(long userId, long id, long lastUid, long uidValidity, long lastSyncAt) {
+        db.runWrite(() -> {
+            String sql = "UPDATE mail_account SET last_uid = ?, uid_validity = ?, last_sync_at = ? WHERE user_id = ? AND id = ?";
+            try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+                ps.setLong(1, lastUid);
+                ps.setLong(2, uidValidity);
+                ps.setLong(3, lastSyncAt);
+                ps.setLong(4, userId);
+                ps.setLong(5, id);
+                ps.executeUpdate();
+                return null;
+            } catch (SQLException e) {
+                throw new RuntimeException("更新同步状态失败: " + id, e);
+            }
+        });
+    }
+
     public void updateSyncState(long id, long lastUid, long uidValidity, long lastSyncAt) {
         db.runWrite(() -> {
             String sql = "UPDATE mail_account SET last_uid = ?, uid_validity = ?, last_sync_at = ? WHERE id = ?";
@@ -222,6 +370,23 @@ public final class AccountRepository {
     }
 
     /** 更新测活状态：last_test_at / last_test_ok / last_test_msg。 */
+    public void updateTestStatus(long userId, long id, long lastTestAt, boolean ok, String msg) {
+        db.runWrite(() -> {
+            String sql = "UPDATE mail_account SET last_test_at = ?, last_test_ok = ?, last_test_msg = ? WHERE user_id = ? AND id = ?";
+            try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+                ps.setLong(1, lastTestAt);
+                ps.setInt(2, ok ? 1 : 0);
+                ps.setString(3, msg);
+                ps.setLong(4, userId);
+                ps.setLong(5, id);
+                ps.executeUpdate();
+                return null;
+            } catch (SQLException e) {
+                throw new RuntimeException("更新测活状态失败: " + id, e);
+            }
+        });
+    }
+
     public void updateTestStatus(long id, long lastTestAt, boolean ok, String msg) {
         db.runWrite(() -> {
             String sql = "UPDATE mail_account SET last_test_at = ?, last_test_ok = ?, last_test_msg = ? WHERE id = ?";
@@ -238,10 +403,50 @@ public final class AccountRepository {
         });
     }
 
+    private long compatibilityUserId() {
+        if (compatibilityUserId != null) {
+            return compatibilityUserId;
+        }
+        return db.runWrite(() -> {
+            String select = "SELECT id FROM app_user ORDER BY id LIMIT 1";
+            try (PreparedStatement ps = db.connection().prepareStatement(select);
+                 ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    compatibilityUserId = rs.getLong(1);
+                    return compatibilityUserId;
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("查询兼容用户失败", e);
+            }
+
+            long now = System.currentTimeMillis();
+            String insert = """
+                    INSERT INTO app_user
+                        (primary_email, display_name, avatar_url, created_at, updated_at, last_login_at)
+                    VALUES (?, ?, NULL, ?, ?, 0)
+                    """;
+            try (PreparedStatement ps = db.connection().prepareStatement(insert, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setString(1, "compat@example.com");
+                ps.setString(2, "Compatibility User");
+                ps.setLong(3, now);
+                ps.setLong(4, now);
+                ps.executeUpdate();
+                try (ResultSet keys = ps.getGeneratedKeys()) {
+                    keys.next();
+                    compatibilityUserId = keys.getLong(1);
+                    return compatibilityUserId;
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("创建兼容用户失败", e);
+            }
+        });
+    }
+
     /** 把结果集当前行映射为 Account。 */
     private Account map(ResultSet rs) throws SQLException {
         return new Account(
                 rs.getLong("id"),
+                rs.getLong("user_id"),
                 rs.getString("email"),
                 rs.getString("auth_code_enc"),
                 rs.getString("imap_host"),

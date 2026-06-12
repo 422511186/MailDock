@@ -7,12 +7,13 @@ import com.maildock.model.Account;
 import com.maildock.model.Attachment;
 import com.maildock.model.Message;
 import com.maildock.repository.AccountRepository;
-import com.maildock.repository.AdminRepository;
 import com.maildock.repository.AttachmentRepository;
 import com.maildock.repository.Database;
+import com.maildock.repository.IdentityRepository;
 import com.maildock.repository.MessageRepository;
+import com.maildock.repository.UserRepository;
 import com.maildock.security.CryptoUtil;
-import com.maildock.security.TokenStore;
+import com.maildock.security.SessionStore;
 import com.maildock.service.AuthService;
 import com.maildock.service.MailQueryService;
 import com.maildock.service.MailSyncService;
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Date;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -62,7 +64,9 @@ class MailRouteTest {
     private Path dbFile;
     private Path attachmentsDir;
     private int port;
-    private String token;
+    private String cookie;
+    private long userAId;
+    private long userBId;
     private long accountId;
 
     @BeforeEach
@@ -73,12 +77,13 @@ class MailRouteTest {
         db = new Database("jdbc:sqlite:" + dbFile.toAbsolutePath());
         db.initSchema();
 
-        AdminRepository adminRepo = new AdminRepository(db);
+        UserRepository userRepo = new UserRepository(db);
+        IdentityRepository identityRepo = new IdentityRepository(db);
         accountRepo = new AccountRepository(db);
         messageRepo = new MessageRepository(db);
         attachmentRepo = new AttachmentRepository(db);
         CryptoUtil crypto = new CryptoUtil(KEY);
-        TokenStore tokenStore = new TokenStore();
+        SessionStore sessionStore = new SessionStore();
 
         try {
             greenMail.getUserManager().createUser(EMAIL, EMAIL, AUTH_CODE);
@@ -95,11 +100,18 @@ class MailRouteTest {
         MailQueryService mailQueryService =
                 new MailQueryService(messageRepo, attachmentRepo, attachmentsDir);
 
-        AuthService authService = new AuthService(adminRepo, tokenStore);
-        authService.ensureDefaultAdmin("admin", "init-pass");
-        token = authService.login("admin", "init-pass").orElseThrow();
+        AuthService authService = new AuthService(userRepo, identityRepo, sessionStore, Duration.ofHours(1));
+        authService.ensureDefaultEmailUser("alice@example.com", "init-pass");
+        authService.ensureDefaultEmailUser("bob@example.com", "bob-pass");
+        AuthService.LoginResult userALogin = authService.loginWithEmailPassword("alice@example.com", "init-pass")
+                .orElseThrow();
+        AuthService.LoginResult userBLogin = authService.loginWithEmailPassword("bob@example.com", "bob-pass")
+                .orElseThrow();
+        userAId = userALogin.user().id();
+        userBId = userBLogin.user().id();
+        cookie = sessionCookie(userALogin.sessionToken());
 
-        accountId = accountRepo.insert(EMAIL, crypto.encrypt(AUTH_CODE)).id();
+        accountId = accountRepo.insert(userAId, EMAIL, crypto.encrypt(AUTH_CODE)).id();
 
         Router router = new ApiRouter(vertx, authService, null, mailSyncService, mailQueryService).build();
         server = vertx.createHttpServer().requestHandler(router);
@@ -109,6 +121,10 @@ class MailRouteTest {
             ctx.completeNow();
         }));
         assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    private String sessionCookie(String token) {
+        return "maildock_session=" + token;
     }
 
     @AfterEach
@@ -136,8 +152,12 @@ class MailRouteTest {
 
     /** 直接入库一封邮件，便于查询类测试。 */
     private Message insertMessage(long uid, String subject) {
+        return insertMessage(accountId, uid, subject);
+    }
+
+    private Message insertMessage(long targetAccountId, long uid, String subject) {
         return messageRepo.insert(new Message(
-                0, accountId, uid, "<mid-" + uid + ">", subject,
+                0, targetAccountId, uid, "<mid-" + uid + ">", subject,
                 "alice@163.com", EMAIL, null,
                 1700000000000L, 1700000000000L + uid * 1000L,
                 "纯文本正文", "<p>HTML 正文</p>",
@@ -151,7 +171,7 @@ class MailRouteTest {
         deliver("新邮件2", "正文2");
 
         client.post(port, "localhost", ApiRouter.API + "/accounts/" + accountId + "/refresh")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .send()
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(200, resp.statusCode());
@@ -171,7 +191,7 @@ class MailRouteTest {
         }
 
         client.get(port, "localhost", ApiRouter.API + "/accounts/" + accountId + "/messages?page=1&size=2")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .send()
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(200, resp.statusCode());
@@ -193,10 +213,10 @@ class MailRouteTest {
         // 邮件详情返回正文与附件列表
         Message m = insertMessage(1, "详情邮件");
         attachmentRepo.insert(m.id(), "a.pdf", "application/pdf", 10L,
-                "attachments/" + accountId + "/" + m.id() + "/a.pdf");
+                "attachments/" + userAId + "/" + accountId + "/" + m.id() + "/a.pdf");
 
         client.get(port, "localhost", ApiRouter.API + "/messages/" + m.id())
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .send()
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(200, resp.statusCode());
@@ -212,10 +232,25 @@ class MailRouteTest {
     }
 
     @Test
+    void refreshOtherUsersAccountReturns404(VertxTestContext ctx) throws Exception {
+        // A 用户不能刷新 B 用户账号
+        long otherAccountId = accountRepo.insert(userBId, "bob-mail@example.com", "enc").id();
+
+        client.post(port, "localhost", ApiRouter.API + "/accounts/" + otherAccountId + "/refresh")
+                .putHeader("Cookie", cookie)
+                .send()
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(404, resp.statusCode());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
     void getMessageDetailReturns404WhenAbsent(VertxTestContext ctx) throws Exception {
         // 不存在的邮件返回 404
         client.get(port, "localhost", ApiRouter.API + "/messages/99999")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .send()
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(404, resp.statusCode());
@@ -229,18 +264,44 @@ class MailRouteTest {
         // 下载附件返回文件内容
         Message m = insertMessage(1, "带附件");
         byte[] data = "FILE-CONTENT".getBytes();
-        Path dir = attachmentsDir.resolve(String.valueOf(accountId)).resolve(String.valueOf(m.id()));
+        Path dir = attachmentsDir.resolve(String.valueOf(userAId))
+                .resolve(String.valueOf(accountId))
+                .resolve(String.valueOf(m.id()));
         Files.createDirectories(dir);
         Files.write(dir.resolve("a.pdf"), data);
-        String relPath = attachmentsDir.getFileName() + "/" + accountId + "/" + m.id() + "/a.pdf";
+        String relPath = attachmentsDir.getFileName() + "/" + userAId + "/" + accountId + "/" + m.id() + "/a.pdf";
         Attachment att = attachmentRepo.insert(m.id(), "a.pdf", "application/pdf", (long) data.length, relPath);
 
         client.get(port, "localhost", ApiRouter.API + "/messages/" + m.id() + "/attachments/" + att.id())
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .send()
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(200, resp.statusCode());
                     assertArrayEquals(data, resp.bodyAsBuffer().getBytes());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void downloadOtherUsersAttachmentReturns404(VertxTestContext ctx) throws Exception {
+        // A 用户不能下载 B 用户邮件附件
+        long otherAccountId = accountRepo.insert(userBId, "bob-mail@example.com", "enc").id();
+        Message m = insertMessage(otherAccountId, 1, "B 用户附件");
+        byte[] data = "OTHER-FILE".getBytes();
+        Path dir = attachmentsDir.resolve(String.valueOf(userBId))
+                .resolve(String.valueOf(otherAccountId))
+                .resolve(String.valueOf(m.id()));
+        Files.createDirectories(dir);
+        Files.write(dir.resolve("b.pdf"), data);
+        String relPath = attachmentsDir.getFileName() + "/" + userBId + "/" + otherAccountId + "/" + m.id() + "/b.pdf";
+        Attachment att = attachmentRepo.insert(m.id(), "b.pdf", "application/pdf", (long) data.length, relPath);
+
+        client.get(port, "localhost", ApiRouter.API + "/messages/" + m.id() + "/attachments/" + att.id())
+                .putHeader("Cookie", cookie)
+                .send()
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(404, resp.statusCode());
                     ctx.completeNow();
                 })));
         assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
@@ -252,7 +313,7 @@ class MailRouteTest {
         Message m = insertMessage(1, "未读");
 
         client.patch(port, "localhost", ApiRouter.API + "/messages/" + m.id() + "/read")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .sendJsonObject(new JsonObject().put("read", true))
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(200, resp.statusCode());

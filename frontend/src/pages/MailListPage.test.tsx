@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MailListPage } from './MailListPage';
 import type { MessageSummary } from '../api/client';
 
@@ -134,7 +134,7 @@ describe('MailListPage', () => {
 
     // 找到包含未读邮件的最外层卡片容器
     const unreadSubject = screen.getByText('未读邮件');
-    let unreadCard = unreadSubject.closest('div');
+    let unreadCard: HTMLElement | null = unreadSubject.closest('div');
     // 向上查找带 ring-brand-300 的父容器
     while (unreadCard && !unreadCard.className.includes('ring-brand-300')) {
       unreadCard = unreadCard.parentElement as HTMLElement;

@@ -68,6 +68,26 @@ public final class AttachmentRepository {
         }
     }
 
+    /** 按用户和邮件归属查找附件，其他用户的附件视为不存在。 */
+    public Optional<Attachment> findByIdForUser(long userId, long messageId, long attachmentId) {
+        String sql = """
+                SELECT att.* FROM mail_attachment att
+                JOIN mail_message m ON m.id = att.message_id
+                JOIN mail_account a ON a.id = m.account_id
+                WHERE att.id = ? AND att.message_id = ? AND a.user_id = ?
+                """;
+        try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+            ps.setLong(1, attachmentId);
+            ps.setLong(2, messageId);
+            ps.setLong(3, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(map(rs)) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("按用户查询附件失败: " + attachmentId, e);
+        }
+    }
+
     /** 查询某封邮件的全部附件，按 id 升序。 */
     public List<Attachment> findByMessage(long messageId) {
         String sql = "SELECT * FROM mail_attachment WHERE message_id = ? ORDER BY id";

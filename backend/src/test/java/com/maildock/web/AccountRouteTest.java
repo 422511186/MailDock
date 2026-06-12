@@ -4,12 +4,13 @@ import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.ServerSetupTest;
 import com.maildock.mail.ImapClient;
 import com.maildock.repository.AccountRepository;
-import com.maildock.repository.AdminRepository;
 import com.maildock.repository.AttachmentRepository;
 import com.maildock.repository.Database;
+import com.maildock.repository.IdentityRepository;
 import com.maildock.repository.MessageRepository;
+import com.maildock.repository.UserRepository;
 import com.maildock.security.CryptoUtil;
-import com.maildock.security.TokenStore;
+import com.maildock.security.SessionStore;
 import com.maildock.service.AccountService;
 import com.maildock.service.AuthService;
 import io.vertx.core.Vertx;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -50,7 +52,8 @@ class AccountRouteTest {
     private Path dbFile;
     private Path attachmentsDir;
     private int port;
-    private String token;
+    private String cookie;
+    private String otherCookie;
 
     @BeforeEach
     void setUp(VertxTestContext ctx) throws Exception {
@@ -60,12 +63,13 @@ class AccountRouteTest {
         db = new Database("jdbc:sqlite:" + dbFile.toAbsolutePath());
         db.initSchema();
 
-        AdminRepository adminRepo = new AdminRepository(db);
+        UserRepository userRepo = new UserRepository(db);
+        IdentityRepository identityRepo = new IdentityRepository(db);
         AccountRepository accountRepo = new AccountRepository(db);
         MessageRepository messageRepo = new MessageRepository(db);
         AttachmentRepository attachmentRepo = new AttachmentRepository(db);
         CryptoUtil crypto = new CryptoUtil(KEY);
-        TokenStore tokenStore = new TokenStore();
+        SessionStore sessionStore = new SessionStore();
 
         try {
             greenMail.getUserManager().createUser(EMAIL, EMAIL, AUTH_CODE);
@@ -80,9 +84,13 @@ class AccountRouteTest {
         AccountService accountService =
                 new AccountService(accountRepo, messageRepo, attachmentRepo, crypto, factory, attachmentsDir);
 
-        AuthService authService = new AuthService(adminRepo, tokenStore);
-        authService.ensureDefaultAdmin("admin", "init-pass");
-        token = authService.login("admin", "init-pass").orElseThrow();
+        AuthService authService = new AuthService(userRepo, identityRepo, sessionStore, Duration.ofHours(1));
+        authService.ensureDefaultEmailUser("alice@example.com", "init-pass");
+        authService.ensureDefaultEmailUser("bob@example.com", "bob-pass");
+        cookie = sessionCookie(authService.loginWithEmailPassword("alice@example.com", "init-pass")
+                .orElseThrow().sessionToken());
+        otherCookie = sessionCookie(authService.loginWithEmailPassword("bob@example.com", "bob-pass")
+                .orElseThrow().sessionToken());
 
         Router router = new ApiRouter(vertx, authService, accountService, null, null).build();
         server = vertx.createHttpServer().requestHandler(router);
@@ -92,6 +100,10 @@ class AccountRouteTest {
             ctx.completeNow();
         }));
         assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    private String sessionCookie(String token) {
+        return "maildock_session=" + token;
     }
 
     @AfterEach
@@ -106,7 +118,7 @@ class AccountRouteTest {
     void createAccountReturns201WithId(VertxTestContext ctx) throws Exception {
         // 创建账号返回 201 与账号信息（不含授权码）
         client.post(port, "localhost", ApiRouter.API + "/accounts")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .sendJsonObject(new JsonObject().put("email", EMAIL).put("authCode", AUTH_CODE))
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(201, resp.statusCode());
@@ -123,7 +135,7 @@ class AccountRouteTest {
     void createAccountMissingEmailReturns400(VertxTestContext ctx) throws Exception {
         // 缺少邮箱返回 400
         client.post(port, "localhost", ApiRouter.API + "/accounts")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .sendJsonObject(new JsonObject().put("authCode", AUTH_CODE))
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(400, resp.statusCode());
@@ -136,10 +148,10 @@ class AccountRouteTest {
     void listAccountsReturnsPagedResult(VertxTestContext ctx) throws Exception {
         // 列表返回分页结构 { total, items }，items 中不含授权码字段
         client.post(port, "localhost", ApiRouter.API + "/accounts")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .sendJsonObject(new JsonObject().put("email", EMAIL).put("authCode", AUTH_CODE))
                 .compose(created -> client.get(port, "localhost", ApiRouter.API + "/accounts")
-                        .putHeader("Authorization", "Bearer " + token)
+                        .putHeader("Cookie", cookie)
                         .send())
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(200, resp.statusCode());
@@ -156,17 +168,36 @@ class AccountRouteTest {
     }
 
     @Test
+    void listAccountsOnlyReturnsCurrentUsersAccounts(VertxTestContext ctx) throws Exception {
+        // B 用户创建的账号，A 用户列表不可见
+        client.post(port, "localhost", ApiRouter.API + "/accounts")
+                .putHeader("Cookie", otherCookie)
+                .sendJsonObject(new JsonObject().put("email", "bob-mail@example.com").put("authCode", AUTH_CODE))
+                .compose(created -> client.get(port, "localhost", ApiRouter.API + "/accounts")
+                        .putHeader("Cookie", cookie)
+                        .send())
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(200, resp.statusCode());
+                    JsonObject body = resp.bodyAsJsonObject();
+                    assertEquals(0, body.getLong("total"));
+                    assertTrue(body.getJsonArray("items").isEmpty());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(15, TimeUnit.SECONDS));
+    }
+
+    @Test
     void listAccountsSupportsEmailSearchAndStatusFilter(VertxTestContext ctx) throws Exception {
         // 邮箱搜索 + 状态过滤：导入两个账号都未测活（pending），按邮箱子串搜索只命中一个
         String txt = "alice@example.com code-1\nbob@example.com code-2\n";
         client.post(port, "localhost", ApiRouter.API + "/accounts/import")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .putHeader("Content-Type", "text/plain")
                 .sendBuffer(io.vertx.core.buffer.Buffer.buffer(txt))
                 .compose(imp -> client.get(port, "localhost", ApiRouter.API + "/accounts")
                         .addQueryParam("email", "alice")
                         .addQueryParam("status", "pending")
-                        .putHeader("Authorization", "Bearer " + token)
+                        .putHeader("Cookie", cookie)
                         .send())
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(200, resp.statusCode());
@@ -183,12 +214,12 @@ class AccountRouteTest {
     void deleteAccountReturns204(VertxTestContext ctx) throws Exception {
         // 删除账号返回 204
         client.post(port, "localhost", ApiRouter.API + "/accounts")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .sendJsonObject(new JsonObject().put("email", EMAIL).put("authCode", AUTH_CODE))
                 .compose(created -> {
                     long id = created.bodyAsJsonObject().getLong("id");
                     return client.delete(port, "localhost", ApiRouter.API + "/accounts/" + id)
-                            .putHeader("Authorization", "Bearer " + token)
+                            .putHeader("Cookie", cookie)
                             .send();
                 })
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
@@ -202,12 +233,12 @@ class AccountRouteTest {
     void testConnectionReturnsResult(VertxTestContext ctx) throws Exception {
         // 单个测活返回 { ok, message }
         client.post(port, "localhost", ApiRouter.API + "/accounts")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .sendJsonObject(new JsonObject().put("email", EMAIL).put("authCode", AUTH_CODE))
                 .compose(created -> {
                     long id = created.bodyAsJsonObject().getLong("id");
                     return client.post(port, "localhost", ApiRouter.API + "/accounts/" + id + "/test")
-                            .putHeader("Authorization", "Bearer " + token)
+                            .putHeader("Cookie", cookie)
                             .send();
                 })
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
@@ -222,12 +253,12 @@ class AccountRouteTest {
     void testBatchReturnsResults(VertxTestContext ctx) throws Exception {
         // 批量测活返回 results 数组
         client.post(port, "localhost", ApiRouter.API + "/accounts")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .sendJsonObject(new JsonObject().put("email", EMAIL).put("authCode", AUTH_CODE))
                 .compose(created -> {
                     long id = created.bodyAsJsonObject().getLong("id");
                     return client.post(port, "localhost", ApiRouter.API + "/accounts/test-batch")
-                            .putHeader("Authorization", "Bearer " + token)
+                            .putHeader("Cookie", cookie)
                             .sendJsonObject(new JsonObject().put("ids", new JsonArray().add(id)));
                 })
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
@@ -245,7 +276,7 @@ class AccountRouteTest {
         // 批量导入 txt 文本，返回汇总
         String txt = "# 注释\n" + EMAIL + " " + AUTH_CODE + "\nanother@example.com code-2\n";
         client.post(port, "localhost", ApiRouter.API + "/accounts/import")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .putHeader("Content-Type", "text/plain")
                 .sendBuffer(io.vertx.core.buffer.Buffer.buffer(txt))
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
@@ -262,17 +293,17 @@ class AccountRouteTest {
     void deleteBatchReturnsDeletedCount(VertxTestContext ctx) throws Exception {
         // 批量删除：创建两个账号后批量删除，返回 { deleted: 2 }
         client.post(port, "localhost", ApiRouter.API + "/accounts")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .sendJsonObject(new JsonObject().put("email", EMAIL).put("authCode", AUTH_CODE))
                 .compose(r1 -> {
                     long id1 = r1.bodyAsJsonObject().getLong("id");
                     return client.post(port, "localhost", ApiRouter.API + "/accounts")
-                            .putHeader("Authorization", "Bearer " + token)
+                            .putHeader("Cookie", cookie)
                             .sendJsonObject(new JsonObject().put("email", "second@example.com").put("authCode", AUTH_CODE))
                             .map(r2 -> new JsonArray().add(id1).add(r2.bodyAsJsonObject().getLong("id")));
                 })
                 .compose(ids -> client.post(port, "localhost", ApiRouter.API + "/accounts/delete-batch")
-                        .putHeader("Authorization", "Bearer " + token)
+                        .putHeader("Cookie", cookie)
                         .sendJsonObject(new JsonObject().put("ids", ids)))
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(200, resp.statusCode());
@@ -286,7 +317,7 @@ class AccountRouteTest {
     void deleteBatchEmptyIdsReturns400(VertxTestContext ctx) throws Exception {
         // 批量删除：ids 为空数组应返回 400
         client.post(port, "localhost", ApiRouter.API + "/accounts/delete-batch")
-                .putHeader("Authorization", "Bearer " + token)
+                .putHeader("Cookie", cookie)
                 .sendJsonObject(new JsonObject().put("ids", new JsonArray()))
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(400, resp.statusCode());

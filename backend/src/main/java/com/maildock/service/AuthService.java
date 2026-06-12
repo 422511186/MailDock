@@ -1,68 +1,140 @@
 package com.maildock.service;
 
-import com.maildock.model.Admin;
-import com.maildock.repository.AdminRepository;
-import com.maildock.security.TokenStore;
+import com.maildock.model.User;
+import com.maildock.model.UserIdentity;
+import com.maildock.repository.IdentityRepository;
+import com.maildock.repository.UserRepository;
+import com.maildock.security.SessionStore;
 import org.mindrot.jbcrypt.BCrypt;
 
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
- * 管理员认证服务：负责默认管理员初始化、登录、登出与 Token 校验。
- *
- * <p>密码使用 BCrypt 哈希存储；登录成功后通过 {@link TokenStore} 签发进程内存 Token。
+ * 用户认证服务：负责预制邮箱密码用户初始化、登录、登出与 Session 校验。
  */
 public final class AuthService {
 
-    /** 会话有效期：24 小时。 */
-    private static final Duration SESSION_TTL = Duration.ofHours(24);
+    private static final String EMAIL_PASSWORD_PROVIDER = "email_password";
+    private static final String LINUXDO_PROVIDER = "linuxdo";
 
-    private final AdminRepository adminRepo;
-    private final TokenStore tokenStore;
+    private final UserRepository userRepo;
+    private final IdentityRepository identityRepo;
+    private final SessionStore sessionStore;
+    private final Duration sessionTtl;
 
-    public AuthService(AdminRepository adminRepo, TokenStore tokenStore) {
-        this.adminRepo = adminRepo;
-        this.tokenStore = tokenStore;
+    public AuthService(UserRepository userRepo,
+                       IdentityRepository identityRepo,
+                       SessionStore sessionStore,
+                       Duration sessionTtl) {
+        this.userRepo = userRepo;
+        this.identityRepo = identityRepo;
+        this.sessionStore = sessionStore;
+        this.sessionTtl = sessionTtl;
     }
 
-    /**
-     * 确保存在默认管理员：当库中没有任何管理员时，按给定凭据创建一个。
-     * 密码以 BCrypt 哈希存储。已存在管理员时不做任何操作。
-     */
-    public void ensureDefaultAdmin(String username, String rawPassword) {
-        if (adminRepo.count() > 0) {
+    public record LoginResult(String sessionToken, User user) {
+    }
+
+    public void ensureDefaultEmailUser(String email, String rawPassword) {
+        if (isBlank(email) || isBlank(rawPassword)) {
             return;
         }
+        String normalizedEmail = normalizeEmail(email);
         String hash = BCrypt.hashpw(rawPassword, BCrypt.gensalt());
-        adminRepo.insert(username, hash);
+        Optional<UserIdentity> existing = identityRepo.findByProviderUid(EMAIL_PASSWORD_PROVIDER, normalizedEmail);
+        if (existing.isPresent()) {
+            identityRepo.updateSecretHash(existing.get().id(), hash);
+            return;
+        }
+
+        User user = userRepo.insert(normalizedEmail, normalizedEmail, null);
+        identityRepo.insert(user.id(), EMAIL_PASSWORD_PROVIDER, normalizedEmail, hash);
     }
 
-    /**
-     * 管理员登录：校验用户名与密码，成功则签发并返回 Token，失败返回空。
-     *
-     * @param username 用户名
-     * @param rawPassword 明文密码
-     * @return 登录成功返回 Token，失败返回 {@link Optional#empty()}
-     */
-    public Optional<String> login(String username, String rawPassword) {
-        Optional<Admin> admin = adminRepo.findByUsername(username);
-        if (admin.isEmpty()) {
+    public Optional<LoginResult> loginWithEmailPassword(String email, String rawPassword) {
+        if (isBlank(email) || isBlank(rawPassword)) {
             return Optional.empty();
         }
-        if (!BCrypt.checkpw(rawPassword, admin.get().passwordHash())) {
+        String normalizedEmail = normalizeEmail(email);
+        Optional<UserIdentity> identity = identityRepo.findByProviderUid(EMAIL_PASSWORD_PROVIDER, normalizedEmail);
+        if (identity.isEmpty() || isBlank(identity.get().secretHash())) {
             return Optional.empty();
         }
-        return Optional.of(tokenStore.issue(username, SESSION_TTL));
+        if (!BCrypt.checkpw(rawPassword, identity.get().secretHash())) {
+            return Optional.empty();
+        }
+
+        Optional<User> user = userRepo.findById(identity.get().userId());
+        if (user.isEmpty()) {
+            return Optional.empty();
+        }
+        long now = System.currentTimeMillis();
+        userRepo.updateLastLogin(user.get().id(), now);
+        User updated = userRepo.findById(user.get().id()).orElse(user.get());
+        String token = sessionStore.issue(updated.id(), sessionTtl);
+        return Optional.of(new LoginResult(token, updated));
     }
 
-    /** 登出：撤销 Token。 */
+    public Optional<User> currentUser(String token) {
+        return sessionStore.userId(token).flatMap(userRepo::findById);
+    }
+
+    public Optional<LoginResult> loginWithLinuxdoUser(OAuthClient.OAuthUser oauthUser) {
+        if (oauthUser == null || isBlank(oauthUser.providerUid())) {
+            return Optional.empty();
+        }
+
+        String providerUid = oauthUser.providerUid().strip();
+        String primaryEmail = nullableStrip(oauthUser.email());
+        String displayName = nullableStrip(oauthUser.displayName());
+        String avatarUrl = nullableStrip(oauthUser.avatarUrl());
+
+        Optional<UserIdentity> identity = identityRepo.findByProviderUid(LINUXDO_PROVIDER, providerUid);
+        User user;
+        if (identity.isPresent()) {
+            user = userRepo.findById(identity.get().userId()).orElse(null);
+            if (user == null) {
+                return Optional.empty();
+            }
+            userRepo.updateProfile(user.id(), primaryEmail, displayName, avatarUrl);
+        } else {
+            user = userRepo.insert(primaryEmail, displayName, avatarUrl);
+            identityRepo.insert(user.id(), LINUXDO_PROVIDER, providerUid, null);
+        }
+
+        long now = System.currentTimeMillis();
+        userRepo.updateLastLogin(user.id(), now);
+        User updated = userRepo.findById(user.id()).orElse(user);
+        String token = sessionStore.issue(updated.id(), sessionTtl);
+        return Optional.of(new LoginResult(token, updated));
+    }
+
+    public Optional<Long> userId(String token) {
+        return sessionStore.userId(token);
+    }
+
     public void logout(String token) {
-        tokenStore.revoke(token);
+        sessionStore.revoke(token);
     }
 
-    /** 校验 Token 是否有效（已登录且未过期）。 */
     public boolean authenticated(String token) {
-        return tokenStore.isValid(token);
+        return sessionStore.isValid(token);
+    }
+
+    private String normalizeEmail(String email) {
+        return email.strip().toLowerCase(Locale.ROOT);
+    }
+
+    private String nullableStrip(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.strip();
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 }

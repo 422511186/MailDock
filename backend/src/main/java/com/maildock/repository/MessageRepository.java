@@ -77,6 +77,24 @@ public final class MessageRepository {
         }
     }
 
+    /** 按用户归属查找邮件，其他用户的邮件视为不存在。 */
+    public Optional<Message> findByIdForUser(long userId, long messageId) {
+        String sql = """
+                SELECT m.* FROM mail_message m
+                JOIN mail_account a ON a.id = m.account_id
+                WHERE m.id = ? AND a.user_id = ?
+                """;
+        try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+            ps.setLong(1, messageId);
+            ps.setLong(2, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(map(rs)) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("按用户查询邮件失败: " + messageId, e);
+        }
+    }
+
     /** 返回某账号已存邮件的最大 UID，无邮件时返回 0（增量同步依据）。 */
     public long maxUid(long accountId) {
         String sql = "SELECT COALESCE(MAX(uid), 0) FROM mail_message WHERE account_id = ?";
@@ -117,6 +135,32 @@ public final class MessageRepository {
         }
     }
 
+    /** 按用户归属分页列出某账号邮件；账号不属于用户时返回空列表。 */
+    public List<Message> listByAccountForUser(long userId, long accountId, int page, int size) {
+        int offset = (page - 1) * size;
+        String sql = """
+                SELECT m.* FROM mail_message m
+                JOIN mail_account a ON a.id = m.account_id
+                WHERE m.account_id = ? AND a.user_id = ?
+                ORDER BY m.received_at DESC LIMIT ? OFFSET ?
+                """;
+        List<Message> result = new ArrayList<>();
+        try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+            ps.setLong(1, accountId);
+            ps.setLong(2, userId);
+            ps.setInt(3, size);
+            ps.setInt(4, offset);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    result.add(map(rs));
+                }
+            }
+            return result;
+        } catch (SQLException e) {
+            throw new RuntimeException("按用户分页查询邮件失败: account=" + accountId, e);
+        }
+    }
+
     /** 统计某账号邮件总数，用于分页。 */
     public long countByAccount(long accountId) {
         String sql = "SELECT COUNT(*) FROM mail_message WHERE account_id = ?";
@@ -128,6 +172,25 @@ public final class MessageRepository {
             }
         } catch (SQLException e) {
             throw new RuntimeException("统计邮件数量失败: account=" + accountId, e);
+        }
+    }
+
+    /** 按用户归属统计某账号邮件总数；账号不属于用户时返回 0。 */
+    public long countByAccountForUser(long userId, long accountId) {
+        String sql = """
+                SELECT COUNT(*) FROM mail_message m
+                JOIN mail_account a ON a.id = m.account_id
+                WHERE m.account_id = ? AND a.user_id = ?
+                """;
+        try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+            ps.setLong(1, accountId);
+            ps.setLong(2, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getLong(1);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("按用户统计邮件数量失败: account=" + accountId, e);
         }
     }
 
@@ -173,6 +236,30 @@ public final class MessageRepository {
                 return null;
             } catch (SQLException e) {
                 throw new RuntimeException("标记已读失败: " + id, e);
+            }
+        });
+    }
+
+    /** 按用户归属标记邮件已读 / 未读；不属于用户时抛异常。 */
+    public void markReadForUser(long userId, long messageId, boolean read) {
+        db.runWrite(() -> {
+            String sql = """
+                    UPDATE mail_message
+                    SET is_read = ?
+                    WHERE id = ?
+                      AND account_id IN (SELECT id FROM mail_account WHERE user_id = ?)
+                    """;
+            try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+                ps.setInt(1, read ? 1 : 0);
+                ps.setLong(2, messageId);
+                ps.setLong(3, userId);
+                int updated = ps.executeUpdate();
+                if (updated == 0) {
+                    throw new RuntimeException("邮件不存在: " + messageId);
+                }
+                return null;
+            } catch (SQLException e) {
+                throw new RuntimeException("按用户标记已读失败: " + messageId, e);
             }
         });
     }

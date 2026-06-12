@@ -39,8 +39,8 @@ class WebVerticleTest {
         // 端口 0 让系统分配空闲端口，避免测试端口冲突
         Map<String, String> env = new HashMap<>();
         env.put("MAILDOCK_SECRET_KEY", KEY);
-        env.put("MAILDOCK_ADMIN_USER", "admin");
-        env.put("MAILDOCK_ADMIN_PASS", "init-pass");
+        env.put("MAILDOCK_DEFAULT_EMAIL", "alice@example.com");
+        env.put("MAILDOCK_DEFAULT_PASSWORD", "init-pass");
         env.put("MAILDOCK_HTTP_PORT", "0");
         env.put("MAILDOCK_DB_PATH", dbFile.toAbsolutePath().toString());
         env.put("MAILDOCK_ATTACHMENTS_DIR", attachmentsDir.toAbsolutePath().toString());
@@ -66,13 +66,13 @@ class WebVerticleTest {
     }
 
     @Test
-    void verticleStartsAndInitializesAdmin(VertxTestContext ctx) throws Exception {
-        // 部署后应已初始化默认管理员，可用其凭据登录拿到 token
+    void verticleStartsAndInitializesDefaultEmailUser(VertxTestContext ctx) throws Exception {
+        // 部署后应已初始化默认邮箱用户，可用其凭据登录并拿到 session cookie
         client.post(port, "localhost", ApiRouter.API + "/auth/login")
-                .sendJsonObject(new JsonObject().put("username", "admin").put("password", "init-pass"))
+                .sendJsonObject(new JsonObject().put("email", "alice@example.com").put("password", "init-pass"))
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(200, resp.statusCode());
-                    assertNotNull(resp.bodyAsJsonObject().getString("token"));
+                    assertNotNull(resp.getHeader("Set-Cookie"));
                     ctx.completeNow();
                 })));
         assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
@@ -80,13 +80,13 @@ class WebVerticleTest {
 
     @Test
     void protectedRouteWorksEndToEnd(VertxTestContext ctx) throws Exception {
-        // 端到端：登录后用 token 访问受保护的账号列表，返回 200
+        // 端到端：登录后用 cookie 访问受保护的账号列表，返回 200
         client.post(port, "localhost", ApiRouter.API + "/auth/login")
-                .sendJsonObject(new JsonObject().put("username", "admin").put("password", "init-pass"))
+                .sendJsonObject(new JsonObject().put("email", "alice@example.com").put("password", "init-pass"))
                 .compose(loginResp -> {
-                    String token = loginResp.bodyAsJsonObject().getString("token");
+                    String cookie = loginResp.getHeader("Set-Cookie");
                     return client.get(port, "localhost", ApiRouter.API + "/accounts")
-                            .putHeader("Authorization", "Bearer " + token)
+                            .putHeader("Cookie", cookie)
                             .send();
                 })
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {

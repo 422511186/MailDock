@@ -83,7 +83,6 @@
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-web-client</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <!-- GreenMail embedded mail server for IMAP integration tests -->

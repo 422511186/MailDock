@@ -2,6 +2,7 @@ package com.maildock.repository;
 
 import com.maildock.model.Account;
 import com.maildock.model.Message;
+import com.maildock.model.User;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,9 +18,13 @@ class MessageRepositoryTest {
 
     private Database db;
     private AccountRepository accountRepo;
+    private UserRepository userRepo;
     private MessageRepository repo;
     private Path dbFile;
+    private User userA;
+    private User userB;
     private long accountId;
+    private long otherAccountId;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -27,9 +32,22 @@ class MessageRepositoryTest {
         dbFile = Files.createTempFile("maildock-msg-test", ".db");
         db = new Database("jdbc:sqlite:" + dbFile.toAbsolutePath());
         db.initSchema();
+        userRepo = new UserRepository(db);
+        userA = userRepo.insert("a@example.com", "User A", null);
+        userB = userRepo.insert("b@example.com", "User B", null);
         accountRepo = new AccountRepository(db);
         repo = new MessageRepository(db);
-        accountId = accountRepo.insert("owner@163.com", "enc").id();
+        accountId = accountRepo.insert(userA.id(), "owner@163.com", "enc").id();
+        otherAccountId = accountRepo.insert(userB.id(), "other@163.com", "enc").id();
+    }
+
+    private Message sampleForAccount(long accountId, long uid, String subject) {
+        return new Message(
+                0, accountId, uid, "<mid-" + uid + "@163.com>", subject,
+                "alice@163.com", "owner@163.com", null,
+                1700000000000L, 1700000001000L,
+                "纯文本正文", "<p>HTML 正文</p>",
+                false, false, 123L, 0L);
     }
 
     @AfterEach
@@ -125,5 +143,33 @@ class MessageRepositoryTest {
     void findByIdReturnsEmptyWhenAbsent() {
         // 不存在的 id 返回空
         assertTrue(repo.findById(12345).isEmpty());
+    }
+
+    @Test
+    void findByIdForUserReturnsEmptyForOtherUsersMessage() {
+        Message own = repo.insert(sampleForAccount(accountId, 1, "own"));
+        Message other = repo.insert(sampleForAccount(otherAccountId, 2, "other"));
+
+        assertTrue(repo.findByIdForUser(userA.id(), own.id()).isPresent());
+        assertTrue(repo.findByIdForUser(userA.id(), other.id()).isEmpty());
+    }
+
+    @Test
+    void listAndCountByAccountForUserRejectOtherUsersAccount() {
+        repo.insert(sampleForAccount(accountId, 1, "own"));
+        repo.insert(sampleForAccount(otherAccountId, 2, "other"));
+
+        assertEquals(1, repo.countByAccountForUser(userA.id(), accountId));
+        assertEquals(0, repo.countByAccountForUser(userA.id(), otherAccountId));
+        assertEquals(1, repo.listByAccountForUser(userA.id(), accountId, 1, 20).size());
+        assertTrue(repo.listByAccountForUser(userA.id(), otherAccountId, 1, 20).isEmpty());
+    }
+
+    @Test
+    void markReadForUserRejectsOtherUsersMessage() {
+        Message other = repo.insert(sampleForAccount(otherAccountId, 2, "other"));
+
+        assertThrows(RuntimeException.class, () -> repo.markReadForUser(userA.id(), other.id(), true));
+        assertFalse(repo.findById(other.id()).orElseThrow().isRead());
     }
 }
