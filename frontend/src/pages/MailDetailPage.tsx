@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Paperclip, Download } from 'lucide-react';
 import type { ApiClient, MessageDetail } from '../api/client';
 
 interface MailDetailPageProps {
@@ -94,7 +95,8 @@ export function MailDetailPage({ api, messageId, onBack }: MailDetailPageProps) 
               <h3 className="mb-2 text-base font-semibold">附件</h3>
               <ul className="space-y-2">
                 {message.attachments.map((att) => (
-                  <li key={att.id} className="flex flex-wrap items-center gap-2">
+                  <li key={att.id} className="attachment-item">
+                    <Paperclip className="attachment-icon" aria-hidden="true" />
                     <a
                       href={api.attachmentUrl(message.id, att.id)}
                       download
@@ -103,6 +105,7 @@ export function MailDetailPage({ api, messageId, onBack }: MailDetailPageProps) 
                       {att.filename}
                     </a>
                     <span className="text-xs text-slate-500">（{formatSize(att.size)}）</span>
+                    <Download className="attachment-download-icon" aria-hidden="true" />
                   </li>
                 ))}
               </ul>

@@ -397,6 +397,19 @@
     @apply text-xs text-slate-500;
   }
 
+  /* 邮件详情：附件项图标布局 */
+  .app-main article li.attachment-item {
+    @apply flex items-center gap-2;
+  }
+
+  .app-main article li.attachment-item .attachment-icon {
+    @apply h-4 w-4 shrink-0 text-slate-400;
+  }
+
+  .app-main article li.attachment-item .attachment-download-icon {
+    @apply h-4 w-4 shrink-0 text-brand-600;
+  }
+
   /* ===== 按钮样式 ===== */
   button, .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium

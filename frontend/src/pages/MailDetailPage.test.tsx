@@ -135,4 +135,22 @@ describe('MailDetailPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /返回/ }));
     expect(onBack).toHaveBeenCalled();
   });
+
+  it('附件项渲染图标且下载链接保留 href', async () => {
+    const api = stubApi({
+      getMessage: vi.fn().mockResolvedValue(
+        detail({
+          attachments: [
+            { id: 11, filename: '报告.pdf', contentType: 'application/pdf', size: 2048 },
+          ],
+        }),
+      ),
+    });
+    render(<MailDetailPage api={api as never} messageId={1} onBack={vi.fn()} />);
+    const link = (await screen.findByText('报告.pdf')).closest('a')!;
+    expect(link).toHaveAttribute('href', '/api/v1/messages/1/attachments/11');
+    // 附件列表项内应有图标
+    const li = link.closest('li')!;
+    expect(li.querySelector('svg')).toBeInTheDocument();
+  });
 });
