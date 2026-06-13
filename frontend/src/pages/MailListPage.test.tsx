@@ -323,4 +323,55 @@ describe('MailListPage', () => {
     const mailList = container.querySelector('.divide-y.divide-slate-100');
     expect(mailList).toBeInTheDocument();
   });
+
+  it('桌面端标题栏左侧显示 Mail 图标 + 邮箱文字', async () => {
+    const api = stubApi();
+    const { container } = render(
+      <MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />
+    );
+    await waitFor(() => expect(api.listMessages).toHaveBeenCalled());
+
+    // 查找桌面端标题栏（带渐变背景）
+    const desktopHeader = container.querySelector('.bg-gradient-to-r.from-slate-50.to-emerald-50');
+    expect(desktopHeader).toBeInTheDocument();
+
+    // 标题栏应该有 Mail 图标
+    const mailIcon = desktopHeader?.querySelector('.lucide-mail');
+    expect(mailIcon).toBeInTheDocument();
+
+    // 应该有 h2 标签包含邮箱地址
+    const h2 = desktopHeader?.querySelector('h2');
+    expect(h2).toBeInTheDocument();
+    expect(h2?.textContent).toBe('alice@163.com');
+  });
+
+  it('桌面端标题栏右侧按钮顺序：收取邮件在前，返回在后', async () => {
+    const api = stubApi();
+    const { container } = render(
+      <MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />
+    );
+    await waitFor(() => expect(api.listMessages).toHaveBeenCalled());
+
+    // 查找桌面端标题栏
+    const desktopHeader = container.querySelector('.bg-gradient-to-r.from-slate-50.to-emerald-50');
+    expect(desktopHeader).toBeInTheDocument();
+
+    // 获取右侧按钮容器中的所有按钮
+    const buttons = desktopHeader?.querySelectorAll('button');
+    expect(buttons?.length).toBeGreaterThanOrEqual(2);
+
+    // 验证按钮顺序：收取邮件（带 RefreshCw 图标）应该在返回（带 ChevronLeft 图标）之前
+    const refreshButton = Array.from(buttons || []).find(btn => btn.querySelector('.lucide-refresh-cw'));
+    const backButton = Array.from(buttons || []).find(btn => btn.querySelector('.lucide-chevron-left'));
+
+    expect(refreshButton).toBeInTheDocument();
+    expect(backButton).toBeInTheDocument();
+
+    // 获取两个按钮在 DOM 中的位置
+    const refreshIndex = Array.from(buttons || []).indexOf(refreshButton!);
+    const backIndex = Array.from(buttons || []).indexOf(backButton!);
+
+    // 收取邮件按钮应该在返回按钮之前
+    expect(refreshIndex).toBeLessThan(backIndex);
+  });
 });

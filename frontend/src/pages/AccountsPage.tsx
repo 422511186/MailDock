@@ -250,7 +250,8 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
 
       {/* 白色卡片工具栏 */}
       <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
+        {/* 桌面端工具栏：单行布局 */}
+        <div className="hidden flex-wrap items-center gap-3 sm:flex">
           {/* 搜索框（带 Search 图标） */}
           <form onSubmit={handleSearch} className="relative min-w-[240px] flex-1">
             <Search
@@ -306,7 +307,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <CheckCircle className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">
+              <span>
                 批量测活{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
               </span>
             </button>
@@ -317,7 +318,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-600 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">批量删除</span>
+              <span>批量删除</span>
             </button>
             <button
               type="button"
@@ -325,7 +326,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
             >
               <Upload className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">导入</span>
+              <span>导入</span>
             </button>
             <button
               type="button"
@@ -333,10 +334,102 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:from-emerald-600 hover:to-emerald-700"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">添加账号</span>
-              <span className="sm:hidden">添加</span>
+              <span>添加账号</span>
             </button>
           </div>
+        </div>
+
+        {/* 移动端工具栏：搜索行 → 下拉行 → 操作按钮行 → 添加按钮 */}
+        <div data-testid="mobile-toolbar" className="flex flex-col gap-3 sm:hidden">
+          {/* 搜索行 */}
+          <form onSubmit={handleSearch} className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
+              aria-hidden="true"
+            />
+            <input
+              type="text"
+              placeholder="搜索邮箱地址..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              autoComplete="off"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+            />
+          </form>
+
+          {/* 下拉行：状态筛选 + 排序，各占一半 */}
+          <div className="flex gap-2">
+            <select
+              aria-label="状态过滤"
+              value={status}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+            >
+              <option value="">全部状态</option>
+              <option value="pending">待检测</option>
+              <option value="ok">正常</option>
+              <option value="fail">异常</option>
+            </select>
+            <select
+              aria-label="排序方式"
+              value={`${sortBy}-${sortOrder}`}
+              onChange={(e) => {
+                const [field, order] = e.target.value.split('-');
+                setSortBy(field);
+                setSortOrder(order as 'asc' | 'desc');
+              }}
+              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+            >
+              <option value="lastSyncAt-desc">最近收信</option>
+              <option value="lastSyncAt-asc">最早收信</option>
+              <option value="lastTestAt-desc">最近测活</option>
+              <option value="lastTestAt-asc">最早测活</option>
+            </select>
+          </div>
+
+          {/* 操作按钮行：测活 / 删除 / 导入，均分宽度 */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              aria-label="移动端批量测活"
+              disabled={selectedIds.length === 0 || busy}
+              onClick={handleTestBatch}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <CheckCircle className="h-4 w-4" aria-hidden="true" />
+              <span>测活{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}</span>
+            </button>
+            <button
+              type="button"
+              aria-label="移动端批量删除"
+              disabled={selectedIds.length === 0 || busy}
+              onClick={handleDeleteBatch}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-600 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              <span>删除</span>
+            </button>
+            <button
+              type="button"
+              aria-label="移动端导入"
+              onClick={() => setShowImport(true)}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              <Upload className="h-4 w-4" aria-hidden="true" />
+              <span>导入</span>
+            </button>
+          </div>
+
+          {/* 添加按钮：整行渐变主按钮 */}
+          <button
+            type="button"
+            aria-label="移动端添加"
+            onClick={() => setShowAdd(true)}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:from-emerald-600 hover:to-emerald-700"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span>添加</span>
+          </button>
         </div>
 
         {/* 已选中提示条 */}
@@ -562,6 +655,50 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               >
                 <div className="p-5">
                   <div className="mb-4 flex items-center gap-3">
+                    {/* 方形选择框 */}
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      aria-label={`选择 ${a.email}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelect(a.id);
+                      }}
+                      className="checkbox-btn"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '20px',
+                        height: '20px',
+                        minWidth: '20px',
+                        minHeight: '20px',
+                        padding: 0,
+                        margin: 0,
+                        border: '2px solid',
+                        borderRadius: '4px',
+                        boxSizing: 'border-box',
+                        flexShrink: 0,
+                        transition: 'all 0.2s',
+                        backgroundColor: isSelected ? 'rgb(16, 185, 129)' : 'white',
+                        borderColor: isSelected ? 'rgb(16, 185, 129)' : 'rgb(203, 213, 225)',
+                        boxShadow: isSelected ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' : 'none',
+                      }}
+                    >
+                      <svg
+                        className={`text-white transition-all duration-200 ${
+                          isSelected ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
+                        }`}
+                        style={{ width: '13px', height: '13px' }}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3.5}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
                     <div
                       className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${emailToAvatarGradient(
                         a.email,

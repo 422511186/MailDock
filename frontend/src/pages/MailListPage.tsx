@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
-import { RefreshCw, User, Paperclip, ChevronLeft } from 'lucide-react';
+import { RefreshCw, User, Paperclip, ChevronLeft, Mail } from 'lucide-react';
 import type { ApiClient, MessageSummary } from '../api/client';
 
 /** 默认每页条数。 */
@@ -133,7 +133,21 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
           {/* 桌面端渐变标题栏 */}
           <div className="bg-gradient-to-r from-slate-50 to-emerald-50 px-6 py-4">
             <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+                <Mail className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+                alice@163.com
+              </h2>
               <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void handleRefresh()}
+                  disabled={busy}
+                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-md transition hover:from-emerald-600 hover:to-emerald-700"
+                  aria-label="收取邮件"
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  收取邮件
+                </button>
                 <button
                   type="button"
                   onClick={onBack}
@@ -143,18 +157,7 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
                   <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                   返回
                 </button>
-                <h1 className="text-lg font-semibold text-slate-800">alice@163.com</h1>
               </div>
-              <button
-                type="button"
-                onClick={() => void handleRefresh()}
-                disabled={busy}
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-md transition hover:from-emerald-600 hover:to-emerald-700"
-                aria-label="收取邮件"
-              >
-                <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                收取邮件
-              </button>
             </div>
           </div>
 

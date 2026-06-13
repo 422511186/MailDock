@@ -286,6 +286,73 @@ describe('AccountsPage', () => {
     expect(smallAvatars.length).toBe(0);
   });
 
+  it('移动端工具栏按钮显示文字标签（测活/删除/导入）', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    const { container } = render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+
+    // 移动端工具栏（sm:hidden）应显示文字标签
+    const mobileToolbar = container.querySelector('[data-testid="mobile-toolbar"]');
+    expect(mobileToolbar).toBeInTheDocument();
+    expect(mobileToolbar!.textContent).toContain('测活');
+    expect(mobileToolbar!.textContent).toContain('删除');
+    expect(mobileToolbar!.textContent).toContain('导入');
+    expect(mobileToolbar!.textContent).toContain('添加');
+  });
+
+  it('移动端操作按钮均分宽度（flex-1）', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    const { container } = render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+
+    const mobileToolbar = container.querySelector('[data-testid="mobile-toolbar"]');
+    // 测活/删除/导入 三个按钮应使用 flex-1 均分宽度
+    const testBtn = mobileToolbar!.querySelector('[aria-label="移动端批量测活"]');
+    const delBtn = mobileToolbar!.querySelector('[aria-label="移动端批量删除"]');
+    const importBtn = mobileToolbar!.querySelector('[aria-label="移动端导入"]');
+    expect(testBtn).toHaveClass('flex-1');
+    expect(delBtn).toHaveClass('flex-1');
+    expect(importBtn).toHaveClass('flex-1');
+  });
+
+  it('移动端卡片左侧显示方形选择框，可勾选而不进入详情', async () => {
+    const onOpenAccount = vi.fn();
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 8, email: 'mobile@163.com' })])),
+    });
+    const { container } = render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
+    await screen.findAllByText('mobile@163.com');
+
+    // 移动端卡片内应有选择框
+    const mobileCards = container.querySelectorAll('.space-y-3.sm\\:hidden > div');
+    const card = Array.from(mobileCards).find(c => c.textContent?.includes('mobile@163.com'))!;
+    const checkbox = card.querySelector('[role="checkbox"][aria-label="选择 mobile@163.com"]');
+    expect(checkbox).toBeInTheDocument();
+
+    // 点击选择框只勾选，不触发 onOpenAccount
+    fireEvent.click(checkbox!);
+    expect(onOpenAccount).not.toHaveBeenCalled();
+    expect(await screen.findByText(/已选中 1 个账号/)).toBeInTheDocument();
+  });
+
+  it('移动端方形选择框为正方形圆角（rounded 而非 rounded-full）', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 8, email: 'mobile@163.com' })])),
+    });
+    const { container } = render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('mobile@163.com');
+
+    const mobileCards = container.querySelectorAll('.space-y-3.sm\\:hidden > div');
+    const card = Array.from(mobileCards).find(c => c.textContent?.includes('mobile@163.com'))!;
+    const checkbox = card.querySelector('[role="checkbox"][aria-label="选择 mobile@163.com"]') as HTMLElement;
+    // 方形选择框不应是圆形
+    expect(checkbox.className).not.toContain('rounded-full');
+  });
+
   it('移动端卡片：状态徽章和邮件数在同一行，无左侧缩进', async () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(
