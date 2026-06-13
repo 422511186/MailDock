@@ -98,4 +98,44 @@ describe('ProfilePage', () => {
     expect(screen.getByRole('heading', { name: '资料与头像' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '修改密码' })).toBeInTheDocument();
   });
+
+  it('资料卡片邮箱长时中间省略显示', () => {
+    const api = stubApi();
+    render(
+      <ProfilePage
+        api={api as never}
+        user={user({ primaryEmail: 'iog9k1hbaw2dflwu@privaterelay.linux.do' })}
+        onBack={vi.fn()}
+        onUserUpdated={vi.fn()}
+      />
+    );
+    expect(screen.getByText('iog9k1hb...privaterelay.linux.do')).toBeInTheDocument();
+  });
+
+  it('资料卡片邮箱元素有 title 属性悬浮展示完整邮箱', () => {
+    const api = stubApi();
+    const { container } = render(
+      <ProfilePage
+        api={api as never}
+        user={user({ primaryEmail: 'iog9k1hbaw2dflwu@privaterelay.linux.do' })}
+        onBack={vi.fn()}
+        onUserUpdated={vi.fn()}
+      />
+    );
+    const emailDD = container.querySelector('dd[title="iog9k1hbaw2dflwu@privaterelay.linux.do"]');
+    expect(emailDD).toBeInTheDocument();
+  });
+
+  it('资料卡片邮箱短时不省略', () => {
+    const api = stubApi();
+    render(
+      <ProfilePage
+        api={api as never}
+        user={user({ primaryEmail: 'a@b.c' })}
+        onBack={vi.fn()}
+        onUserUpdated={vi.fn()}
+      />
+    );
+    expect(screen.getByText('a@b.c')).toBeInTheDocument();
+  });
 });

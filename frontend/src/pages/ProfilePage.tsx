@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import type { ApiClient, CurrentUser } from '../api/client';
 import { Mail, User, Lock, Save, Info, ArrowLeft } from 'lucide-react';
+import { truncateEmail } from '../utils/email';
 
 interface ProfilePageProps {
   api: ApiClient;
@@ -125,7 +126,9 @@ export function ProfilePage({ api, user, onBack, onUserUpdated }: ProfilePagePro
                   <Mail className="h-3.5 w-3.5" aria-hidden="true" />
                   邮箱
                 </dt>
-                <dd className="text-slate-700">{user.primaryEmail ?? '—'}</dd>
+                <dd className="text-slate-700" title={user.primaryEmail ?? ''}>
+                  {truncateEmail(user.primaryEmail ?? '—', 8)}
+                </dd>
                 <dt className="font-medium text-slate-500">登录方式</dt>
                 <dd className="text-slate-700">{user.hasPassword ? '邮箱密码' : 'linux.do'}</dd>
               </dl>
