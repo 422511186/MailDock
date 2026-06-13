@@ -350,7 +350,7 @@ describe('AccountsPage', () => {
     fireEvent.change(screen.getByLabelText('批量导入'), {
       target: { value: 'a@163.com code1\nb@163.com code2' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '确认导入' }));
+    fireEvent.click(screen.getByRole('button', { name: '开始导入' }));
 
     await waitFor(() => {
       expect(api.importText).toHaveBeenCalledWith('a@163.com code1\nb@163.com code2', false, false);

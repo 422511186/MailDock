@@ -1005,7 +1005,7 @@ function ImportModal({
             onClick={handleSubmit}
             disabled={busy}
           >
-            确认导入
+            开始导入
           </button>
         </div>
       </div>
