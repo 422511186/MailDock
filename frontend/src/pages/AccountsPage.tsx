@@ -748,16 +748,27 @@ function RowMenu({
 
   return (
     <div className="relative inline-block" ref={rootRef}>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         aria-label="更多操作"
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="p-1.5 text-slate-400 transition hover:text-slate-600"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((v) => !v);
+          }
+        }}
+        className="cursor-pointer p-1.5 text-slate-400 transition hover:text-slate-600"
       >
         <MoreVertical className="h-5 w-5" aria-hidden="true" />
-      </button>
+      </div>
       {open && (
         <div
           role="menu"

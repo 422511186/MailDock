@@ -553,6 +553,38 @@ describe('AccountsPage', () => {
     expect(desktopEmailSpan).toBeDefined();
   });
 
+  it('桌面端操作列三点图标不是按钮元素', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'test@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('test@163.com');
+
+    // 查找操作列的容器，应该是 div 而非 button
+    const rows = screen.getAllByRole('row');
+    const accountRow = rows.find(row => row.textContent?.includes('test@163.com'));
+    expect(accountRow).toBeDefined();
+
+    // 查找三点图标的父元素，应该是 div
+    const threeDotsContainer = accountRow!.querySelector('svg[class*="h-5"]')?.parentElement;
+    expect(threeDotsContainer).toBeDefined();
+    expect(threeDotsContainer?.tagName).toBe('DIV');
+  });
+
+  it('移动端操作列三点图标不是按钮元素', async () => {
+    global.innerWidth = 500;
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'mobile@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('mobile@163.com');
+
+    // 查找 RowMenu 组件的三点图标容器（通过 aria-label="更多操作" 定位）
+    const threeDotsContainers = document.querySelectorAll('[aria-label="更多操作"]');
+    expect(threeDotsContainers.length).toBeGreaterThan(0);
+    expect(threeDotsContainers[0].tagName).toBe('DIV');
+  });
+
   it('邮箱列不包含背景框', async () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
