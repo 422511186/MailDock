@@ -32,6 +32,8 @@ function stubApi(overrides: Record<string, unknown> = {}) {
 describe('MailListPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // 清理残留的 Toast 元素
+    document.querySelectorAll('.fixed.right-4.top-20').forEach(el => el.remove());
   });
 
   it('未读样式类 ring-brand-300 在图标替换后仍保留', async () => {
@@ -373,5 +375,58 @@ describe('MailListPage', () => {
 
     // 收取邮件按钮应该在返回按钮之前
     expect(refreshIndex).toBeLessThan(backIndex);
+  });
+
+  it('收信成功 Toast 包含圆形图标 + 标题"操作成功" + 描述"新增 N 封邮件"', async () => {
+    const api = stubApi({
+      refresh: vi.fn().mockResolvedValue({ newCount: 5, syncedAt: 123 }),
+    });
+
+    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    await waitFor(() => expect(api.listMessages).toHaveBeenCalled());
+
+    const refreshButtons = screen.getAllByRole('button', { name: '收取邮件' });
+    fireEvent.click(refreshButtons[0]);
+
+    // Toast 应该包含圆形图标容器
+    await waitFor(() => {
+      const iconContainer = document.querySelector('.rounded-full.bg-emerald-500');
+      expect(iconContainer).toBeInTheDocument();
+    });
+
+    // Toast 应该包含标题"操作成功"
+    expect(screen.getAllByText('操作成功').length).toBeGreaterThan(0);
+
+    // Toast 应该包含描述"新增 5 封邮件"
+    expect(screen.getAllByText('新增 5 封邮件').length).toBeGreaterThan(0);
+  });
+
+  it('收信成功 Toast 3秒后自动移除', async () => {
+    vi.useFakeTimers();
+
+    const api = stubApi({
+      refresh: vi.fn().mockResolvedValue({ newCount: 3, syncedAt: 123 }),
+    });
+
+    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+
+    // 等待初始加载完成（使用真实时间）
+    await vi.waitFor(() => expect(api.listMessages).toHaveBeenCalled());
+
+    const refreshButtons = screen.getAllByRole('button', { name: '收取邮件' });
+    fireEvent.click(refreshButtons[0]);
+
+    // Toast 出现（需要等待异步刷新完成，使用真实时间）
+    await vi.waitFor(() => {
+      expect(screen.getAllByText('操作成功').length).toBeGreaterThan(0);
+    });
+
+    // 立即推进 3 秒
+    vi.advanceTimersByTime(3000);
+
+    // Toast 应该被移除（不需要异步等待，因为 setTimeout 是同步推进的）
+    expect(screen.queryAllByText('操作成功').length).toBe(0);
+
+    vi.useRealTimers();
   });
 });
