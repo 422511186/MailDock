@@ -21,12 +21,12 @@ describe('UserMenu', () => {
     expect(trigger).toHaveTextContent('Alice');
   });
 
-  it('点击展开后显示富信息头部（用户名 + 邮箱）', () => {
+  it('点击展开后显示富信息头部（仅用户名，不显示邮箱）', () => {
     render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     const menu = screen.getByRole('menu');
     expect(menu).toHaveTextContent('Alice');
-    expect(menu).toHaveTextContent('alice@example.com');
+    expect(menu).not.toHaveTextContent('alice@example.com');
   });
 
   it('菜单包含个人中心 / 邮件列表 / 退出登录三个菜单项', () => {
@@ -35,6 +35,111 @@ describe('UserMenu', () => {
     expect(screen.getByRole('menuitem', { name: '个人中心' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: '邮件列表' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: '退出登录' })).toBeInTheDocument();
+  });
+
+  it('菜单项使用原型中的轻量列表样式而不是描边按钮样式', () => {
+    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+
+    const menu = screen.getByRole('menu');
+    const menuItems = screen.getAllByRole('menuitem');
+    const menuList = menuItems[0].parentElement;
+
+    expect(menu.className).toContain('w-64');
+    expect(menu.className).toContain('max-w-[calc(100vw-2rem)]');
+    expect(menu.className).not.toContain('w-80');
+    expect(menu.className.split(/\s+/)).not.toContain('border');
+    expect(menu.className.split(/\s+/)).not.toContain('border-slate-200');
+    expect(menuList?.className.split(/\s+/)).toContain('pt-3');
+    expect(menuList?.className.split(/\s+/)).toContain('pb-0');
+    expect(menuList?.className.split(/\s+/)).not.toContain('p-2');
+    expect(menuList?.className.split(/\s+/)).not.toContain('py-3');
+    for (const item of menuItems.slice(0, -1)) {
+      const classes = item.className.split(/\s+/);
+
+      expect(classes.some((className) => className.startsWith('rounded'))).toBe(false);
+      expect(classes).not.toContain('border');
+      expect(classes).toContain('border-none');
+      expect(classes).toContain('bg-transparent');
+      expect(classes).not.toContain('justify-center');
+      expect(classes).toContain('px-2');
+      expect(classes).toContain('py-2.5');
+      expect(classes).not.toContain('px-3');
+      expect(classes).toContain('text-sm');
+      expect(classes).not.toContain('text-base');
+      expect(classes).not.toContain('px-6');
+      expect(classes).not.toContain('py-3.5');
+    }
+    const logoutClasses = screen.getByRole('menuitem', { name: '退出登录' }).className.split(/\s+/);
+    expect(logoutClasses).toContain('text-rose-600');
+    expect(logoutClasses).toContain('rounded-b-2xl');
+    expect(logoutClasses).not.toContain('border');
+    expect(logoutClasses).toContain('border-none');
+    expect(logoutClasses).toContain('bg-transparent');
+    expect(logoutClasses).toContain('px-2');
+    expect(logoutClasses).toContain('py-2.5');
+    expect(logoutClasses).not.toContain('px-3');
+    expect(logoutClasses).toContain('text-sm');
+    expect(logoutClasses).not.toContain('text-base');
+    expect(logoutClasses).not.toContain('px-6');
+    expect(logoutClasses).not.toContain('py-3.5');
+  });
+
+  it('富信息头部保持紧凑，不在桌面和移动端放大', () => {
+    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+
+    const headerName = screen.getAllByText('Alice').find((node) => node.className.includes('font-semibold'));
+    expect(headerName?.className).toContain('text-sm');
+    expect(headerName?.className).not.toContain('text-base');
+    expect(headerName?.className).not.toContain('text-lg');
+  });
+
+  it('富信息头部左右 padding 极小（px-2）', () => {
+    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+
+    const userName = screen.getAllByText('Alice').find((node) => node.className.includes('font-semibold'));
+    const header = userName?.parentElement?.parentElement?.parentElement;
+    const classes = header?.className.split(/\s+/) ?? [];
+
+    expect(classes).toContain('px-2');
+    expect(classes).not.toContain('px-3');
+    expect(classes).not.toContain('px-4');
+  });
+
+  it('富信息头部内容居中对齐', () => {
+    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+
+    const userName = screen.getAllByText('Alice').find((node) => node.className.includes('font-semibold'));
+    const container = userName?.parentElement?.parentElement;
+    const classes = container?.className.split(/\s+/) ?? [];
+
+    expect(classes).toContain('justify-center');
+  });
+
+  it('富信息头部用户名不占据剩余空间（无 flex-1）', () => {
+    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+
+    const userName = screen.getAllByText('Alice').find((node) => node.className.includes('font-semibold'));
+    const textContainer = userName?.parentElement;
+    const classes = textContainer?.className.split(/\s+/) ?? [];
+
+    expect(classes).not.toContain('flex-1');
+  });
+
+  it('富信息头部和菜单项之间不显示横向分隔线', () => {
+    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+
+    const userName = screen.getAllByText('Alice').find((node) => node.className.includes('font-semibold'));
+    const header = userName?.parentElement?.parentElement;
+    const classes = header?.className.split(/\s+/) ?? [];
+
+    expect(classes).not.toContain('border-b');
+    expect(classes).not.toContain('border-slate-100');
   });
 
   it('点击个人中心触发 onOpenProfile 并关闭菜单', () => {
@@ -104,19 +209,10 @@ describe('UserMenu', () => {
     expect(screen.getByRole('button', { name: '用户菜单' })).toHaveTextContent('alice@example.com');
   });
 
-  it('长邮箱在下拉头部显示为中间省略格式', () => {
-    const longEmail = 'iog9k1hbmg2q141ftn9zyy9pxn7lzb0p7tb7dakdeagzue8y4@privaterelay.linux.do';
-    render(<UserMenu user={user({ primaryEmail: longEmail })} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+  it('下拉菜单面板有明显阴影（shadow-xl）以区分背景', () => {
+    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     const menu = screen.getByRole('menu');
-    expect(menu).toHaveTextContent('iog9k1hb...privaterelay.linux.do');
-  });
-
-  it('邮箱元素有 title 属性用于悬浮展示完整邮箱', () => {
-    const longEmail = 'iog9k1hbmg2q141ftn9zyy9pxn7lzb0p7tb7dakdeagzue8y4@privaterelay.linux.do';
-    render(<UserMenu user={user({ primaryEmail: longEmail })} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
-    const emailElement = screen.getByText('iog9k1hb...privaterelay.linux.do');
-    expect(emailElement).toHaveAttribute('title', longEmail);
+    expect(menu.className).toContain('shadow-2xl');
   });
 });

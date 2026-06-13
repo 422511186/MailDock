@@ -82,12 +82,12 @@ export function UserMenu({ user, onOpenProfile, onLogout, onOpenMailList }: User
       {/* 下拉菜单 */}
       {open && (
         <div
-          className="absolute right-0 top-full z-30 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-300/50 animate-slide-down"
+          className="absolute right-0 top-full z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl bg-white shadow-2xl animate-slide-down"
           role="menu"
         >
           {/* 富信息头部 */}
-          <div className="border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4">
-            <div className="flex items-center gap-3">
+          <div className="bg-white px-2 py-4">
+            <div className="flex items-center justify-center gap-3">
               {user.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
@@ -102,22 +102,17 @@ export function UserMenu({ user, onOpenProfile, onLogout, onOpenMailList }: User
                   {initial(user)}
                 </span>
               )}
-              <div className="flex-1 overflow-hidden">
-                <div className="truncate font-semibold text-slate-800">{name}</div>
-                {user.primaryEmail && (
-                  <div className="truncate text-xs text-slate-500" title={user.primaryEmail}>
-                    {truncateEmail(user.primaryEmail)}
-                  </div>
-                )}
+              <div className="overflow-hidden">
+                <div className="truncate text-sm font-semibold text-slate-800">{name}</div>
               </div>
             </div>
           </div>
 
           {/* 菜单项 */}
-          <div className="p-2">
+          <div className="pt-3 pb-0">
             <button
               type="button"
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+              className="flex w-full appearance-none items-center gap-3 border-none bg-transparent px-2 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
               role="menuitem"
               onClick={() => {
                 setOpen(false);
@@ -129,7 +124,7 @@ export function UserMenu({ user, onOpenProfile, onLogout, onOpenMailList }: User
             </button>
             <button
               type="button"
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+              className="flex w-full appearance-none items-center gap-3 border-none bg-transparent px-2 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
               role="menuitem"
               onClick={() => {
                 setOpen(false);
@@ -141,7 +136,7 @@ export function UserMenu({ user, onOpenProfile, onLogout, onOpenMailList }: User
             </button>
             <button
               type="button"
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-rose-600 transition hover:bg-rose-50"
+              className="flex w-full appearance-none items-center gap-3 rounded-b-2xl border-none bg-transparent px-2 py-2.5 text-left text-sm text-rose-600 transition hover:bg-rose-50"
               role="menuitem"
               onClick={() => {
                 setOpen(false);
