@@ -747,7 +747,7 @@ function RowMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+        className="p-1.5 text-slate-400 transition hover:text-slate-600"
       >
         <MoreVertical className="h-5 w-5" aria-hidden="true" />
       </button>

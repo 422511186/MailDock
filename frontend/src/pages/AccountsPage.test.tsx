@@ -531,4 +531,26 @@ describe('AccountsPage', () => {
     const delItem = screen.getByRole('menuitem', { name: /删除/ });
     expect(delItem.querySelector('svg')).toBeInTheDocument();
   });
+
+  it('邮箱列不包含背景框', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+    const emailButton = screen.getAllByText('alice@163.com')[0];
+    expect(emailButton).not.toHaveClass('bg-slate-50');
+    expect(emailButton).not.toHaveClass('rounded-lg');
+  });
+
+  it('操作列三点按钮不包含背景框', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+    const moreBtn = screen.getAllByRole('button', { name: '更多操作' })[0];
+    expect(moreBtn).not.toHaveClass('bg-slate-50');
+    expect(moreBtn).not.toHaveClass('rounded-lg');
+  });
 });
