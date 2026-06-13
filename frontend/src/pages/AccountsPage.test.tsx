@@ -585,6 +585,18 @@ describe('AccountsPage', () => {
     expect(threeDotsContainers[0].tagName).toBe('DIV');
   });
 
+  it('添加账号按钮有 text-white 类名', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'test@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('test@163.com');
+
+    const addButton = screen.getByRole('button', { name: /添加账号/ });
+    expect(addButton).toBeInTheDocument();
+    expect(addButton.className).toContain('text-white');
+  });
+
   it('邮箱列不包含背景框', async () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
