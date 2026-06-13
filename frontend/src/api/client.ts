@@ -25,6 +25,7 @@ export interface Account {
   lastTestAt: number;
   lastTestOk: boolean;
   lastTestMsg: string | null;
+  messageCount: number;
 }
 
 /** 邮件摘要（列表用，不含正文）。 */

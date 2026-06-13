@@ -516,7 +516,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center text-sm text-slate-600">
-                      {a.lastUid}
+                      {a.messageCount}
                     </td>
                     <td className="px-6 py-4 text-center text-sm text-slate-600">
                       {formatRelativeTime(a.lastSyncAt)}
@@ -628,7 +628,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                       <span className={`h-1.5 w-1.5 rounded-full ${statusDot(st.label)}`} />
                       {st.label}
                     </span>
-                    <span className="text-xs text-slate-500">邮件数：{a.lastUid}</span>
+                    <span className="text-xs text-slate-500">邮件数：{a.messageCount}</span>
                   </div>
                   <div className="space-y-1 text-xs text-slate-500">
                     <div>最后同步：{formatRelativeTime(a.lastSyncAt)}</div>

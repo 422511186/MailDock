@@ -15,6 +15,7 @@ function account(overrides: Partial<Account> = {}): Account {
     lastTestAt: 1700000000000,
     lastTestOk: true,
     lastTestMsg: '连接成功',
+    messageCount: 0,
     ...overrides,
   };
 }
@@ -62,7 +63,7 @@ describe('AccountsPage', () => {
   it('桌面端表格包含"邮件数"列', async () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(
-        paged([account({ id: 1, email: 'alice@163.com', lastUid: 128 })]),
+        paged([account({ id: 1, email: 'alice@163.com', messageCount: 128 })]),
       ),
     });
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
