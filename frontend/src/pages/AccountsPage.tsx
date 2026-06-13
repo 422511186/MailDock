@@ -613,14 +613,21 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                       onDelete={() => void handleDelete(a.id)}
                     />
                   </div>
-                  <button
-                    type="button"
-                    className="mb-4 block w-full break-all text-left text-base font-semibold text-slate-900 hover:text-emerald-600"
-                    onClick={() => onOpenAccount(a.id)}
-                  >
-                    {a.email}
-                  </button>
-                  <div className="mb-3 flex items-center gap-2">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div
+                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${emailToAvatarGradient(
+                        a.email,
+                      )} text-base font-semibold text-white shadow-md`}
+                      aria-hidden="true"
+                    >
+                      {a.email.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-slate-800">{a.email}</div>
+                      <div className="text-xs text-slate-500">{formatRelativeTime(a.lastSyncAt)}</div>
+                    </div>
+                  </div>
+                  <div className="mb-3 flex items-center gap-2 ml-[60px]">
                     <span
                       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${st.cls}`}
                       title={a.lastTestMsg || ''}
@@ -629,9 +636,6 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                       {st.label}
                     </span>
                     <span className="text-xs text-slate-500">邮件数：{a.messageCount}</span>
-                  </div>
-                  <div className="space-y-1 text-xs text-slate-500">
-                    <div>最后同步：{formatRelativeTime(a.lastSyncAt)}</div>
                   </div>
                 </div>
               </div>

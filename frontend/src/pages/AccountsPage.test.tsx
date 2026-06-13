@@ -96,7 +96,8 @@ describe('AccountsPage', () => {
     });
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findAllByText('bob@163.com');
-    expect(screen.getByText('从未同步')).toBeInTheDocument();
+    const syncTexts = screen.getAllByText('从未同步');
+    expect(syncTexts.length).toBeGreaterThan(0);
   });
 
   it('选中行带浅绿背景（bg-emerald-50）', async () => {
@@ -538,9 +539,15 @@ describe('AccountsPage', () => {
     });
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findAllByText('alice@163.com');
-    const emailButton = screen.getAllByText('alice@163.com')[0];
-    expect(emailButton).not.toHaveClass('bg-slate-50');
-    expect(emailButton).not.toHaveClass('rounded-lg');
+    const emailButtons = screen.getAllByText('alice@163.com');
+    emailButtons.forEach(btn => {
+      expect(btn).not.toHaveClass('bg-white');
+      expect(btn).not.toHaveClass('bg-slate-50');
+      expect(btn).not.toHaveClass('rounded-lg');
+      expect(btn).not.toHaveClass('rounded-xl');
+      expect(btn).not.toHaveClass('border');
+      expect(btn).not.toHaveClass('shadow');
+    });
   });
 
   it('操作列三点按钮不包含背景框', async () => {
@@ -552,6 +559,46 @@ describe('AccountsPage', () => {
     const moreBtn = screen.getAllByRole('button', { name: '更多操作' })[0];
     expect(moreBtn).not.toHaveClass('bg-slate-50');
     expect(moreBtn).not.toHaveClass('rounded-lg');
+  });
+
+  it('移动端邮箱显示为纯文本而非按钮', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+
+    // 移动端卡片内应该有纯文本显示邮箱
+    const mobileCards = document.querySelectorAll('.sm\\:hidden [class*="rounded-2xl"]');
+    expect(mobileCards.length).toBeGreaterThan(0);
+
+    // 邮箱文本不应该是按钮
+    const allEmailElements = screen.getAllByText('alice@163.com');
+    const mobileEmailText = allEmailElements.find(el =>
+      el.tagName === 'DIV' && el.classList.contains('font-medium')
+    );
+    expect(mobileEmailText).toBeDefined();
+  });
+
+  it('移动端邮箱按钮不包含背景框', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+
+    // 移动端邮箱现在是纯文本 div，不是按钮
+    const allEmailElements = screen.getAllByText('alice@163.com');
+    const mobileEmailDiv = allEmailElements.find(el =>
+      el.tagName === 'DIV' && el.classList.contains('font-medium')
+    );
+
+    expect(mobileEmailDiv).toBeDefined();
+    if (mobileEmailDiv) {
+      expect(mobileEmailDiv).not.toHaveClass('bg-white');
+      expect(mobileEmailDiv).not.toHaveClass('border');
+      expect(mobileEmailDiv).not.toHaveClass('rounded-lg');
+    }
   });
 
   it('表格行不包含 hover 背景色', async () => {
