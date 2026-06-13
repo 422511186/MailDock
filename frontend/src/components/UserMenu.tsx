@@ -81,7 +81,7 @@ export function UserMenu({ user, onOpenProfile, onLogout, onOpenMailList }: User
       {/* 下拉菜单 */}
       {open && (
         <div
-          className="absolute right-0 top-full z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl bg-white shadow-2xl animate-slide-down"
+          className="absolute right-0 top-full z-30 mt-2 w-52 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl bg-white shadow-2xl animate-slide-down"
           role="menu"
         >
           {/* 富信息头部 */}
@@ -108,7 +108,7 @@ export function UserMenu({ user, onOpenProfile, onLogout, onOpenMailList }: User
           </div>
 
           {/* 菜单项 */}
-          <div className="pt-3 pb-0">
+          <div className="pt-3 pb-2">
             <button
               type="button"
               className="flex w-full appearance-none items-center gap-3 border-none bg-transparent px-2 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"

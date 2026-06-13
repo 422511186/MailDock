@@ -45,13 +45,14 @@ describe('UserMenu', () => {
     const menuItems = screen.getAllByRole('menuitem');
     const menuList = menuItems[0].parentElement;
 
-    expect(menu.className).toContain('w-64');
+    expect(menu.className).toContain('w-52');
     expect(menu.className).toContain('max-w-[calc(100vw-2rem)]');
     expect(menu.className).not.toContain('w-80');
+    expect(menu.className).not.toContain('w-64');
     expect(menu.className.split(/\s+/)).not.toContain('border');
     expect(menu.className.split(/\s+/)).not.toContain('border-slate-200');
     expect(menuList?.className.split(/\s+/)).toContain('pt-3');
-    expect(menuList?.className.split(/\s+/)).toContain('pb-0');
+    expect(menuList?.className.split(/\s+/)).toContain('pb-2');
     expect(menuList?.className.split(/\s+/)).not.toContain('p-2');
     expect(menuList?.className.split(/\s+/)).not.toContain('py-3');
     for (const item of menuItems.slice(0, -1)) {
