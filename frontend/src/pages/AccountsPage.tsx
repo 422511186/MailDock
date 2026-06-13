@@ -434,7 +434,11 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                 const st = statusOf(a);
                 const isSelected = selectedIds.includes(a.id);
                 return (
-                  <tr key={a.id} className={`transition ${isSelected ? 'bg-emerald-50/50 hover:bg-emerald-50' : ''}`}>
+                  <tr
+                    key={a.id}
+                    className={`cursor-pointer transition ${isSelected ? 'bg-emerald-50/50 hover:bg-emerald-50' : ''}`}
+                    onClick={() => onOpenAccount(a.id)}
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center">
                         <button
@@ -442,7 +446,10 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                           role="checkbox"
                           aria-checked={isSelected}
                           aria-label={`选择 ${a.email}`}
-                          onClick={() => toggleSelect(a.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSelect(a.id);
+                          }}
                           className="checkbox-btn"
                           style={{
                             display: 'flex',
@@ -495,13 +502,9 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                         >
                           {a.email.charAt(0).toUpperCase()}
                         </div>
-                        <button
-                          type="button"
-                          className="text-sm font-medium text-slate-800 transition hover:text-emerald-600"
-                          onClick={() => onOpenAccount(a.id)}
-                        >
+                        <span className="text-sm font-medium text-slate-800">
                           {a.email}
-                        </button>
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">

@@ -224,15 +224,20 @@ describe('AccountsPage', () => {
     confirmSpy.mockRestore();
   });
 
-  it('点击账号触发 onOpenAccount', async () => {
+  it('点击账号行触发 onOpenAccount', async () => {
     const onOpenAccount = vi.fn();
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 7, email: 'open@163.com' })])),
     });
 
     render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
-    const emailButtons = await screen.findAllByText('open@163.com');
-    fireEvent.click(emailButtons[0]);
+    await screen.findAllByText('open@163.com');
+
+    // 在桌面端视图中找到表格行并点击
+    const rows = screen.getAllByRole('row');
+    const accountRow = rows.find(row => row.textContent?.includes('open@163.com'));
+    expect(accountRow).toBeDefined();
+    fireEvent.click(accountRow!);
 
     expect(onOpenAccount).toHaveBeenCalledWith(7);
   });
@@ -531,6 +536,21 @@ describe('AccountsPage', () => {
     openFirstRowMenu();
     const delItem = screen.getByRole('menuitem', { name: /删除/ });
     expect(delItem.querySelector('svg')).toBeInTheDocument();
+  });
+
+  it('桌面端邮箱显示为纯文本而非按钮', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+
+    // 桌面端表格内应该有纯文本显示邮箱
+    const allEmailElements = screen.getAllByText('alice@163.com');
+    const desktopEmailSpan = allEmailElements.find(el =>
+      el.tagName === 'SPAN' && el.classList.contains('font-medium')
+    );
+    expect(desktopEmailSpan).toBeDefined();
   });
 
   it('邮箱列不包含背景框', async () => {
