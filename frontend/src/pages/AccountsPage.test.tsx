@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { AccountsPage } from './AccountsPage';
 import type { Account, PagedAccounts } from '../api/client';
 
@@ -32,9 +32,16 @@ function stubApi(overrides: Record<string, unknown> = {}) {
     deleteAccount: vi.fn().mockResolvedValue(undefined),
     testConnection: vi.fn().mockResolvedValue({ ok: true, message: '连接成功' }),
     testBatch: vi.fn().mockResolvedValue({ results: [] }),
+    deleteBatch: vi.fn().mockResolvedValue(undefined),
     importText: vi.fn().mockResolvedValue({ total: 0, success: 0, failed: 0, skipped: 0, results: [] }),
     ...overrides,
   };
+}
+
+/** 打开第一个行三点菜单（桌面表格优先）。 */
+function openFirstRowMenu() {
+  const moreBtns = screen.getAllByRole('button', { name: '更多操作' });
+  fireEvent.click(moreBtns[0]);
 }
 
 describe('AccountsPage', () => {
@@ -43,7 +50,6 @@ describe('AccountsPage', () => {
   });
 
   it('加载后展示账号列表', async () => {
-    // 进入页面应拉取并渲染账号
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(
         paged([
@@ -55,13 +61,11 @@ describe('AccountsPage', () => {
 
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
 
-    // 桌面和移动端都会渲染，使用 findAllByText
     expect((await screen.findAllByText('alice@163.com')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('bob@163.com').length).toBeGreaterThan(0);
   });
 
   it('通过弹窗新增账号后刷新列表', async () => {
-    // 点击「新增账号」打开弹窗，填写后提交，应调用 createAccount 并重新加载
     const listAccounts = vi
       .fn()
       .mockResolvedValueOnce(paged([]))
@@ -71,7 +75,6 @@ describe('AccountsPage', () => {
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(1));
 
-    // 打开新增弹窗
     fireEvent.click(screen.getByRole('button', { name: '新增账号' }));
 
     fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'new@163.com' } });
@@ -85,21 +88,19 @@ describe('AccountsPage', () => {
   });
 
   it('确认后删除账号并从列表移除', async () => {
-    // 点击删除弹出二次确认，确认后才调用 deleteAccount 并重新加载
     const listAccounts = vi
       .fn()
       .mockResolvedValueOnce(paged([account({ id: 3, email: 'del@163.com' })]))
       .mockResolvedValueOnce(paged([]));
     const api = stubApi({ listAccounts });
 
-    // Mock window.confirm
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findAllByText('del@163.com');
 
-    const deleteButtons = screen.getAllByRole('button', { name: '删除' });
-    fireEvent.click(deleteButtons[0]);
+    openFirstRowMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: /删除/ }));
 
     expect(confirmSpy).toHaveBeenCalled();
     await waitFor(() => {
@@ -109,7 +110,6 @@ describe('AccountsPage', () => {
   });
 
   it('取消确认时不删除账号', async () => {
-    // 二次确认点取消应中止删除，不调用 deleteAccount
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 3, email: 'del@163.com' })])),
     });
@@ -118,8 +118,8 @@ describe('AccountsPage', () => {
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findAllByText('del@163.com');
 
-    const deleteButtons = screen.getAllByRole('button', { name: '删除' });
-    fireEvent.click(deleteButtons[0]);
+    openFirstRowMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: /删除/ }));
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(api.deleteAccount).not.toHaveBeenCalled();
@@ -127,7 +127,6 @@ describe('AccountsPage', () => {
   });
 
   it('点击账号触发 onOpenAccount', async () => {
-    // 点击邮箱进入该账号的邮件列表
     const onOpenAccount = vi.fn();
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 7, email: 'open@163.com' })])),
@@ -141,7 +140,6 @@ describe('AccountsPage', () => {
   });
 
   it('批量测活后刷新列表', async () => {
-    // 点击批量测活应调用 testBatch（选中账号时传 ids，否则测全部）并重新加载
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
@@ -149,21 +147,8 @@ describe('AccountsPage', () => {
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findAllByText('alice@163.com');
 
-    // 点击复选框选中账号（没有 aria-label，直接查找复选框）
-    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-    // 跳过全选框（如果有），找到第一个账号的复选框
-    const accountCheckbox = Array.from(checkboxes).find(cb => {
-      const parent = cb.closest('div, td');
-      return parent && parent.textContent?.includes('alice@163.com');
-    });
-
-    if (!accountCheckbox) {
-      // 如果没有真实复选框，点击选择区域
-      const selectAreas = document.querySelectorAll('[class*="cursor-pointer"]');
-      fireEvent.click(selectAreas[0] as HTMLElement);
-    } else {
-      fireEvent.click(accountCheckbox);
-    }
+    const checkboxes = screen.getAllByRole('checkbox', { name: '选择 alice@163.com' });
+    fireEvent.click(checkboxes[0]);
 
     const batchBtn = await screen.findByRole('button', { name: /批量测活/ });
     fireEvent.click(batchBtn);
@@ -174,7 +159,6 @@ describe('AccountsPage', () => {
   });
 
   it('点击表头全选框选中当前页全部账号', async () => {
-    // 点击表头「全选」应选中当前页所有账号，批量测活按钮显示对应数量
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(
         paged([
@@ -190,11 +174,10 @@ describe('AccountsPage', () => {
 
     fireEvent.click(screen.getByRole('checkbox', { name: '全选' }));
 
-    expect(await screen.findByRole('button', { name: /批量测活 \(3\)/ })).toBeInTheDocument();
+    expect(await screen.findByText(/已选中 3 个账号/)).toBeInTheDocument();
   });
 
   it('全选后再次点击表头全选框取消全选', async () => {
-    // 已全选时再次点击表头复选框应清空选中，批量操作按钮消失
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(
         paged([
@@ -209,16 +192,15 @@ describe('AccountsPage', () => {
 
     const selectAll = screen.getByRole('checkbox', { name: '全选' });
     fireEvent.click(selectAll);
-    expect(await screen.findByRole('button', { name: /批量测活 \(2\)/ })).toBeInTheDocument();
+    expect(await screen.findByText(/已选中 2 个账号/)).toBeInTheDocument();
 
     fireEvent.click(selectAll);
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: /批量测活/ })).not.toBeInTheDocument();
+      expect(screen.queryByText(/已选中/)).not.toBeInTheDocument();
     });
   });
 
   it('全选后取消某行选择时表头全选框变为未选中', async () => {
-    // 全选后取消其中一个账号，表头全选框应不再处于选中(aria-checked)状态
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(
         paged([
@@ -235,17 +217,16 @@ describe('AccountsPage', () => {
     fireEvent.click(selectAll);
     expect(selectAll).toHaveAttribute('aria-checked', 'true');
 
-    // 取消第一行（桌面端表格）的选择
-    fireEvent.click(screen.getByRole('checkbox', { name: '选择 a@163.com' }));
+    const aCheckboxes = screen.getAllByRole('checkbox', { name: '选择 a@163.com' });
+    fireEvent.click(aCheckboxes[0]);
 
     await waitFor(() => {
       expect(screen.getByRole('checkbox', { name: '全选' })).toHaveAttribute('aria-checked', 'false');
     });
-    expect(await screen.findByRole('button', { name: /批量测活 \(1\)/ })).toBeInTheDocument();
+    expect(await screen.findByText(/已选中 1 个账号/)).toBeInTheDocument();
   });
 
   it('单个账号测活后刷新列表', async () => {
-    // 点击某账号行的「测活」应调用 testConnection 并重新加载
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 5, email: 'one@163.com' })])),
     });
@@ -253,8 +234,8 @@ describe('AccountsPage', () => {
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findAllByText('one@163.com');
 
-    const testButtons = screen.getAllByRole('button', { name: '测活' });
-    fireEvent.click(testButtons[0]);
+    openFirstRowMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: /测活/ }));
 
     await waitFor(() => {
       expect(api.testConnection).toHaveBeenCalledWith(5);
@@ -262,7 +243,6 @@ describe('AccountsPage', () => {
   });
 
   it('通过弹窗批量导入文本后展示汇总', async () => {
-    // 点击「导入」打开弹窗，填入文本并提交，应调用 importText 并展示成功/失败数
     const api = stubApi({
       importText: vi.fn().mockResolvedValue({ total: 2, success: 2, failed: 0, skipped: 0, results: [] }),
     });
@@ -283,7 +263,6 @@ describe('AccountsPage', () => {
   });
 
   it('展示三态测活状态：待检测 / 正常 / 异常', async () => {
-    // lastTestAt==0 显示「待检测」；成功显示「正常」；失败显示「异常」
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(
         paged([
@@ -297,22 +276,21 @@ describe('AccountsPage', () => {
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findAllByText('pending@163.com');
 
-    // 检查状态标签存在
     expect(screen.getAllByText('待检测').length).toBeGreaterThan(0);
     expect(screen.getAllByText('正常').length).toBeGreaterThan(0);
     expect(screen.getAllByText('异常').length).toBeGreaterThan(0);
   });
 
   it('按邮箱搜索时带上 email 查询条件', async () => {
-    // 在搜索框输入邮箱并提交，应以 email 条件重新查询
     const listAccounts = vi.fn().mockResolvedValue(paged([]));
     const api = stubApi({ listAccounts });
 
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(1));
 
-    fireEvent.change(screen.getByPlaceholderText('搜索邮箱...'), { target: { value: 'alic' } });
-    fireEvent.submit(screen.getByPlaceholderText('搜索邮箱...').closest('form')!);
+    const search = screen.getByPlaceholderText('搜索邮箱地址...');
+    fireEvent.change(search, { target: { value: 'alic' } });
+    fireEvent.submit(search.closest('form')!);
 
     await waitFor(() => {
       expect(listAccounts).toHaveBeenLastCalledWith(
@@ -322,7 +300,6 @@ describe('AccountsPage', () => {
   });
 
   it('按状态过滤时带上 status 查询条件', async () => {
-    // 选择状态过滤为「异常」，应以 status=fail 重新查询
     const listAccounts = vi.fn().mockResolvedValue(paged([]));
     const api = stubApi({ listAccounts });
 
@@ -339,7 +316,6 @@ describe('AccountsPage', () => {
   });
 
   it('翻页时带上 page 查询条件', async () => {
-    // 总数 25、每页 20，点击下一页应以 page=2 查询
     const listAccounts = vi
       .fn()
       .mockResolvedValueOnce(paged([account({ id: 1, email: 'a@163.com' })], 25))
@@ -357,7 +333,6 @@ describe('AccountsPage', () => {
   });
 
   it('修改每页条数时回到第 1 页并带上新的 size', async () => {
-    // 切换页大小为 50，应以 size=50、page=1 重新查询
     const listAccounts = vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'a@163.com' })], 80));
     const api = stubApi({ listAccounts });
 
@@ -373,13 +348,92 @@ describe('AccountsPage', () => {
     });
   });
 
-  it('删除按钮内嵌图标且可访问名保持「删除」', async () => {
+  // ===== Task F/G 新增结构测试 =====
+
+  it('工具栏在白色卡片容器内', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    const search = await screen.findByPlaceholderText('搜索邮箱地址...');
+    const toolbar = search.closest('.rounded-2xl');
+    expect(toolbar).toHaveClass('bg-white');
+  });
+
+  it('搜索框带左内边距给 Search 图标留位', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    const search = await screen.findByPlaceholderText('搜索邮箱地址...');
+    expect(search).toHaveClass('pl-10');
+  });
+
+  it('已选中时显示提示条与取消选择', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    const rowCheckboxes = await screen.findAllByRole('checkbox', { name: '选择 alice@163.com' });
+    fireEvent.click(rowCheckboxes[0]);
+    expect(screen.getByText(/已选中 1 个账号/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '取消选择' }));
+    expect(screen.queryByText(/已选中/)).not.toBeInTheDocument();
+  });
+
+  it('表格在白色卡片容器内', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+    const table = screen.getByRole('table');
+    expect(table.closest('.rounded-2xl')).toHaveClass('bg-white');
+  });
+
+  it('邮箱列有彩色头像', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+    const row = screen.getByRole('table').querySelector('tbody tr');
+    const avatar = row?.querySelector('.rounded-full.bg-gradient-to-br');
+    expect(avatar).toBeInTheDocument();
+    expect(avatar).toHaveTextContent('A');
+  });
+
+  it('状态徽章带圆点', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'ok@163.com', lastTestOk: true })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('正常');
+    const badges = screen.getByRole('table').querySelectorAll('span.rounded-full.bg-emerald-100');
+    const badge = badges[0];
+    const dot = badge?.querySelector('span.rounded-full.bg-emerald-500');
+    expect(dot).toBeInTheDocument();
+  });
+
+  it('操作列三点菜单展开测活与删除', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+    openFirstRowMenu();
+    expect(screen.getByRole('menuitem', { name: /测活/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /删除/ })).toBeInTheDocument();
+  });
+
+  it('三点菜单内删除项带图标', async () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'a@163.com' })])),
     });
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findAllByText('a@163.com');
-    const delBtn = screen.getAllByRole('button', { name: '删除' })[0];
-    expect(delBtn.querySelector('svg')).toBeInTheDocument();
+    openFirstRowMenu();
+    const delItem = screen.getByRole('menuitem', { name: /删除/ });
+    expect(delItem.querySelector('svg')).toBeInTheDocument();
   });
 });
