@@ -199,7 +199,7 @@ public final class AccountRepository {
         int safeSize = Math.max(1, size);
         int offset = (safePage - 1) * safeSize;
         List<Account> items = new ArrayList<>();
-        String pageSql = "SELECT * FROM mail_account" + where + orderBy + " LIMIT ? OFFSET ?";
+        String pageSql = "SELECT a.*, COALESCE((SELECT COUNT(*) FROM mail_message m WHERE m.account_id = a.id), 0) AS message_count FROM mail_account a" + where + orderBy + " LIMIT ? OFFSET ?";
         try (PreparedStatement ps = db.connection().prepareStatement(pageSql)) {
             int idx = bindParams(ps, params);
             ps.setInt(idx++, safeSize);
@@ -261,7 +261,7 @@ public final class AccountRepository {
         int safeSize = Math.max(1, size);
         int offset = (safePage - 1) * safeSize;
         List<Account> items = new ArrayList<>();
-        String pageSql = "SELECT * FROM mail_account" + where + orderBy + " LIMIT ? OFFSET ?";
+        String pageSql = "SELECT a.*, COALESCE((SELECT COUNT(*) FROM mail_message m WHERE m.account_id = a.id), 0) AS message_count FROM mail_account a" + where + orderBy + " LIMIT ? OFFSET ?";
         try (PreparedStatement ps = db.connection().prepareStatement(pageSql)) {
             int idx = bindParams(ps, params);
             ps.setInt(idx++, safeSize);
@@ -444,6 +444,12 @@ public final class AccountRepository {
 
     /** 把结果集当前行映射为 Account。 */
     private Account map(ResultSet rs) throws SQLException {
+        int messageCount = 0;
+        try {
+            messageCount = rs.getInt("message_count");
+        } catch (SQLException ignored) {
+            // 如果查询没有 message_count 列，默认为 0
+        }
         return new Account(
                 rs.getLong("id"),
                 rs.getLong("user_id"),
@@ -457,6 +463,7 @@ public final class AccountRepository {
                 rs.getLong("last_test_at"),
                 rs.getInt("last_test_ok") == 1,
                 rs.getString("last_test_msg"),
-                rs.getLong("created_at"));
+                rs.getLong("created_at"),
+                messageCount);
     }
 }

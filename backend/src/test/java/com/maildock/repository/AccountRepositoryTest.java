@@ -195,4 +195,27 @@ class AccountRepositoryTest {
         assertEquals(1, failPage.total());
         assertEquals("fail@163.com", failPage.items().get(0).email());
     }
+
+    @Test
+    void queryReturnsMessageCountForEachAccount() {
+        Account acc1 = repo.insert(userA.id(), "user1@163.com", "enc");
+        Account acc2 = repo.insert(userA.id(), "user2@163.com", "enc");
+        Account acc3 = repo.insert(userB.id(), "userb@163.com", "enc");
+
+        // 插入邮件：acc1 有 3 封，acc2 有 0 封，acc3 有 1 封
+        MessageRepository msgRepo = new MessageRepository(db);
+        msgRepo.insert(new com.maildock.model.Message(0, acc1.id(), 1L, "msg1@example.com", "Subject 1", "from1@example.com", "to1@example.com", null, 1700000000000L, 1700000000000L, "body1", null, false, false, 1024, 0));
+        msgRepo.insert(new com.maildock.model.Message(0, acc1.id(), 2L, "msg2@example.com", "Subject 2", "from2@example.com", "to2@example.com", null, 1700000001000L, 1700000001000L, "body2", null, false, false, 1024, 0));
+        msgRepo.insert(new com.maildock.model.Message(0, acc1.id(), 3L, "msg3@example.com", "Subject 3", "from3@example.com", "to3@example.com", null, 1700000002000L, 1700000002000L, "body3", null, false, false, 1024, 0));
+        msgRepo.insert(new com.maildock.model.Message(0, acc3.id(), 1L, "msgb@example.com", "Subject B", "fromb@example.com", "tob@example.com", null, 1700000000000L, 1700000000000L, "bodyb", null, false, false, 1024, 0));
+
+        AccountRepository.PagedAccounts result = repo.query(userA.id(), null, null, null, null, 1, 20);
+
+        assertEquals(2, result.items().size());
+        Account foundAcc1 = result.items().stream().filter(a -> a.email().equals("user1@163.com")).findFirst().orElseThrow();
+        Account foundAcc2 = result.items().stream().filter(a -> a.email().equals("user2@163.com")).findFirst().orElseThrow();
+
+        assertEquals(3, foundAcc1.messageCount(), "user1@163.com 应该有 3 封邮件");
+        assertEquals(0, foundAcc2.messageCount(), "user2@163.com 应该有 0 封邮件");
+    }
 }
