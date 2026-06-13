@@ -126,7 +126,7 @@ describe('AccountsPage', () => {
     });
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     // 桌面端显示"添加账号"
-    expect(await screen.findByRole('button', { name: /添加账号/ })).toBeInTheDocument();
+    expect((await screen.findAllByRole('button', { name: /添加账号/ })).length).toBeGreaterThan(0);
   });
 
   it('添加账号表单标题为"添加邮箱账号"', async () => {
@@ -134,15 +134,20 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([])),
     });
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: /添加账号/ }));
+    const addButtons = screen.getAllByRole('button', { name: /添加账号/ });
+    fireEvent.click(addButtons[0]);
     expect(await screen.findByRole('heading', { name: '添加邮箱账号' })).toBeInTheDocument();
   });
 
   it('添加账号表单确认按钮文字为"添加账号"', async () => {
     const api = stubApi();
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: /添加账号/ }));
-    expect(await screen.findByRole('button', { name: '添加账号' })).toBeInTheDocument();
+    const addButtons = screen.getAllByRole('button', { name: /添加账号/ });
+    fireEvent.click(addButtons[0]);
+    // 弹窗内应该有提交按钮"添加账号"
+    const submitButtons = await screen.findAllByRole('button', { name: '添加账号' });
+    const submitBtn = submitButtons.find(btn => btn.getAttribute('type') === 'submit');
+    expect(submitBtn).toBeInTheDocument();
   });
 
   // ===== 原有功能测试保持 =====
@@ -173,11 +178,14 @@ describe('AccountsPage', () => {
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(1));
 
-    fireEvent.click(screen.getByRole('button', { name: /添加账号/ }));
+    const addButtons = screen.getAllByRole('button', { name: /添加账号/ });
+    fireEvent.click(addButtons[0]);
 
     fireEvent.change(screen.getByLabelText(/邮箱地址/), { target: { value: 'new@163.com' } });
     fireEvent.change(screen.getByLabelText(/授权码/), { target: { value: 'auth-code' } });
-    fireEvent.click(screen.getByRole('button', { name: '添加账号' }));
+    const submitButtons = screen.getAllByRole('button', { name: '添加账号' });
+    const submitBtn = submitButtons.find(btn => btn.getAttribute('type') === 'submit')!;
+    fireEvent.click(submitBtn);
 
     await waitFor(() => {
       expect(api.createAccount).toHaveBeenCalledWith('new@163.com', 'auth-code');
@@ -386,8 +394,8 @@ describe('AccountsPage', () => {
     const checkboxes = screen.getAllByRole('checkbox', { name: '选择 alice@163.com' });
     fireEvent.click(checkboxes[0]);
 
-    const batchBtn = await screen.findByRole('button', { name: /批量测活/ });
-    fireEvent.click(batchBtn);
+    const batchBtns = await screen.findAllByRole('button', { name: /批量测活/ });
+    fireEvent.click(batchBtns[0]);
 
     await waitFor(() => {
       expect(api.testBatch).toHaveBeenCalledWith([1]);
@@ -485,7 +493,8 @@ describe('AccountsPage', () => {
 
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: '导入' }));
+    const importBtns = screen.getAllByRole('button', { name: '导入' });
+    fireEvent.click(importBtns[0]);
 
     fireEvent.change(screen.getByLabelText('批量导入'), {
       target: { value: 'a@163.com code1\nb@163.com code2' },
@@ -524,9 +533,9 @@ describe('AccountsPage', () => {
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(1));
 
-    const search = screen.getByPlaceholderText('搜索邮箱地址...');
-    fireEvent.change(search, { target: { value: 'alic' } });
-    fireEvent.submit(search.closest('form')!);
+    const searches = screen.getAllByPlaceholderText('搜索邮箱地址...');
+    fireEvent.change(searches[0], { target: { value: 'alic' } });
+    fireEvent.submit(searches[0].closest('form')!);
 
     await waitFor(() => {
       expect(listAccounts).toHaveBeenLastCalledWith(
@@ -542,7 +551,7 @@ describe('AccountsPage', () => {
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(1));
 
-    fireEvent.change(screen.getByLabelText('状态过滤'), { target: { value: 'fail' } });
+    fireEvent.change(screen.getAllByLabelText('状态过滤')[0], { target: { value: 'fail' } });
 
     await waitFor(() => {
       expect(listAccounts).toHaveBeenLastCalledWith(
@@ -589,8 +598,8 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
-    const search = await screen.findByPlaceholderText('搜索邮箱地址...');
-    const toolbar = search.closest('.rounded-2xl');
+    const searches = await screen.findAllByPlaceholderText('搜索邮箱地址...');
+    const toolbar = searches[0].closest('.rounded-2xl');
     expect(toolbar).toHaveClass('bg-white');
   });
 
@@ -599,8 +608,8 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
-    const search = await screen.findByPlaceholderText('搜索邮箱地址...');
-    expect(search).toHaveClass('pl-10');
+    const searches = await screen.findAllByPlaceholderText('搜索邮箱地址...');
+    expect(searches[0]).toHaveClass('pl-10');
   });
 
   it('已选中时显示提示条与取消选择', async () => {
@@ -725,7 +734,8 @@ describe('AccountsPage', () => {
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findAllByText('test@163.com');
 
-    const addButton = screen.getByRole('button', { name: /添加账号/ });
+    const addButtons = screen.getAllByRole('button', { name: /添加账号/ });
+    const addButton = addButtons[0];
     expect(addButton).toBeInTheDocument();
     expect(addButton.className).toContain('text-white');
   });
