@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人中心资料卡片 - 设计方案对比</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 p-8">
+  <div class="mx-auto max-w-6xl space-y-8">
+    <header class="text-center">
+      <h1 class="text-3xl font-bold text-slate-800 mb-2">个人中心资料卡片优化方案</h1>
+      <p class="text-slate-600">对比当前版本与三个优化方案</p>
+    </header>
+
+    <!-- 当前版本（有问题的） -->
+    <section class="rounded-2xl border-2 border-rose-300 bg-white p-6 shadow-lg">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">当前版本</span>
+        <span class="text-sm text-slate-500">（你说的"怪怪的"版本）</span>
+      </div>
+      <div class="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:text-left">
+        <div class="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-400 to-slate-500 text-2xl font-semibold text-white shadow-lg ring-2 ring-slate-100">
+          A
+        </div>
+        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          <dt class="flex items-center gap-1 font-medium text-slate-500">
+            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            邮箱
+          </dt>
+          <dd class="text-slate-700" title="iog9k1hbaw2dflwu@privaterelay.linux.do">
+            iog9k1hb...privaterelay.linux.do
+          </dd>
+          <dt class="font-medium text-slate-500">登录方式</dt>
+          <dd class="text-slate-700">linux.do</dd>
+        </dl>
+      </div>
+      <div class="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <strong>问题：</strong>表格式布局 + 大头像，视觉失衡；邮箱图标多余；信息层次不清晰
+      </div>
+    </section>
+
+    <!-- 方案 A: 卡片式（推荐） -->
+    <section class="rounded-2xl border-2 border-emerald-300 bg-white p-6 shadow-lg">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">方案 A — 卡片式</span>
+        <span class="inline-flex items-center gap-1 text-xs font-medium text-amber-600">
+          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+          </svg>
+          推荐
+        </span>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-400 to-slate-500 text-xl font-semibold text-white shadow-md">
+          A
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-base font-semibold text-slate-800 truncate">Alice Wang</div>
+          <div class="text-sm text-slate-500 truncate" title="iog9k1hbaw2dflwu@privaterelay.linux.do">
+            iog9k1hbaw2dflwu@privaterelay.linux.do
+          </div>
+          <div class="mt-1 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+            <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+            </svg>
+            linux.do 登录
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <strong>优点：</strong>头像适中（64px），信息垂直堆叠更自然，登录方式用标签式呈现，整体更现代
+      </div>
+    </section>
+
+    <!-- 方案 B: 紧凑式 -->
+    <section class="rounded-2xl border-2 border-blue-300 bg-white p-6 shadow-lg">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">方案 B — 紧凑式</span>
+      </div>
+      <div class="flex items-start gap-3">
+        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-400 to-slate-500 text-lg font-semibold text-white shadow-sm">
+          A
+        </div>
+        <div class="flex-1 min-w-0 pt-0.5">
+          <div class="flex items-baseline gap-2">
+            <div class="text-base font-semibold text-slate-800 truncate">Alice Wang</div>
+            <div class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">linux.do</div>
+          </div>
+          <div class="mt-0.5 text-sm text-slate-500 truncate" title="iog9k1hbaw2dflwu@privaterelay.linux.do">
+            iog9k1hbaw2dflwu@privaterelay.linux.do
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
+        <strong>优点：</strong>最紧凑，登录方式与名字同行；头像更小（56px）节省空间
+      </div>
+    </section>
+
+    <!-- 方案 C: 极简式 -->
+    <section class="rounded-2xl border-2 border-purple-300 bg-white p-6 shadow-lg">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">方案 C — 极简式</span>
+      </div>
+      <div class="flex items-center gap-5">
+        <div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-400 to-slate-500 text-2xl font-semibold text-white shadow-lg">
+          A
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-lg font-bold text-slate-800 truncate">Alice Wang</div>
+          <div class="text-sm text-slate-500 truncate" title="iog9k1hbaw2dflwu@privaterelay.linux.do">
+            iog9k1hbaw2dflwu@privaterelay.linux.do
+          </div>
+          <div class="mt-2 text-xs text-slate-400">通过 linux.do 登录</div>
+        </div>
+      </div>
+      <div class="mt-4 rounded-lg bg-purple-50 px-4 py-3 text-sm text-purple-700">
+        <strong>优点：</strong>圆形头像更传统，信息纯文本无装饰，极简风格
+      </div>
+    </section>
+
+    <!-- 方案 D: GitHub 风格 -->
+    <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-lg">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">方案 D — GitHub 风格</span>
+      </div>
+      <div class="flex items-start gap-4">
+        <div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-2 border-slate-200 bg-white text-2xl font-semibold text-slate-600 shadow-sm">
+          A
+        </div>
+        <div class="flex-1 min-w-0 pt-1">
+          <div class="text-xl font-semibold text-slate-900 truncate">Alice Wang</div>
+          <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+            <span class="flex items-center gap-1.5">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span class="truncate" title="iog9k1hbaw2dflwu@privaterelay.linux.do">iog9k1hbaw2dflwu@privaterelay.linux.do</span>
+            </span>
+            <span class="flex items-center gap-1.5 text-slate-500">
+              <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+              </svg>
+              linux.do
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <strong>优点：</strong>专业感强，头像带边框增强层次，信息横向排列节省纵向空间
+      </div>
+    </section>
+
+    <footer class="rounded-xl bg-slate-800 p-6 text-center text-white">
+      <p class="text-sm">在浏览器中打开此文件，选择你喜欢的方案，告诉我方案字母即可实现</p>
+      <p class="mt-2 text-xs text-slate-400">文件位置: design-prototypes/profile-card-variants.html</p>
+    </footer>
+  </div>
+</body>
+</html>

@@ -165,7 +165,7 @@ describe('App', () => {
     expect(await screen.findByRole('button', { name: /使用 邮箱或用户名 登录/ })).toBeInTheDocument();
   });
 
-  it('从头像菜单进入个人中心，可返回账号列表', async () => {
+  it('从头像菜单进入个人中心，可经菜单返回账号列表', async () => {
     const api = stubApi();
     render(<App api={api as never} />);
     await screen.findAllByText('owner@163.com');
@@ -175,7 +175,9 @@ describe('App', () => {
 
     expect(await screen.findByText('个人中心')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '返回' }));
+    // 个人中心不再有“返回”按钮，改由顶栏用户菜单的“邮件列表”项导航
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '邮件列表' }));
     expect((await screen.findAllByText('owner@163.com')).length).toBeGreaterThan(0);
   });
 });

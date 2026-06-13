@@ -100,7 +100,6 @@ export function App({ api }: AppProps) {
         <ProfilePage
           api={api}
           user={view.user}
-          onBack={() => setView({ name: 'accounts', user: view.user })}
           onUserUpdated={(updated) => setView({ name: 'profile', user: updated })}
         />
       </div>
