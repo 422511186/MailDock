@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
-import { RefreshCw, User, Paperclip, ChevronLeft, Mail } from 'lucide-react';
+import { RefreshCw, Paperclip, ChevronLeft, Mail } from 'lucide-react';
 import type { ApiClient, MessageSummary } from '../api/client';
 
 /** 默认每页条数。 */

@@ -27,6 +27,7 @@ function account(overrides: Partial<Account> = {}): Account {
     lastTestAt: 0,
     lastTestOk: true,
     lastTestMsg: null,
+    messageCount: 0,
     ...overrides,
   };
 }

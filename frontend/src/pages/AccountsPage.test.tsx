@@ -714,7 +714,7 @@ describe('AccountsPage', () => {
   });
 
   it('移动端操作列三点图标不是按钮元素', async () => {
-    global.innerWidth = 500;
+    window.innerWidth = 500;
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'mobile@163.com' })])),
     });

@@ -117,7 +117,7 @@ describe('MailListPage', () => {
       }),
     });
 
-    const { container } = render(<MailListPage api={api as never} accountId={7} onOpenMessage={onOpenMessage} onBack={vi.fn()} />);
+    render(<MailListPage api={api as never} accountId={7} onOpenMessage={onOpenMessage} onBack={vi.fn()} />);
     const mailItems = await screen.findAllByText('可点击');
     const clickableDiv = mailItems[0].closest('div.cursor-pointer');
     expect(clickableDiv).toBeInTheDocument();

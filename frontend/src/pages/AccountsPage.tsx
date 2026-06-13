@@ -59,12 +59,6 @@ function statusDot(label: string): string {
   return 'bg-amber-500';
 }
 
-/** 将毫秒时间戳转为北京时间字符串。 */
-function formatBeijingTime(ts: number): string {
-  if (!ts) return '—';
-  return new Date(ts).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-}
-
 /** 将毫秒时间戳转为相对时间字符串（如"2 分钟前"）。 */
 function formatRelativeTime(ts: number): string {
   if (!ts) return '从未同步';
