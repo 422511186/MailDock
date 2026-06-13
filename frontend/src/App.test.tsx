@@ -179,6 +179,14 @@ describe('App', () => {
       expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
     });
 
+    // 返回账号列表也应滚回顶部
+    scrollSpy.mockClear();
+    fireEvent.click(screen.getAllByRole('button', { name: /返回/ })[0]);
+    await screen.findAllByText('owner@163.com');
+    await waitFor(() => {
+      expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+    });
+
     scrollSpy.mockRestore();
   });
 

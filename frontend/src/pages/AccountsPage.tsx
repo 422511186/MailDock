@@ -110,6 +110,13 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
     | null
   >(null);
 
+  // 测活确认弹窗目标：单个（含邮箱）或批量（ids 为空表示测全部）。
+  const [testTarget, setTestTarget] = useState<
+    | { type: 'one'; id: number; email: string }
+    | { type: 'batch'; ids: number[] }
+    | null
+  >(null);
+
   // 批量选择
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
@@ -157,40 +164,43 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
     setDeleteTarget({ type: 'one', id, email });
   }
 
-  /** 单个测活。 */
-  async function handleTestOne(id: number) {
-    setError('');
-    setTestingId(id);
-    try {
-      await api.testConnection(id);
-      await reload();
-      // 测活完成后弹窗通知
-      const toast = document.createElement('div');
-      toast.className = 'toast success';
-      toast.textContent = '✓ 测活完成';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 2000);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setTestingId(null);
-    }
+  /** 打开单个测活确认弹窗。 */
+  function handleTestOne(id: number, email: string) {
+    setTestTarget({ type: 'one', id, email });
   }
 
-  /** 批量测活。 */
-  async function handleTestBatch() {
+  /** 打开批量测活确认弹窗（未选中则 ids 为空，表示测全部）。 */
+  function handleTestBatch() {
+    setTestTarget({ type: 'batch', ids: selectedIds });
+  }
+
+  /** 执行测活（确认弹窗「确认测活」回调）。 */
+  async function confirmTest() {
+    if (!testTarget) return;
     setError('');
+    if (testTarget.type === 'one') {
+      setTestingId(testTarget.id);
+      setTestTarget(null);
+      try {
+        await api.testConnection(testTarget.id);
+        await reload();
+        showToast('✓ 测活完成');
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setTestingId(null);
+      }
+      return;
+    }
+    // 批量：选中则测选中项，未选中传 undefined 测全部
+    const ids = testTarget.ids;
     setBusy(true);
+    setTestTarget(null);
     try {
-      await api.testBatch(selectedIds.length > 0 ? selectedIds : undefined);
+      await api.testBatch(ids.length > 0 ? ids : undefined);
       await reload();
       setSelectedIds([]);
-      // 批量测活完成后弹窗通知
-      const toast = document.createElement('div');
-      toast.className = 'toast success';
-      toast.textContent = '✓ 批量测活完成';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 2000);
+      showToast('✓ 批量测活完成');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -223,6 +233,15 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
     } finally {
       setBusy(false);
     }
+  }
+
+  /** 弹出短暂成功提示。 */
+  function showToast(text: string) {
+    const toast = document.createElement('div');
+    toast.className = 'toast success';
+    toast.textContent = text;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
   }
 
   /** 切换单个选择。 */
@@ -310,7 +329,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
           <div className="flex gap-2">
             <button
               type="button"
-              disabled={selectedIds.length === 0 || busy}
+              disabled={busy}
               onClick={handleTestBatch}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -323,7 +342,11 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               type="button"
               disabled={selectedIds.length === 0 || busy}
               onClick={handleDeleteBatch}
-              className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-600 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                selectedIds.length > 0
+                  ? 'bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:from-rose-600 hover:to-rose-700'
+                  : 'border border-rose-200 bg-rose-50 font-medium text-rose-600 hover:bg-rose-100'
+              }`}
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               <span>批量删除</span>
@@ -400,7 +423,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
             <button
               type="button"
               aria-label="移动端批量测活"
-              disabled={selectedIds.length === 0 || busy}
+              disabled={busy}
               onClick={handleTestBatch}
               className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -412,7 +435,11 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               aria-label="移动端批量删除"
               disabled={selectedIds.length === 0 || busy}
               onClick={handleDeleteBatch}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-600 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                selectedIds.length > 0
+                  ? 'bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-rose-500/30 hover:from-rose-600 hover:to-rose-700'
+                  : 'border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100'
+              }`}
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               <span>删除</span>
@@ -629,7 +656,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                       <div className="flex justify-center">
                         <RowMenu
                           testing={testingId === a.id}
-                          onTest={() => void handleTestOne(a.id)}
+                          onTest={() => handleTestOne(a.id, a.email)}
                           onDelete={() => handleDelete(a.id, a.email)}
                         />
                       </div>
@@ -811,6 +838,16 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
           busy={busy}
           onCancel={() => setDeleteTarget(null)}
           onConfirm={() => void confirmDelete()}
+        />
+      )}
+
+      {/* 测活确认弹窗 */}
+      {testTarget && (
+        <ConfirmTestModal
+          target={testTarget}
+          busy={busy}
+          onCancel={() => setTestTarget(null)}
+          onConfirm={() => void confirmTest()}
         />
       )}
     </div>
@@ -1302,6 +1339,70 @@ function ConfirmDeleteModal({
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100">
           <AlertTriangle className="h-5 w-5 text-rose-600" aria-hidden="true" />
+        </div>
+        <p className="text-sm text-slate-700">{message}</p>
+      </div>
+    </Modal>
+  );
+}
+
+/** 测活确认弹窗（绿色主题）：图标 + 文案 + 全宽「取消 / 确认测活」按钮。 */
+function ConfirmTestModal({
+  target,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  target:
+    | { type: 'one'; id: number; email: string }
+    | { type: 'batch'; ids: number[] };
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const message =
+    target.type === 'one' ? (
+      <>
+        确定要对邮箱账号{' '}
+        <span className="font-medium text-slate-900">{target.email}</span> 进行测活吗？
+      </>
+    ) : target.ids.length > 0 ? (
+      <>
+        确定要对选中的{' '}
+        <span className="font-medium text-slate-900">{target.ids.length}</span>{' '}
+        个账号进行批量测活吗？
+      </>
+    ) : (
+      <>确定要对<span className="font-medium text-slate-900">全部账号</span>进行批量测活吗？</>
+    );
+
+  return (
+    <Modal
+      title="确认测活"
+      onClose={onCancel}
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:from-emerald-600 hover:to-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            确认测活
+          </button>
+        </>
+      }
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+          <CheckCircle className="h-5 w-5 text-emerald-600" aria-hidden="true" />
         </div>
         <p className="text-sm text-slate-700">{message}</p>
       </div>

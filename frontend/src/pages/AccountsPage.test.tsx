@@ -460,7 +460,7 @@ describe('AccountsPage', () => {
     expect(hasLeftMargin).toBe(false);
   });
 
-  it('批量测活后刷新列表', async () => {
+  it('批量测活经确认弹窗后刷新列表', async () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
@@ -474,9 +474,64 @@ describe('AccountsPage', () => {
     const batchBtns = await screen.findAllByRole('button', { name: /批量测活/ });
     fireEvent.click(batchBtns[0]);
 
+    // 二次确认弹窗
+    expect(await screen.findByRole('heading', { name: '确认测活' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '确认测活' }));
+
     await waitFor(() => {
       expect(api.testBatch).toHaveBeenCalledWith([1]);
     });
+  });
+
+  it('未选中任何账号时批量测活按钮仍可点击，确认后测全部', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+
+    // 未选中：按钮不禁用
+    const batchBtns = screen.getAllByRole('button', { name: /批量测活/ });
+    expect(batchBtns[0]).not.toBeDisabled();
+
+    fireEvent.click(batchBtns[0]);
+    expect(await screen.findByRole('heading', { name: '确认测活' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '确认测活' }));
+
+    // 未选中 → 测全部（testBatch 不传 ids）
+    await waitFor(() => {
+      expect(api.testBatch).toHaveBeenCalledWith(undefined);
+    });
+  });
+
+  it('未选中任何账号时批量删除按钮保持禁用', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+
+    const delBtns = screen.getAllByRole('button', { name: /批量删除/ });
+    expect(delBtns[0]).toBeDisabled();
+  });
+
+  it('选中后桌面端批量删除按钮为实心红渐变 + 白字', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '全选' }));
+
+    const delBtns = await screen.findAllByRole('button', { name: /批量删除/ });
+    const desktopDel = delBtns[0];
+    expect(desktopDel.className).toContain('from-rose-500');
+    expect(desktopDel.className).toContain('to-rose-600');
+    expect(desktopDel.className).toContain('text-white');
   });
 
   it('点击表头全选框选中当前页全部账号', async () => {
@@ -558,6 +613,10 @@ describe('AccountsPage', () => {
     openFirstRowMenu();
     fireEvent.click(screen.getByRole('menuitem', { name: /测活/ }));
 
+    // 行内测活也走二次确认
+    expect(await screen.findByRole('heading', { name: '确认测活' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '确认测活' }));
+
     await waitFor(() => {
       expect(api.testConnection).toHaveBeenCalledWith(5);
     });
@@ -574,6 +633,9 @@ describe('AccountsPage', () => {
 
     openFirstRowMenu();
     fireEvent.click(screen.getByRole('menuitem', { name: /测活/ }));
+
+    expect(await screen.findByRole('heading', { name: '确认测活' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '确认测活' }));
 
     await waitFor(() => {
       expect(api.testConnection).toHaveBeenCalledWith(5);
