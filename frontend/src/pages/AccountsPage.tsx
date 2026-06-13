@@ -7,6 +7,10 @@ import {
   Search,
   CheckCircle,
   MoreVertical,
+  X,
+  AlertTriangle,
+  FileText,
+  Info,
 } from 'lucide-react';
 import type {
   ApiClient,
@@ -99,6 +103,13 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
+  // 删除确认弹窗目标：单个（含邮箱）或批量（含数量）。
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { type: 'one'; id: number; email: string }
+    | { type: 'batch'; ids: number[] }
+    | null
+  >(null);
+
   // 批量选择
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
@@ -141,16 +152,9 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
     setStatus(value as AccountStatusFilter | '');
   }
 
-  /** 删除账号。 */
-  async function handleDelete(id: number) {
-    if (!confirm('确认删除该账号吗？')) return;
-    setError('');
-    try {
-      await api.deleteAccount(id);
-      await reload();
-    } catch (err) {
-      setError((err as Error).message);
-    }
+  /** 打开单个删除确认弹窗。 */
+  function handleDelete(id: number, email: string) {
+    setDeleteTarget({ type: 'one', id, email });
   }
 
   /** 单个测活。 */
@@ -194,16 +198,26 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
     }
   }
 
-  /** 批量删除。 */
-  async function handleDeleteBatch() {
+  /** 打开批量删除确认弹窗。 */
+  function handleDeleteBatch() {
     if (selectedIds.length === 0) return;
-    if (!confirm(`确认删除选中的 ${selectedIds.length} 个账号吗？`)) return;
+    setDeleteTarget({ type: 'batch', ids: selectedIds });
+  }
+
+  /** 执行删除（确认弹窗「确认删除」回调）。 */
+  async function confirmDelete() {
+    if (!deleteTarget) return;
     setError('');
     setBusy(true);
     try {
-      await api.deleteBatch(selectedIds);
+      if (deleteTarget.type === 'one') {
+        await api.deleteAccount(deleteTarget.id);
+      } else {
+        await api.deleteBatch(deleteTarget.ids);
+        setSelectedIds([]);
+      }
       await reload();
-      setSelectedIds([]);
+      setDeleteTarget(null);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -616,7 +630,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                         <RowMenu
                           testing={testingId === a.id}
                           onTest={() => void handleTestOne(a.id)}
-                          onDelete={() => void handleDelete(a.id)}
+                          onDelete={() => handleDelete(a.id, a.email)}
                         />
                       </div>
                     </td>
@@ -789,6 +803,16 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
           onImported={reload}
         />
       )}
+
+      {/* 删除确认弹窗 */}
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          target={deleteTarget}
+          busy={busy}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => void confirmDelete()}
+        />
+      )}
     </div>
   );
 }
@@ -881,37 +905,45 @@ function RowMenu({
   );
 }
 
-/** 弹窗外壳：遮罩 + 居中卡片 + 标题 + 关闭。 */
+/**
+ * 弹窗外壳（对齐原型）：
+ * - 桌面端居中卡片（rounded-2xl + 上滑动画）；移动端从底部滑出的 bottom-sheet
+ *   （rounded-t-3xl + 可滚动 + sticky 头/尾）。
+ * - 头部带 border-b 分隔，仅显示标题（关闭由底部「取消」按钮或点击遮罩完成）。
+ * - 底部按钮区由调用方通过 footer 传入，带 border-t 分隔。
+ */
 function Modal({
   title,
   onClose,
   children,
+  footer,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-xl animate-slide-up sm:p-6"
+        className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl animate-slide-up-mobile sm:max-w-lg sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
+        {/* 头部 */}
+        <div className="flex items-center border-b border-slate-100 px-5 py-4 sm:px-6">
           <h3 className="text-base font-semibold text-slate-800 sm:text-lg">{title}</h3>
-          <button
-            type="button"
-            className="link text-lg"
-            aria-label="关闭"
-            onClick={onClose}
-          >
-            ✕
-          </button>
         </div>
-        {children}
+
+        {/* 内容（可滚动） */}
+        <div className="overflow-y-auto px-5 py-4 sm:px-6 sm:py-5">{children}</div>
+
+        {/* 底部按钮区 */}
+        {footer && (
+          <div className="flex gap-3 border-t border-slate-100 px-5 py-4 sm:px-6">{footer}</div>
+        )}
       </div>
     </div>
   );
@@ -947,15 +979,37 @@ function AddAccountModal({
   }
 
   return (
-    <Modal title="添加邮箱账号" onClose={onClose}>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:gap-4">
+    <Modal
+      title="添加邮箱账号"
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            取消
+          </button>
+          <button
+            type="submit"
+            form="add-account-form"
+            disabled={busy}
+            className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:from-emerald-600 hover:to-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            添加账号
+          </button>
+        </>
+      }
+    >
+      <form id="add-account-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="add-email" className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label htmlFor="add-email" className="block text-sm font-medium text-slate-700">
             邮箱地址 *
           </label>
           <input
@@ -964,11 +1018,11 @@ function AddAccountModal({
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="off"
             placeholder="your@163.com"
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-emerald-500"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="add-authcode" className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label htmlFor="add-authcode" className="block text-sm font-medium text-slate-700">
             授权码 *
           </label>
           <input
@@ -978,23 +1032,51 @@ function AddAccountModal({
             onChange={(e) => setAuthCode(e.target.value)}
             autoComplete="off"
             placeholder="163 邮箱 IMAP 授权码"
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-emerald-500"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
           />
+          <p className="flex items-center gap-1 text-xs text-slate-500">
+            <Info className="h-3 w-3 shrink-0" aria-hidden="true" />
+            前往 163 邮箱设置获取 IMAP 授权码
+          </p>
         </div>
-        <div className="mt-2 flex justify-end gap-2">
-          <button type="button" onClick={onClose}>
-            取消
-          </button>
-          <button type="submit" className="btn-primary" disabled={busy}>
-            添加账号
-          </button>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="add-imap-host" className="block text-sm font-medium text-slate-700">
+              IMAP 服务器
+            </label>
+            <input
+              id="add-imap-host"
+              value="imap.163.com"
+              readOnly
+              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="add-imap-port" className="block text-sm font-medium text-slate-700">
+              端口
+            </label>
+            <input
+              id="add-imap-port"
+              value="993"
+              readOnly
+              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600"
+            />
+          </div>
         </div>
       </form>
     </Modal>
   );
 }
 
-/** 批量导入弹窗：支持文本粘贴与文件上传。 */
+/** 统计文本中的账号行数（忽略空行与 # 注释行）。 */
+function countAccountLines(text: string): number {
+  return text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#')).length;
+}
+
+/** 批量导入弹窗（对齐原型）：虚线拖拽/点击上传区 + 已选文件预览卡片 + 覆盖选项。 */
 function ImportModal({
   api,
   onClose,
@@ -1005,18 +1087,41 @@ function ImportModal({
   onImported: () => void | Promise<void>;
 }) {
   const [text, setText] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [fileSize, setFileSize] = useState(0);
   const [overwrite, setOverwrite] = useState(false);
   const [summary, setSummary] = useState<ImportResult | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  /** 读取上传的 txt 文件填入文本域。 */
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  /** 读取上传/拖拽的 txt 文件内容并记录元信息。 */
+  async function acceptFile(file: File) {
     const content = await file.text();
     setText(content);
+    setFileName(file.name);
+    setFileSize(file.size);
+    setSummary(null);
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) await acceptFile(file);
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) await acceptFile(file);
+  }
+
+  /** 清除已选文件。 */
+  function clearFile() {
+    setText('');
+    setFileName('');
+    setFileSize(0);
+    setSummary(null);
+    if (fileRef.current) fileRef.current.value = '';
   }
 
   async function handleSubmit() {
@@ -1034,53 +1139,100 @@ function ImportModal({
   }
 
   return (
-    <Modal title="批量导入账号" onClose={onClose}>
-      <div className="flex flex-col gap-3 sm:gap-4">
+    <Modal
+      title="批量导入账号"
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={busy || !text.trim()}
+            className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:from-emerald-600 hover:to-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            开始导入
+          </button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
-        <p className="text-xs text-slate-500 sm:text-sm">
-          每行一个账号，格式：<code className="rounded bg-slate-100 px-1">账号 授权码</code>
-          （空格或 Tab 分隔），以 # 开头的行视为注释。
-        </p>
 
+        {/* 上传区 */}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="import-text" className="text-sm text-slate-500">
-            批量导入
+          <label htmlFor="import-file" className="block text-sm font-medium text-slate-700">
+            上传 TXT 文件
           </label>
-          <textarea
-            id="import-text"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={'a@163.com auth-code-1\nb@163.com auth-code-2'}
-            rows={6}
-            className="rounded-lg border border-slate-200 px-3 py-2 font-mono text-xs outline-none transition focus:border-emerald-500 sm:text-sm"
-          />
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <button type="button" onClick={() => fileRef.current?.click()}>
-            上传文件
-          </button>
           <input
             ref={fileRef}
+            id="import-file"
             type="file"
             accept=".txt,text/plain"
-            className="hidden"
+            className="sr-only"
             aria-label="上传文件"
             onChange={handleFile}
           />
-          <label className="flex items-center gap-2 text-xs text-slate-500 sm:text-sm">
-            <input
-              type="checkbox"
-              checked={overwrite}
-              onChange={(e) => setOverwrite(e.target.checked)}
-            />
-            已存在则覆盖授权码
+          <label
+            htmlFor="import-file"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+            className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-8 transition hover:border-emerald-400 hover:bg-emerald-50/50"
+          >
+            <Upload className="h-10 w-10 text-slate-400" aria-hidden="true" />
+            <span className="mt-2 text-sm font-medium text-slate-700">点击选择文件</span>
+            <span className="mt-1 text-xs text-slate-500">或拖拽文件到此处</span>
           </label>
+          <p className="flex items-center gap-1 text-xs text-slate-500">
+            <Info className="h-3 w-3 shrink-0" aria-hidden="true" />
+            TXT 格式：邮箱 授权码（空格分隔，每行一个账号）
+          </p>
         </div>
+
+        {/* 已选文件预览卡片 */}
+        {fileName && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white">
+                <FileText className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <div className="truncate text-sm font-medium text-slate-800">{fileName}</div>
+                <div className="text-xs text-slate-600">
+                  {(fileSize / 1024).toFixed(1)} KB · {countAccountLines(text)} 个账号
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="移除文件"
+                onClick={clearFile}
+                className="checkbox-btn cursor-pointer text-slate-400 transition hover:text-slate-600"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 覆盖选项 */}
+        <label className="flex items-center gap-2 text-xs text-slate-500 sm:text-sm">
+          <input
+            type="checkbox"
+            checked={overwrite}
+            onChange={(e) => setOverwrite(e.target.checked)}
+          />
+          已存在则覆盖授权码
+        </label>
 
         {summary && (
           <p className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-700 sm:text-sm">
@@ -1088,20 +1240,68 @@ function ImportModal({
             {summary.skipped}
           </p>
         )}
+      </div>
+    </Modal>
+  );
+}
 
-        <div className="mt-2 flex justify-end gap-2">
-          <button type="button" onClick={onClose}>
-            关闭
+/** 删除确认弹窗（对齐原型）：玫红警告图标 + 文案 + 全宽「取消 / 确认删除」按钮。 */
+function ConfirmDeleteModal({
+  target,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  target:
+    | { type: 'one'; id: number; email: string }
+    | { type: 'batch'; ids: number[] };
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const message =
+    target.type === 'one' ? (
+      <>
+        确定要删除邮箱账号{' '}
+        <span className="font-medium text-slate-900">{target.email}</span> 吗？此操作不可撤销。
+      </>
+    ) : (
+      <>
+        确定要删除选中的{' '}
+        <span className="font-medium text-slate-900">{target.ids.length}</span>{' '}
+        个账号吗？此操作不可撤销。
+      </>
+    );
+
+  return (
+    <Modal
+      title="确认删除"
+      onClose={onCancel}
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            取消
           </button>
           <button
             type="button"
-            className="btn-primary"
-            onClick={handleSubmit}
+            onClick={onConfirm}
             disabled={busy}
+            className="flex-1 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-rose-500/30 transition hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            开始导入
+            确认删除
           </button>
+        </>
+      }
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100">
+          <AlertTriangle className="h-5 w-5 text-rose-600" aria-hidden="true" />
         </div>
+        <p className="text-sm text-slate-700">{message}</p>
       </div>
     </Modal>
   );

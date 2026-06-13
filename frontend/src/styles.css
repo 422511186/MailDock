@@ -253,12 +253,28 @@
     to { transform: translateX(0); opacity: 1; }
   }
 
+  @keyframes slide-up-mobile {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
   .animate-fade-in {
     animation: fade-in 0.2s ease-out;
   }
 
   .animate-slide-up {
     animation: slide-up 0.3s ease-out;
+  }
+
+  .animate-slide-up-mobile {
+    animation: slide-up-mobile 0.3s ease-out;
+  }
+
+  /* 桌面端（sm 及以上）改为从下方淡入的居中弹窗动画 */
+  @media (min-width: 640px) {
+    .animate-slide-up-mobile {
+      animation: slide-up 0.3s ease-out;
+    }
   }
 
   .animate-slide-in-right {

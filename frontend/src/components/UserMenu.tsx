@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { UserCircle, Mail, LogOut, ChevronDown } from 'lucide-react';
 import type { CurrentUser } from '../api/client';
-import { truncateEmail } from '../utils/email';
 
 interface UserMenuProps {
   /** 当前用户。 */

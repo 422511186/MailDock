@@ -150,6 +150,50 @@ describe('AccountsPage', () => {
     expect(submitBtn).toBeInTheDocument();
   });
 
+  it('添加账号表单含只读 IMAP 服务器与端口字段', async () => {
+    const api = stubApi();
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: /添加账号/ })[0]);
+    await screen.findByRole('heading', { name: '添加邮箱账号' });
+
+    const host = screen.getByDisplayValue('imap.163.com') as HTMLInputElement;
+    const port = screen.getByDisplayValue('993') as HTMLInputElement;
+    expect(host).toBeInTheDocument();
+    expect(host).toHaveAttribute('readonly');
+    expect(port).toBeInTheDocument();
+    expect(port).toHaveAttribute('readonly');
+  });
+
+  it('添加账号表单授权码下方有帮助文案', async () => {
+    const api = stubApi();
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: /添加账号/ })[0]);
+    await screen.findByRole('heading', { name: '添加邮箱账号' });
+    expect(screen.getByText(/前往 163 邮箱设置获取 IMAP 授权码/)).toBeInTheDocument();
+  });
+
+  it('添加账号表单底部「取消」「添加账号」按钮均分宽度', async () => {
+    const api = stubApi();
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: /添加账号/ })[0]);
+    await screen.findByRole('heading', { name: '添加邮箱账号' });
+
+    const cancelBtn = screen.getByRole('button', { name: '取消' });
+    const submitBtn = screen
+      .getAllByRole('button', { name: '添加账号' })
+      .find(btn => btn.getAttribute('type') === 'submit')!;
+    expect(cancelBtn).toHaveClass('flex-1');
+    expect(submitBtn).toHaveClass('flex-1');
+  });
+
+  it('弹窗头部不含右上角关闭叉叉（与底部取消按钮重复）', async () => {
+    const api = stubApi();
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: /添加账号/ })[0]);
+    await screen.findByRole('heading', { name: '添加邮箱账号' });
+    expect(screen.queryByRole('button', { name: '关闭' })).not.toBeInTheDocument();
+  });
+
   // ===== 原有功能测试保持 =====
 
   it('加载后展示账号列表', async () => {
@@ -200,26 +244,28 @@ describe('AccountsPage', () => {
       .mockResolvedValueOnce(paged([]));
     const api = stubApi({ listAccounts });
 
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findAllByText('del@163.com');
 
     openFirstRowMenu();
     fireEvent.click(screen.getByRole('menuitem', { name: /删除/ }));
 
-    expect(confirmSpy).toHaveBeenCalled();
+    // 弹出删除确认弹窗，显示账号邮箱
+    expect(await screen.findByRole('heading', { name: '确认删除' })).toBeInTheDocument();
+    const confirmDialog = screen.getByRole('heading', { name: '确认删除' }).closest('div[class*="rounded"]')!;
+    expect(confirmDialog.textContent).toContain('del@163.com');
+
+    fireEvent.click(screen.getByRole('button', { name: '确认删除' }));
+
     await waitFor(() => {
       expect(api.deleteAccount).toHaveBeenCalledWith(3);
     });
-    confirmSpy.mockRestore();
   });
 
   it('取消确认时不删除账号', async () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 3, email: 'del@163.com' })])),
     });
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
 
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findAllByText('del@163.com');
@@ -227,9 +273,40 @@ describe('AccountsPage', () => {
     openFirstRowMenu();
     fireEvent.click(screen.getByRole('menuitem', { name: /删除/ }));
 
-    expect(confirmSpy).toHaveBeenCalled();
+    // 弹窗出现后点击取消
+    await screen.findByRole('heading', { name: '确认删除' });
+    fireEvent.click(screen.getByRole('button', { name: '取消' }));
+
     expect(api.deleteAccount).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: '确认删除' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('批量删除走确认弹窗并显示数量', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(
+        paged([
+          account({ id: 1, email: 'a@163.com' }),
+          account({ id: 2, email: 'b@163.com' }),
+        ]),
+      ),
+    });
+
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('a@163.com');
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '全选' }));
+    const delBtns = await screen.findAllByRole('button', { name: /批量删除/ });
+    fireEvent.click(delBtns[0]);
+
+    const dialog = (await screen.findByRole('heading', { name: '确认删除' })).closest('div[class*="rounded"]')!;
+    expect(dialog.textContent).toContain('2');
+
+    fireEvent.click(screen.getByRole('button', { name: '确认删除' }));
+    await waitFor(() => {
+      expect(api.deleteBatch).toHaveBeenCalledWith([1, 2]);
+    });
   });
 
   it('点击账号行触发 onOpenAccount（桌面端）', async () => {
@@ -486,7 +563,7 @@ describe('AccountsPage', () => {
     });
   });
 
-  it('通过弹窗批量导入文本后展示汇总', async () => {
+  it('通过弹窗上传文件后展示导入汇总', async () => {
     const api = stubApi({
       importText: vi.fn().mockResolvedValue({ total: 2, success: 2, failed: 0, skipped: 0, results: [] }),
     });
@@ -496,15 +573,41 @@ describe('AccountsPage', () => {
     const importBtns = screen.getAllByRole('button', { name: '导入' });
     fireEvent.click(importBtns[0]);
 
-    fireEvent.change(screen.getByLabelText('批量导入'), {
-      target: { value: 'a@163.com code1\nb@163.com code2' },
-    });
+    const content = 'a@163.com code1\nb@163.com code2';
+    const file = new File([content], 'accounts.txt', { type: 'text/plain' });
+    // jsdom 的 File 缺少 text()，补上以模拟浏览器行为
+    if (typeof file.text !== 'function') {
+      Object.defineProperty(file, 'text', { value: () => Promise.resolve(content) });
+    }
+    const fileInput = screen.getByLabelText('上传文件') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    // 选择文件后显示预览卡片（文件名 + 行数）
+    expect(await screen.findByText('accounts.txt')).toBeInTheDocument();
+    expect(screen.getByText(/2 个账号/)).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: '开始导入' }));
 
     await waitFor(() => {
-      expect(api.importText).toHaveBeenCalledWith('a@163.com code1\nb@163.com code2', false, false);
+      expect(api.importText).toHaveBeenCalledWith(content, false, false);
     });
     expect(await screen.findByText(/成功 2/)).toBeInTheDocument();
+  });
+
+  it('导入弹窗保留"已存在则覆盖授权码"复选框', async () => {
+    const api = stubApi();
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: '导入' })[0]);
+    expect(await screen.findByText(/已存在则覆盖授权码/)).toBeInTheDocument();
+  });
+
+  it('导入弹窗含虚线拖拽上传区', async () => {
+    const api = stubApi();
+    const { container } = render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: '导入' })[0]);
+    await screen.findByRole('heading', { name: '批量导入账号' });
+    const dashed = container.querySelector('.border-dashed');
+    expect(dashed).toBeInTheDocument();
   });
 
   it('展示三态测活状态：待检测 / 正常 / 异常', async () => {
