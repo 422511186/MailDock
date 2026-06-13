@@ -131,18 +131,21 @@ describe('App', () => {
     // 进入邮件列表
     const emailLinks = await screen.findAllByText('owner@163.com');
     fireEvent.click(emailLinks[0]);
-    expect(await screen.findByText('一封邮件')).toBeInTheDocument();
+    expect((await screen.findAllByText('一封邮件')).length).toBeGreaterThan(0);
 
-    // 进入邮件详情
-    fireEvent.click(screen.getByText('一封邮件'));
+    // 进入邮件详情（点击第一个，桌面端或移动端）
+    const mailItems = screen.getAllByText('一封邮件');
+    fireEvent.click(mailItems[0]);
     expect(await screen.findByText('邮件详情主题')).toBeInTheDocument();
 
     // 从详情返回邮件列表
-    fireEvent.click(screen.getByRole('button', { name: /返回/ }));
-    expect(await screen.findByText('一封邮件')).toBeInTheDocument();
+    const backButtons1 = screen.getAllByRole('button', { name: /返回/ });
+    fireEvent.click(backButtons1[0]);
+    expect((await screen.findAllByText('一封邮件')).length).toBeGreaterThan(0);
 
     // 从邮件列表返回账号列表
-    fireEvent.click(screen.getByRole('button', { name: /返回/ }));
+    const backButtons2 = screen.getAllByRole('button', { name: /返回/ });
+    fireEvent.click(backButtons2[0]);
     expect((await screen.findAllByText('owner@163.com')).length).toBeGreaterThan(0);
   });
 
