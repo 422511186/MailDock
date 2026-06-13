@@ -83,10 +83,11 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
     setBusy(true);
     try {
       const res = await api.refresh(accountId);
+      // 原型 section-11 Toast 结构：无论有无新邮件都显示
+      const toast = document.createElement('div');
+      toast.className = 'flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-lg shadow-emerald-100/50 animate-slide-in-right fixed right-4 top-20 z-40 max-w-sm';
+
       if (res.newCount > 0) {
-        // 原型 section-11 Toast 结构
-        const toast = document.createElement('div');
-        toast.className = 'flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-lg shadow-emerald-100/50 animate-slide-in-right fixed right-4 top-20 z-40 max-w-sm';
         toast.innerHTML = `
           <div class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -94,13 +95,28 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
             </svg>
           </div>
           <div class="flex-1">
-            <div class="font-medium text-emerald-800">操作成功</div>
+            <div class="font-medium text-emerald-800">收信完成</div>
             <div class="mt-0.5 text-sm text-emerald-700">新增 ${res.newCount} 封邮件</div>
           </div>
         `;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
+      } else {
+        toast.innerHTML = `
+          <div class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-400 text-white">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div class="flex-1">
+            <div class="font-medium text-slate-700">收信完成</div>
+            <div class="mt-0.5 text-sm text-slate-600">暂无新邮件</div>
+          </div>
+        `;
+        // 无新邮件时使用 slate 背景
+        toast.className = 'flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-lg shadow-slate-100/50 animate-slide-in-right fixed right-4 top-20 z-40 max-w-sm';
       }
+
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
       await load(1);
     } catch (e) {
       setError((e as Error).message);

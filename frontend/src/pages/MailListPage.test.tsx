@@ -394,8 +394,8 @@ describe('MailListPage', () => {
       expect(iconContainer).toBeInTheDocument();
     });
 
-    // Toast 应该包含标题"操作成功"
-    expect(screen.getAllByText('操作成功').length).toBeGreaterThan(0);
+    // Toast 应该包含标题"收信完成"
+    expect(screen.getAllByText('收信完成').length).toBeGreaterThan(0);
 
     // Toast 应该包含描述"新增 5 封邮件"
     expect(screen.getAllByText('新增 5 封邮件').length).toBeGreaterThan(0);
@@ -418,15 +418,40 @@ describe('MailListPage', () => {
 
     // Toast 出现（需要等待异步刷新完成，使用真实时间）
     await vi.waitFor(() => {
-      expect(screen.getAllByText('操作成功').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('收信完成').length).toBeGreaterThan(0);
     });
 
     // 立即推进 3 秒
     vi.advanceTimersByTime(3000);
 
     // Toast 应该被移除（不需要异步等待，因为 setTimeout 是同步推进的）
-    expect(screen.queryAllByText('操作成功').length).toBe(0);
+    expect(screen.queryAllByText('收信完成').length).toBe(0);
 
     vi.useRealTimers();
+  });
+
+  it('无新邮件时显示灰色 Toast 提示"暂无新邮件"', async () => {
+    const api = stubApi({
+      refresh: vi.fn().mockResolvedValue({ newCount: 0, syncedAt: Date.now() }),
+    });
+    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    await waitFor(() => expect(api.listMessages).toHaveBeenCalled());
+
+    const refreshButtons = screen.getAllByRole('button', { name: '收取邮件' });
+    fireEvent.click(refreshButtons[0]);
+
+    await waitFor(() => expect(api.refresh).toHaveBeenCalledWith(7));
+
+    // Toast 应该包含灰色圆形图标容器
+    await waitFor(() => {
+      const iconContainer = document.querySelector('.rounded-full.bg-slate-400');
+      expect(iconContainer).toBeInTheDocument();
+    });
+
+    // Toast 应该包含标题"收信完成"
+    expect(screen.getAllByText('收信完成').length).toBeGreaterThan(0);
+
+    // Toast 应该包含描述"暂无新邮件"
+    expect(screen.getAllByText('暂无新邮件').length).toBeGreaterThan(0);
   });
 });
