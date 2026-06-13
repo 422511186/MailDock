@@ -10,6 +10,8 @@ interface MailListPageProps {
   api: ApiClient;
   /** 当前账号 ID。 */
   accountId: number;
+  /** 当前账号邮箱地址。 */
+  accountEmail: string;
   /** 打开某封邮件详情。 */
   onOpenMessage: (id: number) => void;
   /** 返回账号列表。 */
@@ -40,7 +42,7 @@ function getEmailInitial(email: string): string {
 }
 
 /** 邮件列表页：展示某账号收件箱邮件，支持刷新、分页与进入详情。 */
-export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailListPageProps) {
+export function MailListPage({ api, accountId, accountEmail, onOpenMessage, onBack }: MailListPageProps) {
   const [items, setItems] = useState<MessageSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -140,7 +142,7 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
           >
             <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </button>
-          <h1 className="text-base font-semibold text-slate-800">alice@163.com</h1>
+          <h1 className="text-base font-semibold text-slate-800">{accountEmail}</h1>
           <button
             type="button"
             onClick={() => void handleRefresh()}
@@ -161,7 +163,7 @@ export function MailListPage({ api, accountId, onOpenMessage, onBack }: MailList
             <div className="flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
                 <Mail className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-                alice@163.com
+                {accountEmail}
               </h2>
               <div className="flex items-center gap-3">
                 <button

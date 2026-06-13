@@ -19,8 +19,8 @@ import type {
 interface AccountsPageProps {
   /** API 客户端。 */
   api: ApiClient;
-  /** 点击某账号进入其邮件列表的回调。 */
-  onOpenAccount: (accountId: number) => void;
+  /** 点击某账号进入其邮件列表的回调（传递 accountId 和 accountEmail）。 */
+  onOpenAccount: (accountId: number, accountEmail: string) => void;
 }
 
 /** 默认每页条数。 */
@@ -524,7 +524,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                   <tr
                     key={a.id}
                     className={`cursor-pointer transition ${isSelected ? 'bg-emerald-50/50 hover:bg-emerald-50' : ''}`}
-                    onClick={() => onOpenAccount(a.id)}
+                    onClick={() => onOpenAccount(a.id, a.email)}
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center">
@@ -645,7 +645,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                 className={`cursor-pointer overflow-hidden rounded-2xl border bg-white shadow-sm transition-all ${
                   isSelected ? 'border-emerald-300 ring-1 ring-emerald-300 bg-emerald-50/50' : 'border-slate-200'
                 }`}
-                onClick={() => onOpenAccount(a.id)}
+                onClick={() => onOpenAccount(a.id, a.email)}
               >
                 <div className="p-5">
                   <div className="mb-4 flex items-center gap-3">

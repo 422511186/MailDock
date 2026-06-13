@@ -247,7 +247,7 @@ describe('AccountsPage', () => {
     expect(accountRow).toBeDefined();
     fireEvent.click(accountRow!);
 
-    expect(onOpenAccount).toHaveBeenCalledWith(7);
+    expect(onOpenAccount).toHaveBeenCalledWith(7, 'open@163.com');
   });
 
   it('点击账号卡片触发 onOpenAccount（移动端）', async () => {
@@ -267,7 +267,7 @@ describe('AccountsPage', () => {
     expect(card).toBeDefined();
     fireEvent.click(card!);
 
-    expect(onOpenAccount).toHaveBeenCalledWith(8);
+    expect(onOpenAccount).toHaveBeenCalledWith(8, 'mobile@163.com');
   });
 
   it('移动端卡片布局符合原型：只有一个大头像，无小头像', async () => {

@@ -43,7 +43,7 @@ describe('MailListPage', () => {
         items: [summary({ id: 1, subject: '未读', isRead: false })],
       }),
     });
-    const { container } = render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    const { container } = render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     await screen.findAllByText('未读');
 
     // 未读邮件使用 bg-emerald-50/30 背景而非 ring-brand-300
@@ -63,7 +63,7 @@ describe('MailListPage', () => {
       }),
     });
 
-    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
 
     expect(await screen.findAllByText('第一封')).toHaveLength(2); // 桌面端和移动端各一个
     expect(screen.getAllByText('第二封')).toHaveLength(2);
@@ -82,7 +82,7 @@ describe('MailListPage', () => {
       refresh: vi.fn().mockResolvedValue({ newCount: 1, syncedAt: 123 }),
     });
 
-    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() => expect(listMessages).toHaveBeenCalledTimes(1));
 
     const refreshButtons = screen.getAllByRole('button', { name: '收取邮件' });
@@ -100,7 +100,7 @@ describe('MailListPage', () => {
       refresh: vi.fn().mockResolvedValue({ newCount: 3, syncedAt: 123 }),
     });
 
-    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     const refreshButtons = screen.getAllByRole('button', { name: '收取邮件' });
     fireEvent.click(refreshButtons[0]);
 
@@ -117,7 +117,7 @@ describe('MailListPage', () => {
       }),
     });
 
-    render(<MailListPage api={api as never} accountId={7} onOpenMessage={onOpenMessage} onBack={vi.fn()} />);
+    render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={onOpenMessage} onBack={vi.fn()} />);
     const mailItems = await screen.findAllByText('可点击');
     const clickableDiv = mailItems[0].closest('div.cursor-pointer');
     expect(clickableDiv).toBeInTheDocument();
@@ -131,7 +131,7 @@ describe('MailListPage', () => {
     const onBack = vi.fn();
     const api = stubApi();
 
-    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={onBack} />);
+    render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={onBack} />);
     // 等待初始加载完成，避免未 await 的异步 setState 触发 act 警告
     await waitFor(() => expect(api.listMessages).toHaveBeenCalled());
     const backButtons = screen.getAllByRole('button', { name: /返回/ });
@@ -152,7 +152,7 @@ describe('MailListPage', () => {
       }),
     });
 
-    const { container } = render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    const { container } = render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     await screen.findAllByText('未读邮件');
 
     // 找到包含未读邮件的容器
@@ -168,7 +168,7 @@ describe('MailListPage', () => {
       }),
     });
 
-    const { container } = render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    const { container } = render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     await screen.findAllByText('带附件');
 
     // 桌面端附件图标存在
@@ -184,7 +184,7 @@ describe('MailListPage', () => {
     });
     const api = stubApi({ listMessages });
 
-    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     await screen.findAllByText('邮件');
 
     const nextButtons = screen.getAllByRole('button', { name: '下一页' });
@@ -198,7 +198,7 @@ describe('MailListPage', () => {
   it('桌面端保留白色卡片容器布局', async () => {
     const api = stubApi();
     const { container } = render(
-      <MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />
+      <MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />
     );
     await waitFor(() => expect(api.listMessages).toHaveBeenCalled());
 
@@ -209,7 +209,7 @@ describe('MailListPage', () => {
 
   it('移动端顶部栏布局：返回按钮+居中邮箱+刷新按钮', async () => {
     const api = stubApi();
-    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() => expect(api.listMessages).toHaveBeenCalled());
 
     // 移动端顶部栏应该有返回和刷新按钮
@@ -231,7 +231,7 @@ describe('MailListPage', () => {
         items: [summary({ id: 1, subject: '测试主题', fromAddr: 'john@163.com', isRead: false })],
       }),
     });
-    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     await screen.findAllByText('测试主题');
 
     // 应该有发件人显示
@@ -245,7 +245,7 @@ describe('MailListPage', () => {
     const refresh = vi.fn().mockResolvedValue({ newCount: 0, syncedAt: 123 });
     const api = stubApi({ refresh });
 
-    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() => expect(api.listMessages).toHaveBeenCalled());
 
     const refreshButtons = screen.getAllByRole('button', { name: '收取邮件' });
@@ -278,7 +278,7 @@ describe('MailListPage', () => {
       }),
     });
     const { container } = render(
-      <MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />
+      <MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />
     );
     await screen.findAllByText('未读');
 
@@ -296,7 +296,7 @@ describe('MailListPage', () => {
       }),
     });
     const { container } = render(
-      <MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />
+      <MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />
     );
     await screen.findAllByText('已读');
 
@@ -317,7 +317,7 @@ describe('MailListPage', () => {
       }),
     });
     const { container } = render(
-      <MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />
+      <MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />
     );
     await screen.findAllByText('邮件1');
 
@@ -329,7 +329,7 @@ describe('MailListPage', () => {
   it('桌面端标题栏左侧显示 Mail 图标 + 邮箱文字', async () => {
     const api = stubApi();
     const { container } = render(
-      <MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />
+      <MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />
     );
     await waitFor(() => expect(api.listMessages).toHaveBeenCalled());
 
@@ -350,7 +350,7 @@ describe('MailListPage', () => {
   it('桌面端标题栏右侧按钮顺序：收取邮件在前，返回在后', async () => {
     const api = stubApi();
     const { container } = render(
-      <MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />
+      <MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />
     );
     await waitFor(() => expect(api.listMessages).toHaveBeenCalled());
 
@@ -382,7 +382,7 @@ describe('MailListPage', () => {
       refresh: vi.fn().mockResolvedValue({ newCount: 5, syncedAt: 123 }),
     });
 
-    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() => expect(api.listMessages).toHaveBeenCalled());
 
     const refreshButtons = screen.getAllByRole('button', { name: '收取邮件' });
@@ -408,7 +408,7 @@ describe('MailListPage', () => {
       refresh: vi.fn().mockResolvedValue({ newCount: 3, syncedAt: 123 }),
     });
 
-    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
 
     // 等待初始加载完成（使用真实时间）
     await vi.waitFor(() => expect(api.listMessages).toHaveBeenCalled());
@@ -434,7 +434,7 @@ describe('MailListPage', () => {
     const api = stubApi({
       refresh: vi.fn().mockResolvedValue({ newCount: 0, syncedAt: Date.now() }),
     });
-    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    render(<MailListPage api={api as never} accountId={7} accountEmail="alice@163.com" onOpenMessage={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() => expect(api.listMessages).toHaveBeenCalled());
 
     const refreshButtons = screen.getAllByRole('button', { name: '收取邮件' });

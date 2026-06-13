@@ -13,8 +13,8 @@ type View =
   | { name: 'login' }
   | { name: 'accounts'; user: CurrentUser }
   | { name: 'profile'; user: CurrentUser }
-  | { name: 'mailList'; user: CurrentUser; accountId: number }
-  | { name: 'mailDetail'; user: CurrentUser; accountId: number; messageId: number };
+  | { name: 'mailList'; user: CurrentUser; accountId: number; accountEmail: string }
+  | { name: 'mailDetail'; user: CurrentUser; accountId: number; accountEmail: string; messageId: number };
 
 interface AppProps {
   /** API 客户端。 */
@@ -80,7 +80,9 @@ export function App({ api }: AppProps) {
         />
         <AccountsPage
           api={api}
-          onOpenAccount={(accountId) => setView({ name: 'mailList', user: view.user, accountId })}
+          onOpenAccount={(accountId, accountEmail) =>
+            setView({ name: 'mailList', user: view.user, accountId, accountEmail })
+          }
         />
       </div>
     );
@@ -117,8 +119,9 @@ export function App({ api }: AppProps) {
         <MailListPage
           api={api}
           accountId={view.accountId}
+          accountEmail={view.accountEmail}
           onOpenMessage={(messageId) =>
-            setView({ name: 'mailDetail', user: view.user, accountId: view.accountId, messageId })
+            setView({ name: 'mailDetail', user: view.user, accountId: view.accountId, accountEmail: view.accountEmail, messageId })
           }
           onBack={() => setView({ name: 'accounts', user: view.user })}
         />
@@ -138,7 +141,7 @@ export function App({ api }: AppProps) {
       <MailDetailPage
         api={api}
         messageId={view.messageId}
-        onBack={() => setView({ name: 'mailList', user: view.user, accountId: view.accountId })}
+        onBack={() => setView({ name: 'mailList', user: view.user, accountId: view.accountId, accountEmail: view.accountEmail })}
       />
     </div>
   );
