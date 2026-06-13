@@ -103,4 +103,20 @@ describe('UserMenu', () => {
     );
     expect(screen.getByRole('button', { name: '用户菜单' })).toHaveTextContent('alice@example.com');
   });
+
+  it('长邮箱在下拉头部显示为中间省略格式', () => {
+    const longEmail = 'iog9k1hbmg2q141ftn9zyy9pxn7lzb0p7tb7dakdeagzue8y4@privaterelay.linux.do';
+    render(<UserMenu user={user({ primaryEmail: longEmail })} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+    const menu = screen.getByRole('menu');
+    expect(menu).toHaveTextContent('iog9k1hb...privaterelay.linux.do');
+  });
+
+  it('邮箱元素有 title 属性用于悬浮展示完整邮箱', () => {
+    const longEmail = 'iog9k1hbmg2q141ftn9zyy9pxn7lzb0p7tb7dakdeagzue8y4@privaterelay.linux.do';
+    render(<UserMenu user={user({ primaryEmail: longEmail })} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+    const emailElement = screen.getByText('iog9k1hb...privaterelay.linux.do');
+    expect(emailElement).toHaveAttribute('title', longEmail);
+  });
 });

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { UserCircle, Mail, LogOut, ChevronDown } from 'lucide-react';
 import type { CurrentUser } from '../api/client';
+import { truncateEmail } from '../utils/email';
 
 interface UserMenuProps {
   /** 当前用户。 */
@@ -104,7 +105,9 @@ export function UserMenu({ user, onOpenProfile, onLogout, onOpenMailList }: User
               <div className="flex-1 overflow-hidden">
                 <div className="truncate font-semibold text-slate-800">{name}</div>
                 {user.primaryEmail && (
-                  <div className="truncate text-xs text-slate-500">{user.primaryEmail}</div>
+                  <div className="truncate text-xs text-slate-500" title={user.primaryEmail}>
+                    {truncateEmail(user.primaryEmail)}
+                  </div>
                 )}
               </div>
             </div>
