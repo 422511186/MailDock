@@ -555,67 +555,12 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
             return (
               <div
                 key={a.id}
-                className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-all ${
+                className={`cursor-pointer overflow-hidden rounded-2xl border bg-white shadow-sm transition-all ${
                   isSelected ? 'border-emerald-300 ring-1 ring-emerald-300 bg-emerald-50/50' : 'border-slate-200'
                 }`}
+                onClick={() => onOpenAccount(a.id)}
               >
                 <div className="p-5">
-                  <div className="mb-4 flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        role="checkbox"
-                        aria-checked={isSelected}
-                        aria-label={`选择 ${a.email}`}
-                        onClick={() => toggleSelect(a.id)}
-                        className="checkbox-btn"
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: '18px',
-                          height: '18px',
-                          minWidth: '18px',
-                          minHeight: '18px',
-                          padding: 0,
-                          margin: 0,
-                          border: '2px solid',
-                          borderRadius: '4px',
-                          boxSizing: 'border-box',
-                          flexShrink: 0,
-                          transition: 'all 0.2s',
-                          backgroundColor: isSelected ? 'rgb(16, 185, 129)' : 'white',
-                          borderColor: isSelected ? 'rgb(16, 185, 129)' : 'rgb(203, 213, 225)',
-                        }}
-                      >
-                        <svg
-                          className={`text-white transition-all duration-200 ${
-                            isSelected ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
-                          }`}
-                          style={{ width: '12px', height: '12px' }}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={3.5}
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </button>
-                      <div
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${emailToAvatarGradient(
-                          a.email,
-                        )} text-sm font-semibold text-white shadow-sm`}
-                        aria-hidden="true"
-                      >
-                        {a.email.charAt(0).toUpperCase()}
-                      </div>
-                    </div>
-                    <RowMenu
-                      testing={testingId === a.id}
-                      onTest={() => void handleTestOne(a.id)}
-                      onDelete={() => void handleDelete(a.id)}
-                    />
-                  </div>
                   <div className="mb-4 flex items-center gap-3">
                     <div
                       className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${emailToAvatarGradient(
@@ -630,7 +575,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                       <div className="text-xs text-slate-500">{formatRelativeTime(a.lastSyncAt)}</div>
                     </div>
                   </div>
-                  <div className="mb-3 flex items-center gap-2 ml-[60px]">
+                  <div className="mb-3 flex items-center gap-2">
                     <span
                       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${st.cls}`}
                       title={a.lastTestMsg || ''}

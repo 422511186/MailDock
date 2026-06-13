@@ -224,7 +224,7 @@ describe('AccountsPage', () => {
     confirmSpy.mockRestore();
   });
 
-  it('点击账号行触发 onOpenAccount', async () => {
+  it('点击账号行触发 onOpenAccount（桌面端）', async () => {
     const onOpenAccount = vi.fn();
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 7, email: 'open@163.com' })])),
@@ -240,6 +240,72 @@ describe('AccountsPage', () => {
     fireEvent.click(accountRow!);
 
     expect(onOpenAccount).toHaveBeenCalledWith(7);
+  });
+
+  it('点击账号卡片触发 onOpenAccount（移动端）', async () => {
+    const onOpenAccount = vi.fn();
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 8, email: 'mobile@163.com' })])),
+    });
+
+    const { container } = render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
+    await screen.findAllByText('mobile@163.com');
+
+    // 移动端卡片在 sm:hidden 下，找到包含邮箱的卡片容器
+    const mobileCards = container.querySelectorAll('.space-y-3.sm\\:hidden > div');
+    expect(mobileCards.length).toBeGreaterThan(0);
+
+    const card = Array.from(mobileCards).find(c => c.textContent?.includes('mobile@163.com'));
+    expect(card).toBeDefined();
+    fireEvent.click(card!);
+
+    expect(onOpenAccount).toHaveBeenCalledWith(8);
+  });
+
+  it('移动端卡片布局符合原型：只有一个大头像，无小头像', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(
+        paged([account({ id: 1, email: 'test@163.com', messageCount: 128, lastSyncAt: Date.now() - 3600000 })]),
+      ),
+    });
+
+    const { container } = render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('test@163.com');
+
+    // 移动端卡片容器
+    const mobileCards = container.querySelectorAll('.space-y-3.sm\\:hidden > div');
+    expect(mobileCards.length).toBeGreaterThan(0);
+
+    const card = mobileCards[0];
+
+    // 应该只有一个大头像（h-12 w-12），没有小头像（h-9 w-9）
+    const largeAvatars = card.querySelectorAll('.h-12.w-12.rounded-full');
+    const smallAvatars = card.querySelectorAll('.h-9.w-9.rounded-full');
+
+    expect(largeAvatars.length).toBe(1);
+    expect(smallAvatars.length).toBe(0);
+  });
+
+  it('移动端卡片：状态徽章和邮件数在同一行，无左侧缩进', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(
+        paged([account({ id: 1, email: 'test@163.com', messageCount: 128, lastSyncAt: Date.now() - 3600000 })]),
+      ),
+    });
+
+    const { container } = render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('test@163.com');
+
+    const mobileCards = container.querySelectorAll('.space-y-3.sm\\:hidden > div');
+    const card = mobileCards[0];
+
+    // 找到状态徽章的父容器，不应该有 ml-[60px] 这样的左边距
+    const statusRow = card.querySelector('.inline-flex.items-center.gap-1\\.5.rounded-full')?.parentElement;
+    expect(statusRow).toBeInTheDocument();
+
+    // 该行不应该有 ml-[60px] 类
+    const hasLeftMargin = statusRow?.className.includes('ml-[60px]');
+    expect(hasLeftMargin).toBe(false);
   });
 
   it('批量测活后刷新列表', async () => {
