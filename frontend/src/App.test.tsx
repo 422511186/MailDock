@@ -150,6 +150,38 @@ describe('App', () => {
     expect((await screen.findAllByText('owner@163.com')).length).toBeGreaterThan(0);
   });
 
+  it('切换视图时滚动回到页面顶部', async () => {
+    const scrollSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    const api = stubApi();
+    render(<App api={api as never} />);
+
+    // 进入邮件列表
+    const emailLinks = await screen.findAllByText('owner@163.com');
+    scrollSpy.mockClear();
+    fireEvent.click(emailLinks[0]);
+    await screen.findAllByText('一封邮件');
+
+    // 进入邮件列表这次视图切换应触发滚动回顶部
+    await waitFor(() => {
+      expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+    });
+
+    // 进入详情
+    scrollSpy.mockClear();
+    fireEvent.click(screen.getAllByText('一封邮件')[0]);
+    await screen.findByText('邮件详情主题');
+
+    // 返回邮件列表
+    scrollSpy.mockClear();
+    fireEvent.click(screen.getAllByRole('button', { name: /返回/ })[0]);
+    await screen.findAllByText('一封邮件');
+    await waitFor(() => {
+      expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+    });
+
+    scrollSpy.mockRestore();
+  });
+
   it('点击登出回到登录页', async () => {
     // 登出后清空状态并返回登录页
     const api = stubApi();

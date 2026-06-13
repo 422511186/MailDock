@@ -28,6 +28,16 @@ interface AppProps {
 export function App({ api }: AppProps) {
   const [view, setView] = useState<View>({ name: 'loading' });
 
+  // 视图为状态机切换、页面不卸载，window 的滚动位置会被保留；
+  // 每次切换视图（含进入详情后返回列表）时滚回顶部。
+  const viewKey =
+    view.name +
+    ('accountId' in view ? `:${view.accountId}` : '') +
+    ('messageId' in view ? `:${view.messageId}` : '');
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [viewKey]);
+
   useEffect(() => {
     let cancelled = false;
     api.me()
