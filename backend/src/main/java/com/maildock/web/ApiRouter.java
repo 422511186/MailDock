@@ -469,7 +469,8 @@ public final class ApiRouter {
                 .put("lastSyncAt", a.lastSyncAt())
                 .put("lastTestAt", a.lastTestAt())
                 .put("lastTestOk", a.lastTestOk())
-                .put("lastTestMsg", a.lastTestMsg());
+                .put("lastTestMsg", a.lastTestMsg())
+                .put("messageCount", a.messageCount());
     }
 
     // ===== 邮件路由 =====
