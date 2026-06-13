@@ -118,6 +118,31 @@ describe('AccountsPage', () => {
     expect(row?.className).toMatch(/bg-emerald/);
   });
 
+  it('新增账号按钮文字为"添加账号"', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account()])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    // 桌面端显示"添加账号"
+    expect(await screen.findByRole('button', { name: /添加账号/ })).toBeInTheDocument();
+  });
+
+  it('添加账号表单标题为"添加邮箱账号"', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /添加账号/ }));
+    expect(await screen.findByRole('heading', { name: '添加邮箱账号' })).toBeInTheDocument();
+  });
+
+  it('添加账号表单确认按钮文字为"添加账号"', async () => {
+    const api = stubApi();
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /添加账号/ }));
+    expect(await screen.findByRole('button', { name: '添加账号' })).toBeInTheDocument();
+  });
+
   // ===== 原有功能测试保持 =====
 
   it('加载后展示账号列表', async () => {
@@ -146,11 +171,11 @@ describe('AccountsPage', () => {
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(1));
 
-    fireEvent.click(screen.getByRole('button', { name: '新增账号' }));
+    fireEvent.click(screen.getByRole('button', { name: /添加账号/ }));
 
-    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'new@163.com' } });
-    fireEvent.change(screen.getByLabelText('授权码'), { target: { value: 'auth-code' } });
-    fireEvent.click(screen.getByRole('button', { name: '确认添加' }));
+    fireEvent.change(screen.getByLabelText(/邮箱地址/), { target: { value: 'new@163.com' } });
+    fireEvent.change(screen.getByLabelText(/授权码/), { target: { value: 'auth-code' } });
+    fireEvent.click(screen.getByRole('button', { name: '添加账号' }));
 
     await waitFor(() => {
       expect(api.createAccount).toHaveBeenCalledWith('new@163.com', 'auth-code');

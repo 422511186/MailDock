@@ -333,7 +333,8 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:from-emerald-600 hover:to-emerald-700"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">新增账号</span>
+              <span className="hidden sm:inline">添加账号</span>
+              <span className="sm:hidden">添加</span>
             </button>
           </div>
         </div>
@@ -852,7 +853,7 @@ function AddAccountModal({
   }
 
   return (
-    <Modal title="新增账号" onClose={onClose}>
+    <Modal title="添加邮箱账号" onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:gap-4">
         {error && (
           <p className="error" role="alert">
@@ -860,21 +861,21 @@ function AddAccountModal({
           </p>
         )}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="add-email" className="text-sm text-slate-500">
-            邮箱
+          <label htmlFor="add-email" className="mb-1.5 block text-sm font-medium text-slate-700">
+            邮箱地址 *
           </label>
           <input
             id="add-email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="off"
-            placeholder="example@163.com"
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-emerald-500"
+            placeholder="your@163.com"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-emerald-500"
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="add-authcode" className="text-sm text-slate-500">
-            授权码
+          <label htmlFor="add-authcode" className="mb-1.5 block text-sm font-medium text-slate-700">
+            授权码 *
           </label>
           <input
             id="add-authcode"
@@ -883,7 +884,7 @@ function AddAccountModal({
             onChange={(e) => setAuthCode(e.target.value)}
             autoComplete="off"
             placeholder="163 邮箱 IMAP 授权码"
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-emerald-500"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-emerald-500"
           />
         </div>
         <div className="mt-2 flex justify-end gap-2">
@@ -891,7 +892,7 @@ function AddAccountModal({
             取消
           </button>
           <button type="submit" className="btn-primary" disabled={busy}>
-            确认添加
+            添加账号
           </button>
         </div>
       </form>
