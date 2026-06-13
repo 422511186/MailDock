@@ -34,6 +34,22 @@ describe('MailListPage', () => {
     vi.clearAllMocks();
   });
 
+  it('未读样式类 ring-brand-300 在图标替换后仍保留', async () => {
+    const api = stubApi({
+      listMessages: vi.fn().mockResolvedValue({
+        total: 1,
+        items: [summary({ id: 1, subject: '未读', isRead: false })],
+      }),
+    });
+    render(<MailListPage api={api as never} accountId={7} onOpenMessage={vi.fn()} onBack={vi.fn()} />);
+    await screen.findByText('未读');
+    let card: HTMLElement | null = screen.getByText('未读').closest('div');
+    while (card && !card.className.includes('ring-brand-300')) {
+      card = card.parentElement as HTMLElement;
+    }
+    expect(card).toBeTruthy();
+  });
+
   it('加载后展示邮件列表', async () => {
     // 进入页面应按账号拉取并渲染邮件
     const api = stubApi({
