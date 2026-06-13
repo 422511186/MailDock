@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    networks:
+      - cloudflare-shared
+      - outbound
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "info"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  # 容器间互通网络（internal: true = 无外网出口）
+  # 其他服务通过 external: true 加入此网络，即可被 cloudflared 转发流量
+  cloudflare-shared:
+    name: cloudflare-shared
+    internal: true
+
+  # 外网出口网络（bridge = 有外网出口）
+  # 仅 cloudflared 需要，用于连接 Cloudflare 服务器
+  outbound:
+    name: cloudflare-outbound
+    driver: bridge
