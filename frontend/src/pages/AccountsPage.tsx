@@ -878,7 +878,8 @@ function RowMenu({
             type="button"
             role="menuitem"
             disabled={testing}
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               setOpen(false);
               onTest();
             }}
@@ -890,7 +891,8 @@ function RowMenu({
           <button
             type="button"
             role="menuitem"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               setOpen(false);
               onDelete();
             }}

@@ -563,6 +563,40 @@ describe('AccountsPage', () => {
     });
   });
 
+  it('点击菜单项测活不触发进入收件箱', async () => {
+    const onOpenAccount = vi.fn();
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 5, email: 'one@163.com' })])),
+    });
+
+    render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
+    await screen.findAllByText('one@163.com');
+
+    openFirstRowMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: /测活/ }));
+
+    await waitFor(() => {
+      expect(api.testConnection).toHaveBeenCalledWith(5);
+    });
+    expect(onOpenAccount).not.toHaveBeenCalled();
+  });
+
+  it('点击菜单项删除不触发进入收件箱', async () => {
+    const onOpenAccount = vi.fn();
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 3, email: 'del@163.com' })])),
+    });
+
+    render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
+    await screen.findAllByText('del@163.com');
+
+    openFirstRowMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: /删除/ }));
+
+    expect(await screen.findByRole('heading', { name: '确认删除' })).toBeInTheDocument();
+    expect(onOpenAccount).not.toHaveBeenCalled();
+  });
+
   it('通过弹窗上传文件后展示导入汇总', async () => {
     const api = stubApi({
       importText: vi.fn().mockResolvedValue({ total: 2, success: 2, failed: 0, skipped: 0, results: [] }),
