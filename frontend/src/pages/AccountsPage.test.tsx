@@ -49,6 +49,77 @@ describe('AccountsPage', () => {
     vi.clearAllMocks();
   });
 
+  // ===== 原型对齐测试（新增） =====
+
+  it('页面顶部显示独立标题"邮箱账号"', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account()])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    expect(await screen.findByRole('heading', { name: '邮箱账号' })).toBeInTheDocument();
+  });
+
+  it('桌面端表格包含"邮件数"列', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(
+        paged([account({ id: 1, email: 'alice@163.com', lastUid: 128 })]),
+      ),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+    // 表头包含"邮件数"
+    expect(screen.getByRole('columnheader', { name: '邮件数' })).toBeInTheDocument();
+    // 数据行显示邮件数
+    expect(screen.getByText('128')).toBeInTheDocument();
+  });
+
+  it('最后同步时间显示为相对格式', async () => {
+    const now = Date.now();
+    const twoMinutesAgo = now - 2 * 60 * 1000;
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(
+        paged([account({ id: 1, email: 'alice@163.com', lastSyncAt: twoMinutesAgo })]),
+      ),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+    // 应显示相对时间（精确匹配可能因时间漂移略有差异，检查包含"分钟"）
+    expect(screen.getAllByText(/\d+\s*分钟前/).length).toBeGreaterThan(0);
+  });
+
+  it('从未同步的账号显示"从未同步"', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(
+        paged([account({ id: 1, email: 'bob@163.com', lastSyncAt: 0 })]),
+      ),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('bob@163.com');
+    expect(screen.getByText('从未同步')).toBeInTheDocument();
+  });
+
+  it('选中行带浅绿背景（bg-emerald-50）', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+
+    const checkboxes = screen.getAllByRole('checkbox', { name: '选择 alice@163.com' });
+    fireEvent.click(checkboxes[0]);
+
+    // 找到包含邮箱的行，检查是否有 emerald 背景类
+    const emailCell = screen.getAllByText('alice@163.com')[0];
+    let row: HTMLElement | null = emailCell.closest('tr');
+    if (!row) {
+      // 移动端可能是 div 卡片
+      row = emailCell.closest('div[class*="rounded"]');
+    }
+    expect(row?.className).toMatch(/bg-emerald/);
+  });
+
+  // ===== 原有功能测试保持 =====
+
   it('加载后展示账号列表', async () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(
@@ -347,8 +418,6 @@ describe('AccountsPage', () => {
       );
     });
   });
-
-  // ===== Task F/G 新增结构测试 =====
 
   it('工具栏在白色卡片容器内', async () => {
     const api = stubApi({

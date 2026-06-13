@@ -65,6 +65,22 @@ function formatBeijingTime(ts: number): string {
   return new Date(ts).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
 }
 
+/** 将毫秒时间戳转为相对时间字符串（如"2 分钟前"）。 */
+function formatRelativeTime(ts: number): string {
+  if (!ts) return '从未同步';
+  const now = Date.now();
+  const diff = now - ts;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return '刚刚';
+  if (minutes < 60) return `${minutes} 分钟前`;
+  if (hours < 24) return `${hours} 小时前`;
+  if (days < 7) return `${days} 天前`;
+  return new Date(ts).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric' });
+}
+
 /**
  * 账号管理页：白色卡片工具栏（搜索 + 状态/排序 + 批量按钮 + 已选中提示条）、
  * 白色卡片表格（彩色头像 + 状态徽章带圆点 + 三点菜单），
@@ -399,8 +415,8 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               </th>
               <th className="px-6 py-4">邮箱</th>
               <th className="px-6 py-4 text-center">状态</th>
-              <th className="px-6 py-4 text-center">最近测活</th>
-              <th className="px-6 py-4 text-center">最近收信</th>
+              <th className="px-6 py-4 text-center">邮件数</th>
+              <th className="px-6 py-4 text-center">最后同步</th>
               <th className="px-6 py-4 text-center">操作</th>
             </tr>
           </thead>
@@ -417,7 +433,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                 const st = statusOf(a);
                 const isSelected = selectedIds.includes(a.id);
                 return (
-                  <tr key={a.id} className="transition hover:bg-slate-50/50">
+                  <tr key={a.id} className={`transition ${isSelected ? 'bg-emerald-50/50 hover:bg-emerald-50' : 'hover:bg-slate-50/50'}`}>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center">
                         <button
@@ -499,10 +515,10 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center text-sm text-slate-600">
-                      {formatBeijingTime(a.lastTestAt)}
+                      {a.lastUid}
                     </td>
                     <td className="px-6 py-4 text-center text-sm text-slate-600">
-                      {formatBeijingTime(a.lastSyncAt)}
+                      {formatRelativeTime(a.lastSyncAt)}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex justify-center">
@@ -536,7 +552,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               <div
                 key={a.id}
                 className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-all ${
-                  isSelected ? 'border-emerald-300 ring-1 ring-emerald-300' : 'border-slate-200'
+                  isSelected ? 'border-emerald-300 ring-1 ring-emerald-300 bg-emerald-50/50' : 'border-slate-200'
                 }`}
               >
                 <div className="p-5">
@@ -611,10 +627,10 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                       <span className={`h-1.5 w-1.5 rounded-full ${statusDot(st.label)}`} />
                       {st.label}
                     </span>
+                    <span className="text-xs text-slate-500">邮件数：{a.lastUid}</span>
                   </div>
                   <div className="space-y-1 text-xs text-slate-500">
-                    <div>最近测活：{formatBeijingTime(a.lastTestAt)}</div>
-                    <div>最近收信：{formatBeijingTime(a.lastSyncAt)}</div>
+                    <div>最后同步：{formatRelativeTime(a.lastSyncAt)}</div>
                   </div>
                 </div>
               </div>
