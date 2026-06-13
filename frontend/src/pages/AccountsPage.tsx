@@ -434,7 +434,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                 const st = statusOf(a);
                 const isSelected = selectedIds.includes(a.id);
                 return (
-                  <tr key={a.id} className={`transition ${isSelected ? 'bg-emerald-50/50 hover:bg-emerald-50' : 'hover:bg-slate-50/50'}`}>
+                  <tr key={a.id} className={`transition ${isSelected ? 'bg-emerald-50/50 hover:bg-emerald-50' : ''}`}>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center">
                         <button

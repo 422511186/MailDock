@@ -553,4 +553,15 @@ describe('AccountsPage', () => {
     expect(moreBtn).not.toHaveClass('bg-slate-50');
     expect(moreBtn).not.toHaveClass('rounded-lg');
   });
+
+  it('表格行不包含 hover 背景色', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('alice@163.com');
+    const rows = document.querySelectorAll('tbody tr');
+    expect(rows[0]).not.toHaveClass('hover:bg-slate-50/50');
+    expect(rows[0]).not.toHaveClass('hover:bg-slate-50');
+  });
 });
