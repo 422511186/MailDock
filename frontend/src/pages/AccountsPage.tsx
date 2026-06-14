@@ -344,11 +344,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               type="button"
               disabled={selectedIds.length === 0 || busy}
               onClick={handleDeleteBatch}
-              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                selectedIds.length > 0
-                  ? 'bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:from-rose-600 hover:to-rose-700'
-                  : 'border border-rose-200 bg-rose-50 font-medium text-rose-600 hover:bg-rose-100'
-              }`}
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-rose-500/30 transition hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               <span>批量删除</span>
@@ -437,11 +433,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               aria-label="移动端批量删除"
               disabled={selectedIds.length === 0 || busy}
               onClick={handleDeleteBatch}
-              className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                selectedIds.length > 0
-                  ? 'bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-rose-500/30 hover:from-rose-600 hover:to-rose-700'
-                  : 'border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100'
-              }`}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-3 py-2 text-sm font-medium text-white shadow-sm shadow-rose-500/30 transition hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               <span>删除</span>

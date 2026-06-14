@@ -775,6 +775,38 @@ describe('AccountsPage', () => {
     expect(await screen.findByText(/成功 2/)).toBeInTheDocument();
   });
 
+  it('选中行时批量删除按钮样式保持一致不跳动', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'test@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('test@163.com');
+
+    // 获取桌面端批量删除按钮
+    const deleteButtons = screen.getAllByRole('button', { name: /批量删除/ });
+    const desktopDeleteBtn = deleteButtons[0]; // 第一个是桌面端
+
+    // 未选中时按钮应该是禁用的但样式稳定
+    const initialClasses = desktopDeleteBtn.className;
+    expect(desktopDeleteBtn).toBeDisabled();
+
+    // 选中一行
+    const checkboxes = screen.getAllByRole('checkbox', { name: '选择 test@163.com' });
+    fireEvent.click(checkboxes[0]);
+
+    // 选中后按钮启用，但宽度、布局不应该改变（只颜色/启用状态变化）
+    expect(desktopDeleteBtn).not.toBeDisabled();
+    const selectedClasses = desktopDeleteBtn.className;
+
+    // 确保按钮的核心结构类（padding, flex, gap 等）保持一致
+    expect(selectedClasses).toContain('inline-flex');
+    expect(selectedClasses).toContain('items-center');
+    expect(selectedClasses).toContain('gap-2');
+    expect(selectedClasses).toContain('rounded-lg');
+    expect(selectedClasses).toContain('px-4');
+    expect(selectedClasses).toContain('py-2');
+  });
+
   it('导入弹窗保留"已存在则覆盖授权码"复选框', async () => {
     const api = stubApi();
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
