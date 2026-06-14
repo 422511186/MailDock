@@ -3,38 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import type { ApiClient } from '../api/client';
 import { LoadingPage } from '../components/LoadingPage';
+import { useAuth } from '../contexts/AuthContext';
 
 interface OAuthCallbackPageProps {
   api: ApiClient;
 }
 
 export function OAuthCallbackPage({ api }: OAuthCallbackPageProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
+  const { user, loading, error: authError } = useAuth();
+  const [localError, setLocalError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    let cancelled = false;
+    // 等待 AuthContext 加载完成
+    if (loading) return;
 
-    api.me()
-      .then(() => {
-        if (!cancelled) {
-          setReady(true);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : '登录失败');
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [api]);
+    // 如果加载完成后没有用户，说明登录失败
+    if (!user) {
+      setLocalError(authError || '登录失败');
+      return;
+    }
 
-  useEffect(() => {
-    if (!ready) return;
-
+    // 用户已登录，显示动画 2 秒后跳转
     let cancelled = false;
     const timer = setTimeout(() => {
       if (!cancelled) {
@@ -46,7 +36,9 @@ export function OAuthCallbackPage({ api }: OAuthCallbackPageProps) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [ready, navigate]);
+  }, [user, loading, authError, navigate]);
+
+  const error = localError;
 
   if (error) {
     return (
