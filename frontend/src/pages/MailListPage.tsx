@@ -139,7 +139,7 @@ export function MailListPage({ api }: MailListPageProps) {
           >
             <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </button>
-          <h1 className="text-base font-semibold text-slate-800">{accountEmail}</h1>
+          <h1 className="text-base font-semibold text-slate-800">收件箱</h1>
           <button
             type="button"
             onClick={() => void handleRefresh()}
@@ -160,7 +160,7 @@ export function MailListPage({ api }: MailListPageProps) {
             <div className="flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
                 <Mail className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-                {accountEmail}
+                收件箱
               </h2>
               <div className="flex items-center gap-3">
                 <button
