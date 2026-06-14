@@ -14,10 +14,19 @@ export function OAuthCallbackPage({ api }: OAuthCallbackPageProps) {
 
   useEffect(() => {
     let cancelled = false;
+    const startTime = Date.now();
+    const MIN_DISPLAY_MS = 800;
+
     api.me()
       .then(() => {
         if (!cancelled) {
-          navigate('/accounts', { replace: true });
+          const elapsed = Date.now() - startTime;
+          const remaining = Math.max(0, MIN_DISPLAY_MS - elapsed);
+          setTimeout(() => {
+            if (!cancelled) {
+              navigate('/accounts', { replace: true });
+            }
+          }, remaining);
         }
       })
       .catch((err) => {
