@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Paperclip, Download, ChevronLeft } from 'lucide-react';
 import type { ApiClient, MessageDetail } from '../api/client';
 
 interface MailDetailPageProps {
   /** API 客户端。 */
   api: ApiClient;
-  /** 邮件 ID。 */
-  messageId: number;
-  /** 返回邮件列表。 */
-  onBack: () => void;
 }
 
 /** 将毫秒时间戳格式化为本地时间字符串。 */
@@ -25,9 +22,13 @@ function formatSize(bytes: number): string {
 }
 
 /** 邮件详情页：展示头部信息与正文（HTML 优先），列出附件，打开时自动标记已读。 */
-export function MailDetailPage({ api, messageId, onBack }: MailDetailPageProps) {
+export function MailDetailPage({ api }: MailDetailPageProps) {
+  const { accountId, messageId } = useParams<{ accountId: string; messageId: string }>();
+  const navigate = useNavigate();
   const [message, setMessage] = useState<MessageDetail | null>(null);
   const [error, setError] = useState('');
+
+  const messageIdNum = messageId ? parseInt(messageId, 10) : 0;
   // 记录已自动标记已读的邮件 ID，避免重复调用
   const markedRef = useRef<number | null>(null);
 
@@ -35,7 +36,7 @@ export function MailDetailPage({ api, messageId, onBack }: MailDetailPageProps) 
   const load = useCallback(async () => {
     setError('');
     try {
-      const detail = await api.getMessage(messageId);
+      const detail = await api.getMessage(messageIdNum);
       setMessage(detail);
       // 未读邮件打开后标记为已读（每封仅触发一次）
       if (!detail.isRead && markedRef.current !== detail.id) {
@@ -45,7 +46,7 @@ export function MailDetailPage({ api, messageId, onBack }: MailDetailPageProps) 
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [api, messageId]);
+  }, [api, messageIdNum]);
 
   // 进入页面或切换邮件时加载
   useEffect(() => {
@@ -58,7 +59,7 @@ export function MailDetailPage({ api, messageId, onBack }: MailDetailPageProps) 
       <div className="mb-4 hidden sm:mb-6 sm:block">
         <button
           type="button"
-          onClick={onBack}
+          onClick={() => navigate(`/accounts/${accountId}/messages`)}
           className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
           aria-label="返回"
         >
@@ -71,7 +72,7 @@ export function MailDetailPage({ api, messageId, onBack }: MailDetailPageProps) 
       <div className="mb-4 flex items-center justify-between sm:hidden">
         <button
           type="button"
-          onClick={onBack}
+          onClick={() => navigate(`/accounts/${accountId}/messages`)}
           className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 transition hover:bg-slate-100"
           aria-label="返回"
         >

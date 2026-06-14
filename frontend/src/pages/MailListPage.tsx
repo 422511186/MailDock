@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { RefreshCw, Paperclip, ChevronLeft, Mail } from 'lucide-react';
 import type { ApiClient, MessageSummary } from '../api/client';
 
@@ -8,14 +9,6 @@ const DEFAULT_PAGE_SIZE = 20;
 interface MailListPageProps {
   /** API 客户端。 */
   api: ApiClient;
-  /** 当前账号 ID。 */
-  accountId: number;
-  /** 当前账号邮箱地址。 */
-  accountEmail: string;
-  /** 打开某封邮件详情。 */
-  onOpenMessage: (id: number) => void;
-  /** 返回账号列表。 */
-  onBack: () => void;
 }
 
 /** 将毫秒时间戳格式化为相对时间字符串。 */
@@ -42,7 +35,9 @@ function getEmailInitial(email: string): string {
 }
 
 /** 邮件列表页：展示某账号收件箱邮件，支持刷新、分页与进入详情。 */
-export function MailListPage({ api, accountId, accountEmail, onOpenMessage, onBack }: MailListPageProps) {
+export function MailListPage({ api }: MailListPageProps) {
+  const { accountId } = useParams<{ accountId: string }>();
+  const navigate = useNavigate();
   const [items, setItems] = useState<MessageSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -51,12 +46,14 @@ export function MailListPage({ api, accountId, accountEmail, onOpenMessage, onBa
   const [busy, setBusy] = useState(false);
   const lastRefreshTime = useRef(0);
 
+  const accountIdNum = accountId ? parseInt(accountId, 10) : 0;
+
   /** 拉取指定页邮件。 */
   const load = useCallback(
     async (targetPage: number) => {
       setError('');
       try {
-        const res = await api.listMessages(accountId, targetPage, pageSize);
+        const res = await api.listMessages(accountIdNum, targetPage, pageSize);
         setItems(res.items);
         setTotal(res.total);
         setPage(targetPage);
@@ -64,7 +61,7 @@ export function MailListPage({ api, accountId, accountEmail, onOpenMessage, onBa
         setError((e as Error).message);
       }
     },
-    [api, accountId, pageSize],
+    [api, accountIdNum, pageSize],
   );
 
   // 进入页面或切换账号时加载第一页
@@ -84,7 +81,7 @@ export function MailListPage({ api, accountId, accountEmail, onOpenMessage, onBa
     setError('');
     setBusy(true);
     try {
-      const res = await api.refresh(accountId);
+      const res = await api.refresh(accountIdNum);
       // 原型 section-11 Toast 结构：无论有无新邮件都显示
       const toast = document.createElement('div');
       toast.className = 'flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-lg shadow-emerald-100/50 animate-slide-in-right fixed right-4 top-20 z-40 max-w-sm';
@@ -136,7 +133,7 @@ export function MailListPage({ api, accountId, accountEmail, onOpenMessage, onBa
         <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={onBack}
+            onClick={() => navigate('/accounts')}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 transition hover:bg-slate-100"
             aria-label="返回"
           >
@@ -178,7 +175,7 @@ export function MailListPage({ api, accountId, accountEmail, onOpenMessage, onBa
                 </button>
                 <button
                   type="button"
-                  onClick={onBack}
+                  onClick={() => navigate('/accounts')}
                   className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
                   aria-label="返回"
                 >
@@ -203,7 +200,7 @@ export function MailListPage({ api, accountId, accountEmail, onOpenMessage, onBa
                 className={`cursor-pointer p-4 transition ${
                   m.isRead ? 'hover:bg-slate-50' : 'bg-emerald-50/30 hover:bg-emerald-50/50'
                 }`}
-                onClick={() => onOpenMessage(m.id)}
+                onClick={() => navigate(`/accounts/${accountId}/messages/${m.id}`)}
               >
                 <div className="flex items-start gap-3">
                   {/* 头像 */}
@@ -304,7 +301,7 @@ export function MailListPage({ api, accountId, accountEmail, onOpenMessage, onBa
               className={`cursor-pointer p-4 transition ${
                 m.isRead ? 'hover:bg-slate-50' : 'bg-emerald-50/30 hover:bg-emerald-50/50'
               }`}
-              onClick={() => onOpenMessage(m.id)}
+              onClick={() => navigate(`/accounts/${accountId}/messages/${m.id}`)}
             >
               <div className="flex items-start gap-3">
                 {/* 头像 */}

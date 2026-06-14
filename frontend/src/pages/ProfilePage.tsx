@@ -1,12 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import type { ApiClient, CurrentUser } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 import { User, Lock, Save, AlertTriangle, Pencil } from 'lucide-react';
 
 interface ProfilePageProps {
   api: ApiClient;
-  user: CurrentUser;
-  /** 资料更新后回传新用户，供上层同步状态。 */
-  onUserUpdated: (user: CurrentUser) => void;
 }
 
 /** 头像首字母占位。 */
@@ -20,7 +18,13 @@ function initial(user: CurrentUser): string {
  * 修改密码仅对邮箱密码用户（hasPassword）开放。
  * 对齐 design-prototype.html section-2。
  */
-export function ProfilePage({ api, user, onUserUpdated }: ProfilePageProps) {
+export function ProfilePage({ api }: ProfilePageProps) {
+  const { user, updateUser } = useAuth();
+
+  if (!user) {
+    return null; // ProtectedRoute 应该已经处理，这里只是类型保护
+  }
+
   const [displayName, setDisplayName] = useState(user.displayName ?? '');
   const [profileMsg, setProfileMsg] = useState('');
   const [profileErr, setProfileErr] = useState('');
@@ -40,7 +44,7 @@ export function ProfilePage({ api, user, onUserUpdated }: ProfilePageProps) {
     setSavingProfile(true);
     try {
       const updated = await api.updateDisplayName(displayName.trim());
-      onUserUpdated(updated);
+      updateUser(updated);
       setProfileMsg('资料已更新');
     } catch (err) {
       setProfileErr(err instanceof Error ? err.message : '更新失败');
