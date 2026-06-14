@@ -12,6 +12,7 @@ interface OAuthCallbackPageProps {
 export function OAuthCallbackPage({ api }: OAuthCallbackPageProps) {
   const { user, loading, error: authError } = useAuth();
   const [localError, setLocalError] = useState<string | null>(null);
+  const [mountTime] = useState(() => Date.now());
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -24,19 +25,22 @@ export function OAuthCallbackPage({ api }: OAuthCallbackPageProps) {
       return;
     }
 
-    // 用户已登录，显示动画 2 秒后跳转
+    // 用户已登录，计算还需要显示多久动画
     let cancelled = false;
+    const elapsed = Date.now() - mountTime;
+    const remaining = Math.max(0, 2000 - elapsed);
+
     const timer = setTimeout(() => {
       if (!cancelled) {
         navigate('/accounts', { replace: true });
       }
-    }, 2000);
+    }, remaining);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [user, loading, authError, navigate]);
+  }, [user, loading, authError, navigate, mountTime]);
 
   const error = localError;
 
