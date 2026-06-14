@@ -48,8 +48,9 @@ export function MailDetailPage({ api }: MailDetailPageProps) {
     }
   }, [api, messageIdNum]);
 
-  // 进入页面或切换邮件时加载
+  // 进入页面或切换邮件时加载并滚动到顶部
   useEffect(() => {
+    window.scrollTo(0, 0);
     void load();
   }, [load]);
 

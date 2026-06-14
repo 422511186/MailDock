@@ -64,8 +64,9 @@ export function MailListPage({ api }: MailListPageProps) {
     [api, accountIdNum, pageSize],
   );
 
-  // 进入页面或切换账号时加载第一页
+  // 进入页面或切换账号时加载第一页并滚动到顶部
   useEffect(() => {
+    window.scrollTo(0, 0);
     void load(1);
   }, [load]);
 
