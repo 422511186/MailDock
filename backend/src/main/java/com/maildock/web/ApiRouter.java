@@ -164,7 +164,7 @@ public final class ApiRouter {
                     setSessionCookie(ctx, login.sessionToken());
                     ctx.response()
                             .setStatusCode(302)
-                            .putHeader("Location", frontendUrl)
+                            .putHeader("Location", "/auth/callback")
                             .end();
                 });
     }
