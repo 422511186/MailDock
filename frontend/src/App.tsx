@@ -21,7 +21,7 @@ export function App({ api }: AppProps) {
         <Routes>
           {/* 公开路由 */}
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/auth/callback" element={<OAuthCallbackPage api={api} />} />
+          <Route path="/auth/callback" element={<OAuthCallbackPage />} />
 
           {/* 受保护路由 */}
           <Route element={<ProtectedRoute />}>

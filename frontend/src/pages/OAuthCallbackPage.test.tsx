@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { OAuthCallbackPage } from './OAuthCallbackPage';
-import type { ApiClient, CurrentUser } from '../api/client';
+import type { CurrentUser } from '../api/client';
 
 const mockUser: CurrentUser = {
   id: 1,
@@ -11,10 +11,6 @@ const mockUser: CurrentUser = {
   avatarUrl: null,
   hasPassword: true,
 };
-
-function stubApi(): ApiClient {
-  return { me: vi.fn() } as unknown as ApiClient;
-}
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -48,7 +44,7 @@ describe('OAuthCallbackPage', () => {
     setAuthState({ user: null, loading: true, error: null });
     render(
       <MemoryRouter>
-        <OAuthCallbackPage api={stubApi()} />
+        <OAuthCallbackPage />
       </MemoryRouter>
     );
     expect(screen.getByText('登录中...')).toBeInTheDocument();
@@ -59,7 +55,7 @@ describe('OAuthCallbackPage', () => {
     setAuthState({ user: mockUser, loading: false, error: null });
     render(
       <MemoryRouter>
-        <OAuthCallbackPage api={stubApi()} />
+        <OAuthCallbackPage />
       </MemoryRouter>
     );
 
@@ -84,7 +80,7 @@ describe('OAuthCallbackPage', () => {
     setAuthState({ user: null, loading: false, error: '验证失败' });
     render(
       <MemoryRouter>
-        <OAuthCallbackPage api={stubApi()} />
+        <OAuthCallbackPage />
       </MemoryRouter>
     );
 

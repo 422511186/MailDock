@@ -1,15 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
-import type { ApiClient } from '../api/client';
 import { LoadingPage } from '../components/LoadingPage';
 import { useAuth } from '../contexts/AuthContext';
 
-interface OAuthCallbackPageProps {
-  api: ApiClient;
-}
-
-export function OAuthCallbackPage({ api }: OAuthCallbackPageProps) {
+export function OAuthCallbackPage() {
   const { user, loading, error: authError } = useAuth();
   const [localError, setLocalError] = useState<string | null>(null);
   const [mountTime] = useState(() => Date.now());
