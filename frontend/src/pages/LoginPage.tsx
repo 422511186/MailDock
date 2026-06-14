@@ -1,13 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Mail, Lock, AlertCircle, ArrowLeft } from 'lucide-react';
-
-/** 登录页组件属性。 */
-interface LoginPageProps {
-  /** 提交登录的回调，接收邮箱与密码，返回 Promise。 */
-  onLogin: (email: string, password: string) => Promise<void>;
-  /** 使用 linux.do OAuth 登录。 */
-  onLinuxDoLogin: () => void;
-}
+import { useAuth } from '../contexts/AuthContext';
 
 type Mode = 'choice' | 'email';
 
@@ -16,23 +9,24 @@ const LINUXDO_LOGO = 'https://cdn3.ldstatic.com/original/3X/9/7/97ed5d6d97f4c7f3
 
 /**
  * 登录页：默认显示 LinuxDO / 邮箱登录两个大按钮。
- * 点击「邮箱登录」展开邮箱密码表单，提交调用 onLogin。
+ * 点击「邮箱登录」展开邮箱密码表单，提交调用 AuthContext.login。
  * 对齐 design-prototype.html section-3。
  */
-export function LoginPage({ onLogin, onLinuxDoLogin }: LoginPageProps) {
+export function LoginPage() {
+  const { login, loginWithLinuxDo } = useAuth();
   const [mode, setMode] = useState<Mode>('choice');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // 提交表单：调用 onLogin，失败时展示错误信息
+  // 提交表单：调用 AuthContext.login，失败时展示错误信息
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
     setSubmitting(true);
     try {
-      await onLogin(email, password);
+      await login(email, password);
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');
     } finally {
@@ -60,7 +54,7 @@ export function LoginPage({ onLogin, onLinuxDoLogin }: LoginPageProps) {
               {/* LinuxDO 登录 */}
               <button
                 type="button"
-                onClick={onLinuxDoLogin}
+                onClick={loginWithLinuxDo}
                 className="flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-6 py-4 text-base font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
               >
                 <img src={LINUXDO_LOGO} alt="" className="h-6 w-6 rounded" aria-hidden="true" />
