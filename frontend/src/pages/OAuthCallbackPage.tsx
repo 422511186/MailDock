@@ -15,7 +15,7 @@ export function OAuthCallbackPage({ api }: OAuthCallbackPageProps) {
   useEffect(() => {
     let cancelled = false;
     const startTime = Date.now();
-    const MIN_DISPLAY_MS = 800;
+    const MIN_DISPLAY_MS = 2000;
 
     api.me()
       .then(() => {
