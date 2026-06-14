@@ -162,9 +162,10 @@ public final class ApiRouter {
                     }
                     AuthService.LoginResult login = ar.result().get();
                     setSessionCookie(ctx, login.sessionToken());
+                    String redirectTarget = frontendUrl.equals("/") ? "/auth/callback" : frontendUrl + "/auth/callback";
                     ctx.response()
                             .setStatusCode(302)
-                            .putHeader("Location", "/auth/callback")
+                            .putHeader("Location", redirectTarget)
                             .end();
                 });
     }
