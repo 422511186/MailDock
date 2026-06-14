@@ -422,7 +422,9 @@ describe('AccountsPage', () => {
     // 点击选择框只勾选，不触发 onOpenAccount
     fireEvent.click(checkbox!);
     expect(onOpenAccount).not.toHaveBeenCalled();
-    expect(await screen.findByText(/已选中 1 个账号/)).toBeInTheDocument();
+
+    // 验证复选框被选中
+    expect(checkbox).toHaveAttribute('aria-checked', 'true');
   });
 
   it('移动端方形选择框为正方形圆角（rounded 而非 rounded-full）', async () => {
@@ -549,9 +551,19 @@ describe('AccountsPage', () => {
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     await screen.findAllByText('a@163.com');
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '全选' }));
+    const selectAllCheckbox = screen.getByRole('checkbox', { name: '全选' });
+    fireEvent.click(selectAllCheckbox);
 
-    expect(await screen.findByText(/已选中 3 个账号/)).toBeInTheDocument();
+    // 验证全选框被选中
+    expect(selectAllCheckbox).toHaveAttribute('aria-checked', 'true');
+
+    // 验证所有行的复选框都被选中
+    const rowCheckboxes = screen.getAllByRole('checkbox', { name: /选择/ });
+    rowCheckboxes.forEach(cb => {
+      if (cb.getAttribute('aria-label') !== '全选') {
+        expect(cb).toHaveAttribute('aria-checked', 'true');
+      }
+    });
   });
 
   it('全选后再次点击表头全选框取消全选', async () => {
@@ -569,12 +581,15 @@ describe('AccountsPage', () => {
 
     const selectAll = screen.getByRole('checkbox', { name: '全选' });
     fireEvent.click(selectAll);
-    expect(await screen.findByText(/已选中 2 个账号/)).toBeInTheDocument();
 
+    // 验证全选框被选中
+    expect(selectAll).toHaveAttribute('aria-checked', 'true');
+
+    // 再次点击取消全选
     fireEvent.click(selectAll);
-    await waitFor(() => {
-      expect(screen.queryByText(/已选中/)).not.toBeInTheDocument();
-    });
+
+    // 验证全选框变为未选中
+    expect(selectAll).toHaveAttribute('aria-checked', 'false');
   });
 
   it('全选后取消某行选择时表头全选框变为未选中', async () => {
@@ -600,7 +615,10 @@ describe('AccountsPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('checkbox', { name: '全选' })).toHaveAttribute('aria-checked', 'false');
     });
-    expect(await screen.findByText(/已选中 1 个账号/)).toBeInTheDocument();
+
+    // 验证 b@163.com 仍然被选中
+    const bCheckboxes = screen.getAllByRole('checkbox', { name: '选择 b@163.com' });
+    expect(bCheckboxes[0]).toHaveAttribute('aria-checked', 'true');
   });
 
   it('单个账号测活后刷新列表', async () => {
@@ -787,7 +805,6 @@ describe('AccountsPage', () => {
     const desktopDeleteBtn = deleteButtons[0]; // 第一个是桌面端
 
     // 未选中时按钮应该是禁用的但样式稳定
-    const initialClasses = desktopDeleteBtn.className;
     expect(desktopDeleteBtn).toBeDisabled();
 
     // 选中一行
@@ -805,6 +822,24 @@ describe('AccountsPage', () => {
     expect(selectedClasses).toContain('rounded-lg');
     expect(selectedClasses).toContain('px-4');
     expect(selectedClasses).toContain('py-2');
+  });
+
+  it('选中行时不显示"已选中X个账号"提示条，避免布局跳动', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'test@163.com' })])),
+    });
+    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    await screen.findAllByText('test@163.com');
+
+    // 选中前不应该有"已选中"提示
+    expect(screen.queryByText(/已选中/)).not.toBeInTheDocument();
+
+    // 选中一行
+    const checkboxes = screen.getAllByRole('checkbox', { name: '选择 test@163.com' });
+    fireEvent.click(checkboxes[0]);
+
+    // 选中后仍然不应该有"已选中"提示条（避免布局跳动）
+    expect(screen.queryByText(/已选中/)).not.toBeInTheDocument();
   });
 
   it('导入弹窗保留"已存在则覆盖授权码"复选框', async () => {
@@ -926,18 +961,6 @@ describe('AccountsPage', () => {
     render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
     const searches = await screen.findAllByPlaceholderText('搜索邮箱地址...');
     expect(searches[0]).toHaveClass('pl-10');
-  });
-
-  it('已选中时显示提示条与取消选择', async () => {
-    const api = stubApi({
-      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
-    });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
-    const rowCheckboxes = await screen.findAllByRole('checkbox', { name: '选择 alice@163.com' });
-    fireEvent.click(rowCheckboxes[0]);
-    expect(screen.getByText(/已选中 1 个账号/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '取消选择' }));
-    expect(screen.queryByText(/已选中/)).not.toBeInTheDocument();
   });
 
   it('表格在白色卡片容器内', async () => {

@@ -460,25 +460,6 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
             <span>添加</span>
           </button>
         </div>
-
-        {/* 已选中提示条 */}
-        {selectedIds.length > 0 && (
-          <div className="mt-3 flex items-center justify-between rounded-lg bg-emerald-50 px-4 py-2 text-sm">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-              <span className="font-medium text-emerald-800">
-                已选中 {selectedIds.length} 个账号
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSelectedIds([])}
-              className="text-emerald-600 transition hover:text-emerald-700"
-            >
-              取消选择
-            </button>
-          </div>
-        )}
       </div>
 
       {/* 桌面端表格 */}
