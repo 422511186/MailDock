@@ -61,7 +61,7 @@ export function MailDetailPage({ api }: MailDetailPageProps) {
         <button
           type="button"
           onClick={() => navigate(`/accounts/${accountId}/messages`)}
-          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           aria-label="返回"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -74,7 +74,7 @@ export function MailDetailPage({ api }: MailDetailPageProps) {
         <button
           type="button"
           onClick={() => navigate(`/accounts/${accountId}/messages`)}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 transition hover:bg-slate-100"
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
           aria-label="返回"
         >
           <ChevronLeft className="h-5 w-5" aria-hidden="true" />

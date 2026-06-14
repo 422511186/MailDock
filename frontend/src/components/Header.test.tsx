@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Header } from './Header';
+import { ThemeProvider } from '../contexts/ThemeContext';
 import type { CurrentUser } from '../api/client';
 
 function user(overrides: Partial<CurrentUser> = {}): CurrentUser {
@@ -64,7 +65,9 @@ describe('Header', () => {
     mockAuth(user());
     render(
       <MemoryRouter>
-        <Header />
+        <ThemeProvider>
+          <Header />
+        </ThemeProvider>
       </MemoryRouter>
     );
     expect(screen.getByRole('button', { name: '用户菜单' })).toBeInTheDocument();

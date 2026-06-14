@@ -8,7 +8,7 @@ interface LoadingPageProps {
 export function LoadingPage({ title = '登录中...', subtitle = '正在验证您的身份' }: LoadingPageProps) {
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50"
+      className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950"
       role="status"
       aria-live="polite"
     >
@@ -21,12 +21,12 @@ export function LoadingPage({ title = '登录中...', subtitle = '正在验证�
         </div>
 
         {/* Spinner */}
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" aria-hidden="true" />
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
 
         {/* 文案 */}
         <div className="text-center">
-          <h2 className="mb-2 text-xl font-semibold text-slate-800">{title}</h2>
-          <p className="text-sm text-slate-600">{subtitle}</p>
+          <h2 className="mb-2 text-xl font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{subtitle}</p>
         </div>
       </div>
     </div>

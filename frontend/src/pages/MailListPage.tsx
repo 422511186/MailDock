@@ -85,7 +85,7 @@ export function MailListPage({ api }: MailListPageProps) {
       const res = await api.refresh(accountIdNum);
       // 原型 section-11 Toast 结构：无论有无新邮件都显示
       const toast = document.createElement('div');
-      toast.className = 'flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-lg shadow-emerald-100/50 animate-slide-in-right fixed right-4 top-20 z-40 max-w-sm';
+      toast.className = 'flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/40 p-4 shadow-lg shadow-emerald-100/50 animate-slide-in-right fixed right-4 top-20 z-40 max-w-sm';
 
       if (res.newCount > 0) {
         toast.innerHTML = `
@@ -95,8 +95,8 @@ export function MailListPage({ api }: MailListPageProps) {
             </svg>
           </div>
           <div class="flex-1">
-            <div class="font-medium text-emerald-800">收信完成</div>
-            <div class="mt-0.5 text-sm text-emerald-700">新增 ${res.newCount} 封邮件</div>
+            <div class="font-medium text-emerald-800 dark:text-emerald-300">收信完成</div>
+            <div class="mt-0.5 text-sm text-emerald-700 dark:text-emerald-400">新增 ${res.newCount} 封邮件</div>
           </div>
         `;
       } else {
@@ -107,12 +107,12 @@ export function MailListPage({ api }: MailListPageProps) {
             </svg>
           </div>
           <div class="flex-1">
-            <div class="font-medium text-slate-700">收信完成</div>
-            <div class="mt-0.5 text-sm text-slate-600">暂无新邮件</div>
+            <div class="font-medium text-slate-700 dark:text-slate-200">收信完成</div>
+            <div class="mt-0.5 text-sm text-slate-600 dark:text-slate-400">暂无新邮件</div>
           </div>
         `;
         // 无新邮件时使用 slate 背景
-        toast.className = 'flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-lg shadow-slate-100/50 animate-slide-in-right fixed right-4 top-20 z-40 max-w-sm';
+        toast.className = 'flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900 p-4 shadow-lg shadow-slate-100/50 animate-slide-in-right fixed right-4 top-20 z-40 max-w-sm';
       }
 
       document.body.appendChild(toast);
@@ -128,19 +128,19 @@ export function MailListPage({ api }: MailListPageProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* 移动端顶部栏 */}
-      <div className="sticky top-0 z-10 bg-white px-4 py-3 shadow-sm sm:hidden">
+      <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 px-4 py-3 shadow-sm sm:hidden">
         <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={() => navigate('/accounts')}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 transition hover:bg-slate-100"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-800"
             aria-label="返回"
           >
             <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </button>
-          <h1 className="text-base font-semibold text-slate-800">收件箱</h1>
+          <h1 className="text-base font-semibold text-slate-800 dark:text-slate-100">收件箱</h1>
           <button
             type="button"
             onClick={() => void handleRefresh()}
@@ -155,12 +155,12 @@ export function MailListPage({ api }: MailListPageProps) {
 
       {/* 桌面端白色卡片容器 */}
       <div className="hidden sm:block sm:mx-auto sm:max-w-5xl sm:px-6 sm:py-6">
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
           {/* 桌面端渐变标题栏 */}
-          <div className="bg-gradient-to-r from-slate-50 to-emerald-50 px-6 py-4">
+          <div className="bg-gradient-to-r from-slate-50 to-emerald-50 dark:from-slate-800/60 dark:to-emerald-950/30 px-6 py-4">
             <div className="flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-                <Mail className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                <Mail className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                 收件箱
               </h2>
               <div className="flex items-center gap-3">
@@ -177,7 +177,7 @@ export function MailListPage({ api }: MailListPageProps) {
                 <button
                   type="button"
                   onClick={() => navigate('/accounts')}
-                  className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                  className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm transition hover:bg-slate-50 dark:hover:bg-slate-800/60"
                   aria-label="返回"
                 >
                   <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -194,12 +194,12 @@ export function MailListPage({ api }: MailListPageProps) {
           )}
 
           {/* 桌面端邮件列表 */}
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {items.map((m) => (
               <div
                 key={m.id}
                 className={`cursor-pointer p-4 transition ${
-                  m.isRead ? 'hover:bg-slate-50' : 'bg-emerald-50/30 hover:bg-emerald-50/50'
+                  m.isRead ? 'hover:bg-slate-50 dark:hover:bg-slate-800/60' : 'bg-emerald-50/30 dark:bg-emerald-950/20 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30'
                 }`}
                 onClick={() => navigate(`/accounts/${accountId}/messages/${m.id}`)}
               >
@@ -218,22 +218,22 @@ export function MailListPage({ api }: MailListPageProps) {
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         {!m.isRead && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
-                        <span className={m.isRead ? 'text-sm text-slate-600' : 'text-sm font-semibold text-slate-800'}>
+                        <span className={m.isRead ? 'text-sm text-slate-600 dark:text-slate-400' : 'text-sm font-semibold text-slate-800 dark:text-slate-100'}>
                           {m.fromAddr}
                         </span>
                         {m.hasAttach && (
-                          <Paperclip className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                          <Paperclip className="h-4 w-4 text-slate-400 dark:text-slate-500" aria-hidden="true" />
                         )}
                       </div>
-                      <span className="flex-shrink-0 text-xs text-slate-400">
+                      <span className="flex-shrink-0 text-xs text-slate-400 dark:text-slate-500">
                         {formatTime(m.receivedAt)}
                       </span>
                     </div>
-                    <div className={`text-sm ${m.isRead ? 'text-slate-600' : 'font-medium text-slate-800'}`}>
+                    <div className={`text-sm ${m.isRead ? 'text-slate-600 dark:text-slate-400' : 'font-medium text-slate-800 dark:text-slate-100'}`}>
                       {m.subject}
                     </div>
                     {/* 桌面端显示预览文本 */}
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       邮件预览文本（待后端支持）
                     </div>
                   </div>
@@ -243,8 +243,8 @@ export function MailListPage({ api }: MailListPageProps) {
           </div>
 
           {/* 桌面端分页 */}
-          <div className="border-t border-slate-100 px-6 py-3">
-            <div className="flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <div className="border-t border-slate-100 dark:border-slate-800 px-6 py-3">
+            <div className="flex flex-col gap-3 text-sm text-slate-500 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <span>
                   共 {total} 封邮件，第 {page} / {totalPages} 页
@@ -258,7 +258,7 @@ export function MailListPage({ api }: MailListPageProps) {
                       setPage(1);
                       setPageSize(Number(e.target.value));
                     }}
-                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    className="rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 px-2 py-1 text-sm"
                   >
                     {[10, 20, 50, 100].map((n) => (
                       <option key={n} value={n}>
@@ -295,12 +295,12 @@ export function MailListPage({ api }: MailListPageProps) {
         {error && <div className="px-4 py-3"><p className="error" role="alert">{error}</p></div>}
 
         {/* 移动端邮件列表 */}
-        <div className="divide-y divide-slate-100 bg-white">
+        <div className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
           {items.map((m) => (
             <div
               key={m.id}
               className={`cursor-pointer p-4 transition ${
-                m.isRead ? 'hover:bg-slate-50' : 'bg-emerald-50/30 hover:bg-emerald-50/50'
+                m.isRead ? 'hover:bg-slate-50 dark:hover:bg-slate-800/60' : 'bg-emerald-50/30 dark:bg-emerald-950/20 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30'
               }`}
               onClick={() => navigate(`/accounts/${accountId}/messages/${m.id}`)}
             >
@@ -323,11 +323,11 @@ export function MailListPage({ api }: MailListPageProps) {
                         {m.fromAddr}
                       </span>
                     </div>
-                    <span className="flex-shrink-0 text-xs text-slate-400">
+                    <span className="flex-shrink-0 text-xs text-slate-400 dark:text-slate-500">
                       {formatTime(m.receivedAt)}
                     </span>
                   </div>
-                  <div className={`text-sm ${m.isRead ? 'text-slate-600' : 'font-medium text-slate-800'}`}>
+                  <div className={`text-sm ${m.isRead ? 'text-slate-600 dark:text-slate-400' : 'font-medium text-slate-800 dark:text-slate-100'}`}>
                     {m.subject}
                   </div>
                 </div>
@@ -337,8 +337,8 @@ export function MailListPage({ api }: MailListPageProps) {
         </div>
 
         {/* 移动端分页 */}
-        <div className="bg-white px-4 py-3">
-          <div className="flex flex-col gap-3 text-sm text-slate-500">
+        <div className="bg-white dark:bg-slate-900 px-4 py-3">
+          <div className="flex flex-col gap-3 text-sm text-slate-500 dark:text-slate-400">
             <div className="flex flex-wrap items-center gap-2">
               <span>
                 共 {total} 封邮件，第 {page} / {totalPages} 页

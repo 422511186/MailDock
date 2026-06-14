@@ -80,19 +80,19 @@ export function ProfilePage({ api }: ProfilePageProps) {
   }
 
   const inputClass =
-    'w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50';
+    'w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-800 dark:text-slate-100 transition focus:border-emerald-400 dark:focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100 dark:focus:ring-emerald-900/40 disabled:cursor-not-allowed disabled:bg-slate-50 dark:disabled:bg-slate-800/50';
 
   return (
     <div className="app-main">
         <header className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-800">个人中心</h1>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">个人中心</h1>
         </header>
 
       {/* 资料卡片 */}
-      <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white px-6 py-4">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800">
-            <User className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+      <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+        <div className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/60 dark:to-slate-900 px-6 py-4">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800 dark:text-slate-100">
+            <User className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
             资料与头像
           </h2>
         </div>
@@ -117,13 +117,13 @@ export function ProfilePage({ api }: ProfilePageProps) {
               )}
               {/* 信息：垂直堆叠 */}
               <div className="min-w-0 flex-1">
-                <div className="truncate text-lg font-bold text-slate-800">
+                <div className="truncate text-lg font-bold text-slate-800 dark:text-slate-100">
                   {user.displayName || user.primaryEmail || 'MailDock 用户'}
                 </div>
-                <div className="truncate text-sm text-slate-500" title={user.primaryEmail ?? ''}>
+                <div className="truncate text-sm text-slate-500 dark:text-slate-400" title={user.primaryEmail ?? ''}>
                   {user.primaryEmail ?? '—'}
                 </div>
-                <div className="mt-2 text-xs text-slate-400">
+                <div className="mt-2 text-xs text-slate-400 dark:text-slate-500">
                   通过 {user.hasPassword ? '邮箱密码' : 'linux.do'} 登录
                 </div>
               </div>
@@ -131,15 +131,15 @@ export function ProfilePage({ api }: ProfilePageProps) {
 
             {/* 编辑表单 */}
             <form onSubmit={handleProfileSubmit}>
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5">
-                <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-700">
-                  <Pencil className="h-4 w-4 text-slate-400" aria-hidden="true" />
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 p-5">
+                <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  <Pencil className="h-4 w-4 text-slate-400 dark:text-slate-500" aria-hidden="true" />
                   编辑个人资料
                 </h3>
                 <div className="mb-4">
                   <label
                     htmlFor="displayName"
-                    className="mb-1.5 block text-sm font-medium text-slate-600"
+                    className="mb-1.5 block text-sm font-medium text-slate-600 dark:text-slate-400"
                   >
                     显示名
                   </label>
@@ -153,11 +153,11 @@ export function ProfilePage({ api }: ProfilePageProps) {
                   />
                 </div>
                 {profileErr && (
-                  <p className="mb-4 text-sm text-rose-600" role="alert">
+                  <p className="mb-4 text-sm text-rose-600 dark:text-rose-400" role="alert">
                     {profileErr}
                   </p>
                 )}
-                {profileMsg && <p className="mb-4 text-sm text-emerald-600">{profileMsg}</p>}
+                {profileMsg && <p className="mb-4 text-sm text-emerald-600 dark:text-emerald-400">{profileMsg}</p>}
                 <button
                   type="submit"
                   disabled={savingProfile}
@@ -173,17 +173,17 @@ export function ProfilePage({ api }: ProfilePageProps) {
       </section>
 
       {/* 修改密码卡片 */}
-      <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white px-6 py-4">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800">
-            <Lock className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+      <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+        <div className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/60 dark:to-slate-900 px-6 py-4">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800 dark:text-slate-100">
+            <Lock className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
             修改密码
           </h2>
         </div>
         <div className="p-6">
           {!user.hasPassword && (
-            <div className="mb-4 flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" aria-hidden="true" />
+            <div className="mb-4 flex items-start gap-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500 dark:text-amber-400" aria-hidden="true" />
               <span>当前账号通过 linux.do 登录，未设置密码</span>
             </div>
           )}
@@ -191,7 +191,7 @@ export function ProfilePage({ api }: ProfilePageProps) {
             <div>
               <label
                 htmlFor="oldPassword"
-                className="mb-1.5 block text-sm font-medium text-slate-700"
+                className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300"
               >
                 原密码
               </label>
@@ -208,7 +208,7 @@ export function ProfilePage({ api }: ProfilePageProps) {
             <div>
               <label
                 htmlFor="newPassword"
-                className="mb-1.5 block text-sm font-medium text-slate-700"
+                className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300"
               >
                 新密码
               </label>
@@ -225,7 +225,7 @@ export function ProfilePage({ api }: ProfilePageProps) {
             <div>
               <label
                 htmlFor="confirmPassword"
-                className="mb-1.5 block text-sm font-medium text-slate-700"
+                className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300"
               >
                 确认新密码
               </label>
@@ -240,11 +240,11 @@ export function ProfilePage({ api }: ProfilePageProps) {
               />
             </div>
             {pwdErr && (
-              <p className="text-sm text-rose-600" role="alert">
+              <p className="text-sm text-rose-600 dark:text-rose-400" role="alert">
                 {pwdErr}
               </p>
             )}
-            {pwdMsg && <p className="text-sm text-emerald-600">{pwdMsg}</p>}
+            {pwdMsg && <p className="text-sm text-emerald-600 dark:text-emerald-400">{pwdMsg}</p>}
             <button
               type="submit"
               disabled={!user.hasPassword || savingPwd}

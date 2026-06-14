@@ -47,12 +47,12 @@ function emailToAvatarGradient(email: string): string {
 /** 账号三态：待检测 / 正常 / 异常，从 lastTestAt + lastTestOk 派生。 */
 function statusOf(a: Account): { label: string; cls: string } {
   if (!a.lastTestAt) {
-    return { label: '待检测', cls: 'bg-amber-100 text-amber-700' };
+    return { label: '待检测', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' };
   }
   if (a.lastTestOk) {
-    return { label: '正常', cls: 'bg-emerald-100 text-emerald-700' };
+    return { label: '正常', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' };
   }
-  return { label: '异常', cls: 'bg-rose-100 text-rose-700' };
+  return { label: '异常', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400' };
 }
 
 /** 状态徽章圆点颜色。 */
@@ -268,23 +268,23 @@ export function AccountsPage({ api }: AccountsPageProps) {
     <div className="app-main">
       {/* 页标题 */}
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">邮箱账号</h2>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">邮箱账号</h2>
       </div>
 
       {error && (
-        <p className="mb-4 rounded-lg bg-rose-50 px-4 py-2 text-sm text-rose-700" role="alert">
+        <p className="mb-4 rounded-lg bg-rose-50 px-4 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-400" role="alert">
           {error}
         </p>
       )}
 
       {/* 白色卡片工具栏 */}
-      <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         {/* 桌面端工具栏：单行布局 */}
         <div className="hidden flex-wrap items-center gap-3 sm:flex">
           {/* 搜索框（带 Search 图标） */}
           <form onSubmit={handleSearch} className="relative min-w-[240px] flex-1">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
+              className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 dark:text-slate-500"
               aria-hidden="true"
             />
             <input
@@ -293,7 +293,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               autoComplete="off"
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/40"
             />
           </form>
 
@@ -302,7 +302,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
             aria-label="状态过滤"
             value={status}
             onChange={(e) => handleStatusChange(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/40"
           >
             <option value="">全部状态</option>
             <option value="pending">待检测</option>
@@ -319,7 +319,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
               setSortBy(field);
               setSortOrder(order as 'asc' | 'desc');
             }}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/40"
           >
             <option value="lastSyncAt-desc">最近收信</option>
             <option value="lastSyncAt-asc">最早收信</option>
@@ -333,7 +333,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
               type="button"
               disabled={busy}
               onClick={handleTestBatch}
-              className="inline-flex h-[40px] w-[120px] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-[40px] w-[120px] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
             >
               <CheckCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span className="whitespace-nowrap overflow-hidden text-ellipsis">
@@ -352,7 +352,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
             <button
               type="button"
               onClick={() => setShowImport(true)}
-              className="inline-flex h-[40px] w-[100px] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              className="inline-flex h-[40px] w-[100px] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
             >
               <Upload className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span className="whitespace-nowrap">导入</span>
@@ -373,7 +373,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
           {/* 搜索行 */}
           <form onSubmit={handleSearch} className="relative">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
+              className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 dark:text-slate-500"
               aria-hidden="true"
             />
             <input
@@ -382,7 +382,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               autoComplete="off"
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/40"
             />
           </form>
 
@@ -392,7 +392,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
               aria-label="状态过滤"
               value={status}
               onChange={(e) => handleStatusChange(e.target.value)}
-              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/40"
             >
               <option value="">全部状态</option>
               <option value="pending">待检测</option>
@@ -407,7 +407,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
                 setSortBy(field);
                 setSortOrder(order as 'asc' | 'desc');
               }}
-              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/40"
             >
               <option value="lastSyncAt-desc">最近收信</option>
               <option value="lastSyncAt-asc">最早收信</option>
@@ -423,7 +423,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
               aria-label="移动端批量测活"
               disabled={busy}
               onClick={handleTestBatch}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
             >
               <CheckCircle className="h-4 w-4" aria-hidden="true" />
               <span>测活{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}</span>
@@ -442,7 +442,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
               type="button"
               aria-label="移动端导入"
               onClick={() => setShowImport(true)}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
             >
               <Upload className="h-4 w-4" aria-hidden="true" />
               <span>导入</span>
@@ -463,9 +463,9 @@ export function AccountsPage({ api }: AccountsPageProps) {
       </div>
 
       {/* 桌面端表格 */}
-      <div className="hidden overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm sm:block">
+      <div className="hidden overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm sm:block dark:border-slate-800 dark:bg-slate-900">
         <table className="w-full">
-          <thead className="bg-gradient-to-br from-slate-50 to-white text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+          <thead className="bg-gradient-to-br from-slate-50 to-white text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:from-slate-800/60 dark:to-slate-900 dark:text-slate-400">
             <tr>
               <th className="w-12 px-6 py-4">
                 <div className="flex items-center justify-center">
@@ -524,12 +524,12 @@ export function AccountsPage({ api }: AccountsPageProps) {
               <th className="px-6 py-4 text-center">操作</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {accounts.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-16 text-center">
-                  <Mail className="mx-auto mb-4 h-16 w-16 text-slate-300" aria-hidden="true" />
-                  <p className="text-slate-400">暂无邮箱账号</p>
+                  <Mail className="mx-auto mb-4 h-16 w-16 text-slate-300 dark:text-slate-600" aria-hidden="true" />
+                  <p className="text-slate-400 dark:text-slate-500">暂无邮箱账号</p>
                 </td>
               </tr>
             ) : (
@@ -539,7 +539,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
                 return (
                   <tr
                     key={a.id}
-                    className={`transition ${isSelected ? 'bg-emerald-50/50' : ''}`}
+                    className={`transition ${isSelected ? 'bg-emerald-50/50 dark:bg-emerald-950/30' : ''}`}
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center">
@@ -591,7 +591,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
                         </button>
                       </div>
                     </td>
-                    <td className="cursor-pointer px-6 py-4 hover:bg-emerald-50" onClick={() => navigate(`/accounts/${a.id}/messages`)}>
+                    <td className="cursor-pointer px-6 py-4 hover:bg-emerald-50 dark:hover:bg-emerald-950/30" onClick={() => navigate(`/accounts/${a.id}/messages`)}>
                       <div className="flex items-center gap-3">
                         <div
                           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${emailToAvatarGradient(
@@ -601,7 +601,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
                         >
                           {a.email.charAt(0).toUpperCase()}
                         </div>
-                        <span className="text-sm font-medium text-slate-800">
+                        <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
                           {a.email}
                         </span>
                       </div>
@@ -617,10 +617,10 @@ export function AccountsPage({ api }: AccountsPageProps) {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-center text-sm text-slate-600">
+                    <td className="px-6 py-4 text-center text-sm text-slate-600 dark:text-slate-400">
                       {a.messageCount}
                     </td>
-                    <td className="px-6 py-4 text-center text-sm text-slate-600">
+                    <td className="px-6 py-4 text-center text-sm text-slate-600 dark:text-slate-400">
                       {formatRelativeTime(a.lastSyncAt)}
                     </td>
                     <td className="px-6 py-4">
@@ -643,9 +643,9 @@ export function AccountsPage({ api }: AccountsPageProps) {
       {/* 移动端卡片 */}
       <div className="space-y-3 sm:hidden">
         {accounts.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-16 text-center shadow-sm">
-            <Mail className="mx-auto mb-4 h-16 w-16 text-slate-300" aria-hidden="true" />
-            <p className="text-slate-400">暂无邮箱账号</p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-16 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <Mail className="mx-auto mb-4 h-16 w-16 text-slate-300 dark:text-slate-600" aria-hidden="true" />
+            <p className="text-slate-400 dark:text-slate-500">暂无邮箱账号</p>
           </div>
         ) : (
           accounts.map((a) => {
@@ -654,8 +654,8 @@ export function AccountsPage({ api }: AccountsPageProps) {
             return (
               <div
                 key={a.id}
-                className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-all ${
-                  isSelected ? 'border-emerald-300 ring-1 ring-emerald-300 bg-emerald-50/50' : 'border-slate-200'
+                className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-all dark:bg-slate-900 ${
+                  isSelected ? 'border-emerald-300 ring-1 ring-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:ring-emerald-800 dark:bg-emerald-950/30' : 'border-slate-200 dark:border-slate-800'
                 }`}
               >
                 <div className="p-5">
@@ -710,8 +710,8 @@ export function AccountsPage({ api }: AccountsPageProps) {
                       {a.email.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 cursor-pointer" onClick={() => navigate(`/accounts/${a.id}/messages`)}>
-                      <div className="font-medium text-slate-800">{a.email}</div>
-                      <div className="text-xs text-slate-500">{formatRelativeTime(a.lastSyncAt)}</div>
+                      <div className="font-medium text-slate-800 dark:text-slate-100">{a.email}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{formatRelativeTime(a.lastSyncAt)}</div>
                     </div>
                   </div>
                   <div className="mb-3 flex items-center gap-2">
@@ -722,7 +722,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
                       <span className={`h-1.5 w-1.5 rounded-full ${statusDot(st.label)}`} />
                       {st.label}
                     </span>
-                    <span className="text-xs text-slate-500">邮件数：{a.messageCount}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">邮件数：{a.messageCount}</span>
                   </div>
                 </div>
               </div>
@@ -732,7 +732,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
       </div>
 
       {/* 分页 */}
-      <div className="mt-4 flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-4 flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:text-slate-400">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <span>
             共 {total} 个账号，第 {page} / {totalPages} 页
@@ -746,7 +746,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
                 setPage(1);
                 setPageSize(Number(e.target.value));
               }}
-              className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+              className="rounded-lg border border-slate-200 px-2 py-1 text-sm dark:border-slate-800 dark:bg-slate-800 dark:text-slate-100"
             >
               {[10, 20, 50, 100].map((n) => (
                 <option key={n} value={n}>
@@ -762,7 +762,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
           >
             上一页
           </button>
@@ -770,7 +770,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
             type="button"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
           >
             下一页
           </button>
@@ -869,14 +869,14 @@ function RowMenu({
             setOpen((v) => !v);
           }
         }}
-        className="cursor-pointer p-1.5 text-slate-400 transition hover:text-slate-600"
+        className="cursor-pointer p-1.5 text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
       >
         <MoreVertical className="h-5 w-5" aria-hidden="true" />
       </div>
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-1 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+          className="absolute right-0 top-full z-30 mt-1 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"
         >
           <button
             type="button"
@@ -887,9 +887,9 @@ function RowMenu({
               setOpen(false);
               onTest();
             }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-700"
           >
-            <CheckCircle className="h-4 w-4 text-slate-400" aria-hidden="true" />
+            <CheckCircle className="h-4 w-4 text-slate-400 dark:text-slate-500" aria-hidden="true" />
             {testing ? '测活中…' : '测活'}
           </button>
           <button
@@ -900,7 +900,7 @@ function RowMenu({
               setOpen(false);
               onDelete();
             }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-600 transition hover:bg-rose-50"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
             删除
@@ -931,16 +931,16 @@ function Modal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in sm:items-center sm:p-4 dark:bg-black/60"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl animate-slide-up-mobile sm:max-w-lg sm:rounded-2xl"
+        className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl animate-slide-up-mobile sm:max-w-lg sm:rounded-2xl dark:border-slate-800 dark:bg-slate-900"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 头部 */}
-        <div className="flex items-center border-b border-slate-100 px-5 py-4 sm:px-6">
-          <h3 className="text-base font-semibold text-slate-800 sm:text-lg">{title}</h3>
+        <div className="flex items-center border-b border-slate-100 px-5 py-4 sm:px-6 dark:border-slate-800">
+          <h3 className="text-base font-semibold text-slate-800 sm:text-lg dark:text-slate-100">{title}</h3>
         </div>
 
         {/* 内容（可滚动） */}
@@ -948,7 +948,7 @@ function Modal({
 
         {/* 底部按钮区 */}
         {footer && (
-          <div className="flex gap-3 border-t border-slate-100 px-5 py-4 sm:px-6">{footer}</div>
+          <div className="flex gap-3 border-t border-slate-100 px-5 py-4 sm:px-6 dark:border-slate-800">{footer}</div>
         )}
       </div>
     </div>
@@ -993,7 +993,7 @@ function AddAccountModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             取消
           </button>
@@ -1015,7 +1015,7 @@ function AddAccountModal({
           </p>
         )}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="add-email" className="block text-sm font-medium text-slate-700">
+          <label htmlFor="add-email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             邮箱地址 *
           </label>
           <input
@@ -1024,11 +1024,11 @@ function AddAccountModal({
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="off"
             placeholder="your@163.com"
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/40"
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="add-authcode" className="block text-sm font-medium text-slate-700">
+          <label htmlFor="add-authcode" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             授权码 *
           </label>
           <input
@@ -1038,34 +1038,34 @@ function AddAccountModal({
             onChange={(e) => setAuthCode(e.target.value)}
             autoComplete="off"
             placeholder="163 邮箱 IMAP 授权码"
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/40"
           />
-          <p className="flex items-center gap-1 text-xs text-slate-500">
+          <p className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
             <Info className="h-3 w-3 shrink-0" aria-hidden="true" />
             前往 163 邮箱设置获取 IMAP 授权码
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="add-imap-host" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="add-imap-host" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               IMAP 服务器
             </label>
             <input
               id="add-imap-host"
               value="imap.163.com"
               readOnly
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600"
+              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400"
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="add-imap-port" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="add-imap-port" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               端口
             </label>
             <input
               id="add-imap-port"
               value="993"
               readOnly
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600"
+              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400"
             />
           </div>
         </div>
@@ -1153,7 +1153,7 @@ function ImportModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             取消
           </button>
@@ -1177,7 +1177,7 @@ function ImportModal({
 
         {/* 上传区 */}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="import-file" className="block text-sm font-medium text-slate-700">
+          <label htmlFor="import-file" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             上传 TXT 文件
           </label>
           <input
@@ -1193,13 +1193,13 @@ function ImportModal({
             htmlFor="import-file"
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
-            className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-8 transition hover:border-emerald-400 hover:bg-emerald-50/50"
+            className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-8 transition hover:border-emerald-400 hover:bg-emerald-50/50 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:bg-emerald-950/20"
           >
-            <Upload className="h-10 w-10 text-slate-400" aria-hidden="true" />
-            <span className="mt-2 text-sm font-medium text-slate-700">点击选择文件</span>
-            <span className="mt-1 text-xs text-slate-500">或拖拽文件到此处</span>
+            <Upload className="h-10 w-10 text-slate-400 dark:text-slate-500" aria-hidden="true" />
+            <span className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">点击选择文件</span>
+            <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">或拖拽文件到此处</span>
           </label>
-          <p className="flex items-center gap-1 text-xs text-slate-500">
+          <p className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
             <Info className="h-3 w-3 shrink-0" aria-hidden="true" />
             TXT 格式：邮箱 授权码（空格分隔，每行一个账号）
           </p>
@@ -1207,14 +1207,14 @@ function ImportModal({
 
         {/* 已选文件预览卡片 */}
         {fileName && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/30">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white">
                 <FileText className="h-5 w-5" aria-hidden="true" />
               </div>
               <div className="flex-1 overflow-hidden">
-                <div className="truncate text-sm font-medium text-slate-800">{fileName}</div>
-                <div className="text-xs text-slate-600">
+                <div className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{fileName}</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400">
                   {(fileSize / 1024).toFixed(1)} KB · {countAccountLines(text)} 个账号
                 </div>
               </div>
@@ -1222,7 +1222,7 @@ function ImportModal({
                 type="button"
                 aria-label="移除文件"
                 onClick={clearFile}
-                className="checkbox-btn cursor-pointer text-slate-400 transition hover:text-slate-600"
+                className="checkbox-btn cursor-pointer text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -1231,7 +1231,7 @@ function ImportModal({
         )}
 
         {/* 覆盖选项 */}
-        <label className="flex items-center gap-2 text-xs text-slate-500 sm:text-sm">
+        <label className="flex items-center gap-2 text-xs text-slate-500 sm:text-sm dark:text-slate-400">
           <input
             type="checkbox"
             checked={overwrite}
@@ -1241,7 +1241,7 @@ function ImportModal({
         </label>
 
         {summary && (
-          <p className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-700 sm:text-sm">
+          <p className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-700 sm:text-sm dark:bg-emerald-950/40 dark:text-emerald-300">
             共 {summary.total}，成功 {summary.success}，失败 {summary.failed}，跳过{' '}
             {summary.skipped}
           </p>
@@ -1269,12 +1269,12 @@ function ConfirmDeleteModal({
     target.type === 'one' ? (
       <>
         确定要删除邮箱账号{' '}
-        <span className="font-medium text-slate-900">{target.email}</span> 吗？此操作不可撤销。
+        <span className="font-medium text-slate-900 dark:text-slate-100">{target.email}</span> 吗？此操作不可撤销。
       </>
     ) : (
       <>
         确定要删除选中的{' '}
-        <span className="font-medium text-slate-900">{target.ids.length}</span>{' '}
+        <span className="font-medium text-slate-900 dark:text-slate-100">{target.ids.length}</span>{' '}
         个账号吗？此操作不可撤销。
       </>
     );
@@ -1288,7 +1288,7 @@ function ConfirmDeleteModal({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             取消
           </button>
@@ -1304,10 +1304,10 @@ function ConfirmDeleteModal({
       }
     >
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100">
-          <AlertTriangle className="h-5 w-5 text-rose-600" aria-hidden="true" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950/50">
+          <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400" aria-hidden="true" />
         </div>
-        <p className="text-sm text-slate-700">{message}</p>
+        <p className="text-sm text-slate-700 dark:text-slate-300">{message}</p>
       </div>
     </Modal>
   );
@@ -1331,16 +1331,16 @@ function ConfirmTestModal({
     target.type === 'one' ? (
       <>
         确定要对邮箱账号{' '}
-        <span className="font-medium text-slate-900">{target.email}</span> 进行测活吗？
+        <span className="font-medium text-slate-900 dark:text-slate-100">{target.email}</span> 进行测活吗？
       </>
     ) : target.ids.length > 0 ? (
       <>
         确定要对选中的{' '}
-        <span className="font-medium text-slate-900">{target.ids.length}</span>{' '}
+        <span className="font-medium text-slate-900 dark:text-slate-100">{target.ids.length}</span>{' '}
         个账号进行批量测活吗？
       </>
     ) : (
-      <>确定要对<span className="font-medium text-slate-900">全部账号</span>进行批量测活吗？</>
+      <>确定要对<span className="font-medium text-slate-900 dark:text-slate-100">全部账号</span>进行批量测活吗？</>
     );
 
   return (
@@ -1352,7 +1352,7 @@ function ConfirmTestModal({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             取消
           </button>
@@ -1368,10 +1368,10 @@ function ConfirmTestModal({
       }
     >
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
-          <CheckCircle className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40">
+          <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
         </div>
-        <p className="text-sm text-slate-700">{message}</p>
+        <p className="text-sm text-slate-700 dark:text-slate-300">{message}</p>
       </div>
     </Modal>
   );

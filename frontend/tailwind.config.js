@@ -2,6 +2,7 @@
 // Tailwind 配置：扫描 index.html 与 src 下所有组件，按需生成原子类。
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {

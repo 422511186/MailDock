@@ -41,14 +41,14 @@ export function OAuthCallbackPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         <div className="flex flex-col items-center gap-6 text-center">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-rose-100">
-            <AlertCircle className="h-12 w-12 text-rose-600" aria-hidden="true" />
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950/50">
+            <AlertCircle className="h-12 w-12 text-rose-600 dark:text-rose-400" aria-hidden="true" />
           </div>
           <div>
-            <h2 className="mb-2 text-xl font-semibold text-slate-800">登录失败</h2>
-            <p className="mb-6 text-sm text-slate-600">{error}</p>
+            <h2 className="mb-2 text-xl font-semibold text-slate-800 dark:text-slate-100">登录失败</h2>
+            <p className="mb-6 text-sm text-slate-600 dark:text-slate-400">{error}</p>
           </div>
           <button
             type="button"
