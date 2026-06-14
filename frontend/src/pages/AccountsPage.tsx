@@ -333,10 +333,10 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               type="button"
               disabled={busy}
               onClick={handleTestBatch}
-              className="inline-flex w-[120px] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-[40px] w-[120px] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <CheckCircle className="h-4 w-4" aria-hidden="true" />
-              <span>
+              <CheckCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="whitespace-nowrap overflow-hidden text-ellipsis">
                 批量测活{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
               </span>
             </button>
@@ -344,26 +344,26 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
               type="button"
               disabled={selectedIds.length === 0 || busy}
               onClick={handleDeleteBatch}
-              className="inline-flex w-[120px] items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-rose-500/30 transition hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-[40px] w-[120px] items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-rose-500/30 transition hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Trash2 className="h-4 w-4" aria-hidden="true" />
-              <span>批量删除</span>
+              <Trash2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="whitespace-nowrap">批量删除</span>
             </button>
             <button
               type="button"
               onClick={() => setShowImport(true)}
-              className="inline-flex w-[100px] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              className="inline-flex h-[40px] w-[100px] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
             >
-              <Upload className="h-4 w-4" aria-hidden="true" />
-              <span>导入</span>
+              <Upload className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="whitespace-nowrap">导入</span>
             </button>
             <button
               type="button"
               onClick={() => setShowAdd(true)}
-              className="inline-flex w-[120px] items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:from-emerald-600 hover:to-emerald-700"
+              className="inline-flex h-[40px] w-[120px] items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:from-emerald-600 hover:to-emerald-700"
             >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              <span>添加账号</span>
+              <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="whitespace-nowrap">添加账号</span>
             </button>
           </div>
         </div>
