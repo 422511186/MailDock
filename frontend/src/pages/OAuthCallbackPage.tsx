@@ -10,23 +10,16 @@ interface OAuthCallbackPageProps {
 
 export function OAuthCallbackPage({ api }: OAuthCallbackPageProps) {
   const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     let cancelled = false;
-    const startTime = Date.now();
-    const MIN_DISPLAY_MS = 2000;
 
     api.me()
       .then(() => {
         if (!cancelled) {
-          const elapsed = Date.now() - startTime;
-          const remaining = Math.max(0, MIN_DISPLAY_MS - elapsed);
-          setTimeout(() => {
-            if (!cancelled) {
-              navigate('/accounts', { replace: true });
-            }
-          }, remaining);
+          setReady(true);
         }
       })
       .catch((err) => {
@@ -37,7 +30,23 @@ export function OAuthCallbackPage({ api }: OAuthCallbackPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate]);
+  }, [api]);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled) {
+        navigate('/accounts', { replace: true });
+      }
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [ready, navigate]);
 
   if (error) {
     return (
