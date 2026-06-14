@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Paperclip, Download } from 'lucide-react';
+import { Paperclip, Download, ChevronLeft } from 'lucide-react';
 import type { ApiClient, MessageDetail } from '../api/client';
 
 interface MailDetailPageProps {
@@ -54,9 +54,28 @@ export function MailDetailPage({ api, messageId, onBack }: MailDetailPageProps) 
 
   return (
     <div className="app-main">
-      <div className="mb-4 sm:mb-6">
-        <button type="button" onClick={onBack}>
+      {/* 桌面端返回按钮 */}
+      <div className="mb-4 hidden sm:mb-6 sm:block">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          aria-label="返回"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           返回
+        </button>
+      </div>
+
+      {/* 移动端返回按钮 */}
+      <div className="mb-4 flex items-center justify-between sm:hidden">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 transition hover:bg-slate-100"
+          aria-label="返回"
+        >
+          <ChevronLeft className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
 

@@ -150,7 +150,9 @@ describe('MailDetailPage', () => {
     render(<MailDetailPage api={api as never} messageId={1} onBack={onBack} />);
     await screen.findByText('主题');
 
-    fireEvent.click(screen.getByRole('button', { name: /返回/ }));
+    // 获取所有返回按钮（桌面端和移动端各一个），点击第一个即可
+    const backButtons = screen.getAllByRole('button', { name: /返回/ });
+    fireEvent.click(backButtons[0]);
     expect(onBack).toHaveBeenCalled();
   });
 

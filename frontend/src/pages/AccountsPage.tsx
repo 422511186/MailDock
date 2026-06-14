@@ -222,9 +222,11 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
     try {
       if (deleteTarget.type === 'one') {
         await api.deleteAccount(deleteTarget.id);
+        showToast('✓ 成功删除账号');
       } else {
         await api.deleteBatch(deleteTarget.ids);
         setSelectedIds([]);
+        showToast(`✓ 成功删除 ${deleteTarget.ids.length} 个账号`);
       }
       await reload();
       setDeleteTarget(null);
@@ -564,8 +566,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                 return (
                   <tr
                     key={a.id}
-                    className={`cursor-pointer transition ${isSelected ? 'bg-emerald-50/50 hover:bg-emerald-50' : ''}`}
-                    onClick={() => onOpenAccount(a.id, a.email)}
+                    className={`transition ${isSelected ? 'bg-emerald-50/50' : ''}`}
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center">
@@ -574,10 +575,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                           role="checkbox"
                           aria-checked={isSelected}
                           aria-label={`选择 ${a.email}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleSelect(a.id);
-                          }}
+                          onClick={() => toggleSelect(a.id)}
                           className="checkbox-btn"
                           style={{
                             display: 'flex',
@@ -620,7 +618,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                         </button>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="cursor-pointer px-6 py-4 hover:bg-emerald-50" onClick={() => onOpenAccount(a.id, a.email)}>
                       <div className="flex items-center gap-3">
                         <div
                           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${emailToAvatarGradient(
@@ -683,10 +681,9 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
             return (
               <div
                 key={a.id}
-                className={`cursor-pointer overflow-hidden rounded-2xl border bg-white shadow-sm transition-all ${
+                className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-all ${
                   isSelected ? 'border-emerald-300 ring-1 ring-emerald-300 bg-emerald-50/50' : 'border-slate-200'
                 }`}
-                onClick={() => onOpenAccount(a.id, a.email)}
               >
                 <div className="p-5">
                   <div className="mb-4 flex items-center gap-3">
@@ -696,10 +693,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                       role="checkbox"
                       aria-checked={isSelected}
                       aria-label={`选择 ${a.email}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSelect(a.id);
-                      }}
+                      onClick={() => toggleSelect(a.id)}
                       className="checkbox-btn"
                       style={{
                         display: 'flex',
@@ -742,7 +736,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                     >
                       {a.email.charAt(0).toUpperCase()}
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 cursor-pointer" onClick={() => onOpenAccount(a.id, a.email)}>
                       <div className="font-medium text-slate-800">{a.email}</div>
                       <div className="text-xs text-slate-500">{formatRelativeTime(a.lastSyncAt)}</div>
                     </div>
