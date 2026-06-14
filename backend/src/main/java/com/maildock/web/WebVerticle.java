@@ -96,7 +96,19 @@ public final class WebVerticle extends AbstractVerticle {
                 config.frontendUrl()).build();
 
         // 前端静态资源：打包后的 React 产物放在 classpath 的 webroot 下，由 StaticHandler 托管
-        router.route("/*").handler(StaticHandler.create("webroot").setIndexPage("index.html"));
+        StaticHandler staticHandler = StaticHandler.create("webroot")
+                .setIndexPage("index.html")
+                .setAlwaysAsyncFS(true)
+                .setDefaultContentEncoding("UTF-8");
+
+        router.route("/*").handler(staticHandler);
+
+        // SPA fallback: 所有未匹配的路由（404）都返回 index.html，支持前端路由
+        router.route("/*").handler(ctx -> {
+            ctx.response()
+                    .putHeader("Content-Type", "text/html; charset=utf-8")
+                    .sendFile("webroot/index.html");
+        });
 
         // ===== 启动 HTTP 服务 =====
         vertx.createHttpServer()
