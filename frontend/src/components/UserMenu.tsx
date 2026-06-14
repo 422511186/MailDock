@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UserCircle, Mail, LogOut, ChevronDown } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import type { CurrentUser } from '../api/client';
 
 interface UserMenuProps {
   /** 当前用户。 */
   user: CurrentUser;
-  /** 进入个人中心。 */
-  onOpenProfile: () => void;
-  /** 退出登录。 */
-  onLogout: () => void;
-  /** 进入邮件列表（可选；未提供时该菜单项仅关闭菜单不报错。实际由 Header/App 传入“返回账号列表”回调）。 */
-  onOpenMailList?: () => void;
 }
 
 /** 取头像首字母：优先显示名，其次邮箱，再退化为 ?。 */
@@ -24,7 +20,9 @@ function initial(user: CurrentUser): string {
  * 展开后富信息头部（大头像 + 用户名 + 邮箱）+ 三个菜单项。
  * 对齐 design-prototype.html section-1。
  */
-export function UserMenu({ user, onOpenProfile, onLogout, onOpenMailList }: UserMenuProps) {
+export function UserMenu({ user }: UserMenuProps) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -115,7 +113,7 @@ export function UserMenu({ user, onOpenProfile, onLogout, onOpenMailList }: User
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                onOpenProfile();
+                navigate('/profile');
               }}
             >
               <UserCircle className="h-5 w-5 text-slate-400" aria-hidden="true" />
@@ -127,7 +125,7 @@ export function UserMenu({ user, onOpenProfile, onLogout, onOpenMailList }: User
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                onOpenMailList?.();
+                navigate('/accounts');
               }}
             >
               <Mail className="h-5 w-5 text-slate-400" aria-hidden="true" />
@@ -139,7 +137,7 @@ export function UserMenu({ user, onOpenProfile, onLogout, onOpenMailList }: User
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                onLogout();
+                logout();
               }}
             >
               <LogOut className="h-5 w-5" aria-hidden="true" />

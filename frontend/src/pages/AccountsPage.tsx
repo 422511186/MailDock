@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   Upload,
@@ -23,8 +24,6 @@ import type {
 interface AccountsPageProps {
   /** API 客户端。 */
   api: ApiClient;
-  /** 点击某账号进入其邮件列表的回调（传递 accountId 和 accountEmail）。 */
-  onOpenAccount: (accountId: number, accountEmail: string) => void;
 }
 
 /** 默认每页条数。 */
@@ -84,7 +83,8 @@ function formatRelativeTime(ts: number): string {
  * 白色卡片表格（彩色头像 + 状态徽章带圆点 + 三点菜单），
  * 弹窗新增账号、弹窗批量导入（文本 + 文件上传）、单个测活、批量测活、删除。
  */
-export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
+export function AccountsPage({ api }: AccountsPageProps) {
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -591,7 +591,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                         </button>
                       </div>
                     </td>
-                    <td className="cursor-pointer px-6 py-4 hover:bg-emerald-50" onClick={() => onOpenAccount(a.id, a.email)}>
+                    <td className="cursor-pointer px-6 py-4 hover:bg-emerald-50" onClick={() => navigate(`/accounts/${a.id}/messages`)}>
                       <div className="flex items-center gap-3">
                         <div
                           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${emailToAvatarGradient(
@@ -709,7 +709,7 @@ export function AccountsPage({ api, onOpenAccount }: AccountsPageProps) {
                     >
                       {a.email.charAt(0).toUpperCase()}
                     </div>
-                    <div className="flex-1 cursor-pointer" onClick={() => onOpenAccount(a.id, a.email)}>
+                    <div className="flex-1 cursor-pointer" onClick={() => navigate(`/accounts/${a.id}/messages`)}>
                       <div className="font-medium text-slate-800">{a.email}</div>
                       <div className="text-xs text-slate-500">{formatRelativeTime(a.lastSyncAt)}</div>
                     </div>

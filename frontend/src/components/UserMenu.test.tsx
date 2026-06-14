@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { UserMenu } from './UserMenu';
 import type { CurrentUser } from '../api/client';
 
@@ -14,15 +15,57 @@ function user(overrides: Partial<CurrentUser> = {}): CurrentUser {
   };
 }
 
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: vi.fn(),
+}));
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
+import { useAuth } from '../contexts/AuthContext';
+
+function mockAuth(overrides = {}) {
+  vi.mocked(useAuth).mockReturnValue({
+    user: null,
+    loading: false,
+    error: null,
+    login: vi.fn(),
+    loginWithLinuxDo: vi.fn(),
+    logout: vi.fn(),
+    updateUser: vi.fn(),
+    clearError: vi.fn(),
+    ...overrides,
+  });
+}
+
 describe('UserMenu', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuth();
+  });
+
   it('触发按钮显示用户名与下拉箭头', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     const trigger = screen.getByRole('button', { name: '用户菜单' });
     expect(trigger).toHaveTextContent('Alice');
   });
 
   it('点击展开后显示富信息头部（仅用户名，不显示邮箱）', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     const menu = screen.getByRole('menu');
     expect(menu).toHaveTextContent('Alice');
@@ -30,7 +73,11 @@ describe('UserMenu', () => {
   });
 
   it('菜单包含个人中心 / 邮件列表 / 退出登录三个菜单项', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     expect(screen.getByRole('menuitem', { name: '个人中心' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: '邮件列表' })).toBeInTheDocument();
@@ -38,7 +85,11 @@ describe('UserMenu', () => {
   });
 
   it('菜单项使用原型中的轻量列表样式而不是描边按钮样式', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
 
     const menu = screen.getByRole('menu');
@@ -87,7 +138,11 @@ describe('UserMenu', () => {
   });
 
   it('富信息头部保持紧凑，不在桌面和移动端放大', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
 
     const headerName = screen.getAllByText('Alice').find((node) => node.className.includes('font-semibold'));
@@ -97,7 +152,11 @@ describe('UserMenu', () => {
   });
 
   it('富信息头部左右 padding 极小（px-2）', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
 
     const userName = screen.getAllByText('Alice').find((node) => node.className.includes('font-semibold'));
@@ -110,7 +169,11 @@ describe('UserMenu', () => {
   });
 
   it('富信息头部内容居中对齐', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
 
     const userName = screen.getAllByText('Alice').find((node) => node.className.includes('font-semibold'));
@@ -121,7 +184,11 @@ describe('UserMenu', () => {
   });
 
   it('富信息头部用户名不占据剩余空间（无 flex-1）', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
 
     const userName = screen.getAllByText('Alice').find((node) => node.className.includes('font-semibold'));
@@ -132,7 +199,11 @@ describe('UserMenu', () => {
   });
 
   it('富信息头部和菜单项之间不显示横向分隔线', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
 
     const userName = screen.getAllByText('Alice').find((node) => node.className.includes('font-semibold'));
@@ -143,50 +214,49 @@ describe('UserMenu', () => {
     expect(classes).not.toContain('border-slate-100');
   });
 
-  it('点击个人中心触发 onOpenProfile 并关闭菜单', () => {
-    const onOpenProfile = vi.fn();
-    render(<UserMenu user={user()} onOpenProfile={onOpenProfile} onLogout={vi.fn()} />);
+  it('点击个人中心触发导航到 /profile 并关闭菜单', () => {
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     fireEvent.click(screen.getByRole('menuitem', { name: '个人中心' }));
-    expect(onOpenProfile).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('/profile');
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
-  it('点击退出登录触发 onLogout', () => {
-    const onLogout = vi.fn();
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={onLogout} />);
+  it('点击退出登录触发 logout', () => {
+    const logout = vi.fn();
+    mockAuth({ logout });
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     fireEvent.click(screen.getByRole('menuitem', { name: '退出登录' }));
-    expect(onLogout).toHaveBeenCalled();
+    expect(logout).toHaveBeenCalled();
   });
 
-  it('点击邮件列表触发 onOpenMailList 并关闭菜单', () => {
-    const onOpenMailList = vi.fn();
+  it('点击邮件列表触发导航到 /accounts 并关闭菜单', () => {
     render(
-      <UserMenu
-        user={user()}
-        onOpenProfile={vi.fn()}
-        onLogout={vi.fn()}
-        onOpenMailList={onOpenMailList}
-      />,
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
     );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     fireEvent.click(screen.getByRole('menuitem', { name: '邮件列表' }));
-    expect(onOpenMailList).toHaveBeenCalled();
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-  });
-
-  it('未传 onOpenMailList 时点击邮件列表仅关闭菜单（不报错）', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
-    expect(() =>
-      fireEvent.click(screen.getByRole('menuitem', { name: '邮件列表' })),
-    ).not.toThrow();
+    expect(mockNavigate).toHaveBeenCalledWith('/accounts');
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
   it('Esc 关闭菜单', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     expect(screen.getByRole('menu')).toBeInTheDocument();
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -194,24 +264,32 @@ describe('UserMenu', () => {
   });
 
   it('展开的下拉菜单带 slide-down 动画类（保留原守护测试）', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     expect(screen.getByRole('menu').className).toContain('animate-slide-down');
   });
 
   it('无 displayName 时触发按钮回退到邮箱', () => {
     render(
-      <UserMenu
-        user={user({ displayName: null })}
-        onOpenProfile={vi.fn()}
-        onLogout={vi.fn()}
-      />,
+      <MemoryRouter>
+        <UserMenu
+          user={user({ displayName: null })}
+        />
+      </MemoryRouter>
     );
     expect(screen.getByRole('button', { name: '用户菜单' })).toHaveTextContent('alice@example.com');
   });
 
   it('下拉菜单面板有明显阴影（shadow-xl）以区分背景', () => {
-    render(<UserMenu user={user()} onOpenProfile={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <UserMenu user={user()} />
+      </MemoryRouter>
+    );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     const menu = screen.getByRole('menu');
     expect(menu.className).toContain('shadow-2xl');

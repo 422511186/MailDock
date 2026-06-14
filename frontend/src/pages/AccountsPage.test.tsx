@@ -1,7 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { AccountsPage } from './AccountsPage';
 import type { Account, PagedAccounts } from '../api/client';
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 /** 构造一个账号（默认测活成功）。 */
 function account(overrides: Partial<Account> = {}): Account {
@@ -39,6 +49,15 @@ function stubApi(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** 渲染 AccountsPage，包装 MemoryRouter */
+function renderPage(api: any) {
+  return render(
+    <MemoryRouter>
+      <AccountsPage api={api} />
+    </MemoryRouter>
+  );
+}
+
 /** 打开第一个行三点菜单（桌面表格优先）。 */
 function openFirstRowMenu() {
   const moreBtns = screen.getAllByRole('button', { name: '更多操作' });
@@ -56,7 +75,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account()])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     expect(await screen.findByRole('heading', { name: '邮箱账号' })).toBeInTheDocument();
   });
 
@@ -66,7 +85,7 @@ describe('AccountsPage', () => {
         paged([account({ id: 1, email: 'alice@163.com', messageCount: 128 })]),
       ),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
     // 表头包含"邮件数"
     expect(screen.getByRole('columnheader', { name: '邮件数' })).toBeInTheDocument();
@@ -82,7 +101,7 @@ describe('AccountsPage', () => {
         paged([account({ id: 1, email: 'alice@163.com', lastSyncAt: twoMinutesAgo })]),
       ),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
     // 应显示相对时间（精确匹配可能因时间漂移略有差异，检查包含"分钟"）
     expect(screen.getAllByText(/\d+\s*分钟前/).length).toBeGreaterThan(0);
@@ -94,7 +113,7 @@ describe('AccountsPage', () => {
         paged([account({ id: 1, email: 'bob@163.com', lastSyncAt: 0 })]),
       ),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('bob@163.com');
     const syncTexts = screen.getAllByText('从未同步');
     expect(syncTexts.length).toBeGreaterThan(0);
@@ -104,7 +123,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
 
     const checkboxes = screen.getAllByRole('checkbox', { name: '选择 alice@163.com' });
@@ -124,7 +143,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account()])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     // 桌面端显示"添加账号"
     expect((await screen.findAllByRole('button', { name: /添加账号/ })).length).toBeGreaterThan(0);
   });
@@ -133,7 +152,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     const addButtons = screen.getAllByRole('button', { name: /添加账号/ });
     fireEvent.click(addButtons[0]);
     expect(await screen.findByRole('heading', { name: '添加邮箱账号' })).toBeInTheDocument();
@@ -141,7 +160,7 @@ describe('AccountsPage', () => {
 
   it('添加账号表单确认按钮文字为"添加账号"', async () => {
     const api = stubApi();
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     const addButtons = screen.getAllByRole('button', { name: /添加账号/ });
     fireEvent.click(addButtons[0]);
     // 弹窗内应该有提交按钮"添加账号"
@@ -152,7 +171,7 @@ describe('AccountsPage', () => {
 
   it('添加账号表单含只读 IMAP 服务器与端口字段', async () => {
     const api = stubApi();
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     fireEvent.click(screen.getAllByRole('button', { name: /添加账号/ })[0]);
     await screen.findByRole('heading', { name: '添加邮箱账号' });
 
@@ -166,7 +185,7 @@ describe('AccountsPage', () => {
 
   it('添加账号表单授权码下方有帮助文案', async () => {
     const api = stubApi();
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     fireEvent.click(screen.getAllByRole('button', { name: /添加账号/ })[0]);
     await screen.findByRole('heading', { name: '添加邮箱账号' });
     expect(screen.getByText(/前往 163 邮箱设置获取 IMAP 授权码/)).toBeInTheDocument();
@@ -174,7 +193,7 @@ describe('AccountsPage', () => {
 
   it('添加账号表单底部「取消」「添加账号」按钮均分宽度', async () => {
     const api = stubApi();
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     fireEvent.click(screen.getAllByRole('button', { name: /添加账号/ })[0]);
     await screen.findByRole('heading', { name: '添加邮箱账号' });
 
@@ -188,7 +207,7 @@ describe('AccountsPage', () => {
 
   it('弹窗头部不含右上角关闭叉叉（与底部取消按钮重复）', async () => {
     const api = stubApi();
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     fireEvent.click(screen.getAllByRole('button', { name: /添加账号/ })[0]);
     await screen.findByRole('heading', { name: '添加邮箱账号' });
     expect(screen.queryByRole('button', { name: '关闭' })).not.toBeInTheDocument();
@@ -206,7 +225,7 @@ describe('AccountsPage', () => {
       ),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
 
     expect((await screen.findAllByText('alice@163.com')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('bob@163.com').length).toBeGreaterThan(0);
@@ -219,7 +238,7 @@ describe('AccountsPage', () => {
       .mockResolvedValueOnce(paged([account({ id: 9, email: 'new@163.com' })]));
     const api = stubApi({ listAccounts });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(1));
 
     const addButtons = screen.getAllByRole('button', { name: /添加账号/ });
@@ -244,7 +263,7 @@ describe('AccountsPage', () => {
       .mockResolvedValueOnce(paged([]));
     const api = stubApi({ listAccounts });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('del@163.com');
 
     openFirstRowMenu();
@@ -267,7 +286,7 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 3, email: 'del@163.com' })])),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('del@163.com');
 
     openFirstRowMenu();
@@ -293,7 +312,7 @@ describe('AccountsPage', () => {
       ),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('a@163.com');
 
     fireEvent.click(screen.getByRole('checkbox', { name: '全选' }));
@@ -310,12 +329,11 @@ describe('AccountsPage', () => {
   });
 
   it('点击账号行触发 onOpenAccount（桌面端）', async () => {
-    const onOpenAccount = vi.fn();
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 7, email: 'open@163.com' })])),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
+    renderPage(api as never);
     await screen.findAllByText('open@163.com');
 
     // 在桌面端表格中找到邮箱列并点击
@@ -324,16 +342,15 @@ describe('AccountsPage', () => {
     expect(emailInTable).toBeDefined();
     fireEvent.click(emailInTable!);
 
-    expect(onOpenAccount).toHaveBeenCalledWith(7, 'open@163.com');
+    expect(mockNavigate).toHaveBeenCalledWith('/accounts/7/messages');
   });
 
   it('点击账号卡片触发 onOpenAccount（移动端）', async () => {
-    const onOpenAccount = vi.fn();
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 8, email: 'mobile@163.com' })])),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
+    renderPage(api as never);
     await screen.findAllByText('mobile@163.com');
 
     // 移动端卡片中的邮箱文字区域是点击目标
@@ -345,7 +362,7 @@ describe('AccountsPage', () => {
     expect(mobileEmailText).toBeDefined();
     fireEvent.click(mobileEmailText!);
 
-    expect(onOpenAccount).toHaveBeenCalledWith(8, 'mobile@163.com');
+    expect(mockNavigate).toHaveBeenCalledWith('/accounts/8/messages');
   });
 
   it('移动端卡片布局符合原型：只有一个大头像，无小头像', async () => {
@@ -355,7 +372,7 @@ describe('AccountsPage', () => {
       ),
     });
 
-    const { container } = render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    const { container } = renderPage(api as never);
     await screen.findAllByText('test@163.com');
 
     // 移动端卡片容器
@@ -376,7 +393,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    const { container } = render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    const { container } = renderPage(api as never);
     await screen.findAllByText('alice@163.com');
 
     // 移动端工具栏（sm:hidden）应显示文字标签
@@ -392,7 +409,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    const { container } = render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    const { container } = renderPage(api as never);
     await screen.findAllByText('alice@163.com');
 
     const mobileToolbar = container.querySelector('[data-testid="mobile-toolbar"]');
@@ -410,7 +427,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 8, email: 'mobile@163.com' })])),
     });
-    const { container } = render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
+    const { container } = renderPage(api as never);
     await screen.findAllByText('mobile@163.com');
 
     // 移动端卡片内应有选择框
@@ -431,7 +448,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 8, email: 'mobile@163.com' })])),
     });
-    const { container } = render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    const { container } = renderPage(api as never);
     await screen.findAllByText('mobile@163.com');
 
     const mobileCards = container.querySelectorAll('.space-y-3.sm\\:hidden > div');
@@ -448,7 +465,7 @@ describe('AccountsPage', () => {
       ),
     });
 
-    const { container } = render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    const { container } = renderPage(api as never);
     await screen.findAllByText('test@163.com');
 
     const mobileCards = container.querySelectorAll('.space-y-3.sm\\:hidden > div');
@@ -468,7 +485,7 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
 
     const checkboxes = screen.getAllByRole('checkbox', { name: '选择 alice@163.com' });
@@ -491,7 +508,7 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
 
     // 未选中：按钮不禁用
@@ -513,7 +530,7 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
 
     const delBtns = screen.getAllByRole('button', { name: /批量删除/ });
@@ -525,7 +542,7 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
 
     fireEvent.click(screen.getByRole('checkbox', { name: '全选' }));
@@ -548,7 +565,7 @@ describe('AccountsPage', () => {
       ),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('a@163.com');
 
     const selectAllCheckbox = screen.getByRole('checkbox', { name: '全选' });
@@ -576,7 +593,7 @@ describe('AccountsPage', () => {
       ),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('a@163.com');
 
     const selectAll = screen.getByRole('checkbox', { name: '全选' });
@@ -602,7 +619,7 @@ describe('AccountsPage', () => {
       ),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('a@163.com');
 
     const selectAll = screen.getByRole('checkbox', { name: '全选' });
@@ -626,7 +643,7 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 5, email: 'one@163.com' })])),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('one@163.com');
 
     openFirstRowMenu();
@@ -647,7 +664,7 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 5, email: 'one@163.com' })])),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
+    renderPage(api as never);
     await screen.findAllByText('one@163.com');
 
     openFirstRowMenu();
@@ -668,7 +685,7 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 3, email: 'del@163.com' })])),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
+    renderPage(api as never);
     await screen.findAllByText('del@163.com');
 
     openFirstRowMenu();
@@ -682,8 +699,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 7, email: 'open@163.com' })])),
     });
-    const onOpenAccount = vi.fn();
-    render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
+    renderPage(api as never);
 
     await screen.findAllByText('open@163.com');
 
@@ -693,7 +709,7 @@ describe('AccountsPage', () => {
     expect(desktopEmailCell).toBeDefined();
 
     fireEvent.click(desktopEmailCell!);
-    expect(onOpenAccount).toHaveBeenCalledWith(7, 'open@163.com');
+    expect(mockNavigate).toHaveBeenCalledWith('/accounts/7/messages');
   });
 
   it('桌面端：点击其他列（状态/邮件数）不触发进入收件箱', async () => {
@@ -701,7 +717,7 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com', messageCount: 99 })])),
     });
     const onOpenAccount = vi.fn();
-    render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
+    renderPage(api as never);
 
     await screen.findAllByText('alice@163.com');
 
@@ -723,7 +739,7 @@ describe('AccountsPage', () => {
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
     const onOpenAccount = vi.fn();
-    render(<AccountsPage api={api as never} onOpenAccount={onOpenAccount} />);
+    renderPage(api as never);
 
     await screen.findAllByText('alice@163.com');
 
@@ -738,7 +754,7 @@ describe('AccountsPage', () => {
       .mockResolvedValueOnce(paged([account({ id: 1, email: 'del@163.com' })]))
       .mockResolvedValueOnce(paged([]));
     const api = stubApi({ listAccounts });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
 
     await screen.findAllByText('del@163.com');
 
@@ -767,7 +783,7 @@ describe('AccountsPage', () => {
       importText: vi.fn().mockResolvedValue({ total: 2, success: 2, failed: 0, skipped: 0, results: [] }),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
 
     const importBtns = screen.getAllByRole('button', { name: '导入' });
     fireEvent.click(importBtns[0]);
@@ -797,7 +813,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'test@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('test@163.com');
 
     // 获取桌面端批量删除按钮
@@ -828,7 +844,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'test@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('test@163.com');
 
     // 选中前不应该有"已选中"提示
@@ -844,14 +860,14 @@ describe('AccountsPage', () => {
 
   it('导入弹窗保留"已存在则覆盖授权码"复选框', async () => {
     const api = stubApi();
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     fireEvent.click(screen.getAllByRole('button', { name: '导入' })[0]);
     expect(await screen.findByText(/已存在则覆盖授权码/)).toBeInTheDocument();
   });
 
   it('导入弹窗含虚线拖拽上传区', async () => {
     const api = stubApi();
-    const { container } = render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    const { container } = renderPage(api as never);
     fireEvent.click(screen.getAllByRole('button', { name: '导入' })[0]);
     await screen.findByRole('heading', { name: '批量导入账号' });
     const dashed = container.querySelector('.border-dashed');
@@ -869,7 +885,7 @@ describe('AccountsPage', () => {
       ),
     });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('pending@163.com');
 
     expect(screen.getAllByText('待检测').length).toBeGreaterThan(0);
@@ -881,7 +897,7 @@ describe('AccountsPage', () => {
     const listAccounts = vi.fn().mockResolvedValue(paged([]));
     const api = stubApi({ listAccounts });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(1));
 
     const searches = screen.getAllByPlaceholderText('搜索邮箱地址...');
@@ -899,7 +915,7 @@ describe('AccountsPage', () => {
     const listAccounts = vi.fn().mockResolvedValue(paged([]));
     const api = stubApi({ listAccounts });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getAllByLabelText('状态过滤')[0], { target: { value: 'fail' } });
@@ -918,7 +934,7 @@ describe('AccountsPage', () => {
       .mockResolvedValueOnce(paged([account({ id: 21, email: 'b@163.com' })], 25));
     const api = stubApi({ listAccounts });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('a@163.com');
 
     fireEvent.click(screen.getByRole('button', { name: '下一页' }));
@@ -932,7 +948,7 @@ describe('AccountsPage', () => {
     const listAccounts = vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'a@163.com' })], 80));
     const api = stubApi({ listAccounts });
 
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('a@163.com');
 
     fireEvent.change(screen.getByLabelText('每页条数'), { target: { value: '50' } });
@@ -948,7 +964,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     const searches = await screen.findAllByPlaceholderText('搜索邮箱地址...');
     const toolbar = searches[0].closest('.rounded-2xl');
     expect(toolbar).toHaveClass('bg-white');
@@ -958,7 +974,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     const searches = await screen.findAllByPlaceholderText('搜索邮箱地址...');
     expect(searches[0]).toHaveClass('pl-10');
   });
@@ -967,7 +983,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
     const table = screen.getByRole('table');
     expect(table.closest('.rounded-2xl')).toHaveClass('bg-white');
@@ -977,7 +993,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
     const row = screen.getByRole('table').querySelector('tbody tr');
     const avatar = row?.querySelector('.rounded-full.bg-gradient-to-br');
@@ -989,7 +1005,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'ok@163.com', lastTestOk: true })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('正常');
     const badges = screen.getByRole('table').querySelectorAll('span.rounded-full.bg-emerald-100');
     const badge = badges[0];
@@ -1001,7 +1017,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
     openFirstRowMenu();
     expect(screen.getByRole('menuitem', { name: /测活/ })).toBeInTheDocument();
@@ -1012,7 +1028,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'a@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('a@163.com');
     openFirstRowMenu();
     const delItem = screen.getByRole('menuitem', { name: /删除/ });
@@ -1023,7 +1039,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
 
     // 桌面端表格内应该有纯文本显示邮箱
@@ -1038,7 +1054,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'test@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('test@163.com');
 
     // 查找操作列的容器，应该是 div 而非 button
@@ -1057,7 +1073,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'mobile@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('mobile@163.com');
 
     // 查找 RowMenu 组件的三点图标容器（通过 aria-label="更多操作" 定位）
@@ -1070,7 +1086,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'test@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('test@163.com');
 
     const addButtons = screen.getAllByRole('button', { name: /添加账号/ });
@@ -1083,7 +1099,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
     const emailButtons = screen.getAllByText('alice@163.com');
     emailButtons.forEach(btn => {
@@ -1100,7 +1116,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
     const moreBtn = screen.getAllByRole('button', { name: '更多操作' })[0];
     expect(moreBtn).not.toHaveClass('bg-slate-50');
@@ -1111,7 +1127,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
 
     // 移动端卡片内应该有纯文本显示邮箱
@@ -1130,7 +1146,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
 
     // 移动端邮箱现在是纯文本 div，不是按钮
@@ -1151,7 +1167,7 @@ describe('AccountsPage', () => {
     const api = stubApi({
       listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
     });
-    render(<AccountsPage api={api as never} onOpenAccount={vi.fn()} />);
+    renderPage(api as never);
     await screen.findAllByText('alice@163.com');
     const rows = document.querySelectorAll('tbody tr');
     expect(rows[0]).not.toHaveClass('hover:bg-slate-50/50');
