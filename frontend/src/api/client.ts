@@ -4,6 +4,14 @@
 /** API 路径前缀（含版本号），与后端 ApiRouter.API 保持一致。 */
 const API = '/api/v1';
 
+/** Session 过期回调（由 AuthProvider 设置）。 */
+let onSessionExpired: (() => void) | null = null;
+
+/** 设置 Session 过期回调，AuthProvider 初始化时调用。 */
+export function setSessionExpiredHandler(handler: () => void) {
+  onSessionExpired = handler;
+}
+
 /** 当前登录用户摘要。 */
 export interface CurrentUser {
   id: number;
@@ -295,6 +303,11 @@ export class ApiClient {
       body,
       credentials: 'include',
     });
+
+    // Session 过期时触发回调
+    if (resp.status === 401 && onSessionExpired) {
+      onSessionExpired();
+    }
 
     if (!resp.ok) {
       let message = `请求失败 (${resp.status})`;
