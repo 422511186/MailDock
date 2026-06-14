@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { MailDetailPage } from './MailDetailPage';
 import type { MessageDetail } from '../api/client';
 
@@ -34,6 +35,25 @@ function stubApi(overrides: Record<string, unknown> = {}) {
   };
 }
 
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
+function renderPage(api: any, accountId = '7', messageId = '1') {
+  return render(
+    <MemoryRouter initialEntries={[`/accounts/${accountId}/messages/${messageId}`]}>
+      <Routes>
+        <Route path="/accounts/:accountId/messages/:messageId" element={<MailDetailPage api={api} />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
 describe('MailDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -49,7 +69,7 @@ describe('MailDetailPage', () => {
         }),
       ),
     });
-    render(<MailDetailPage api={api as never} messageId={1} onBack={vi.fn()} />);
+    renderPage(api);
     const link = (await screen.findByText('报告.pdf')).closest('a')!;
     expect(link).toHaveAttribute('href', '/api/v1/messages/1/attachments/11');
     // 附件列表项内应有图标
@@ -65,7 +85,7 @@ describe('MailDetailPage', () => {
       ),
     });
 
-    render(<MailDetailPage api={api as never} messageId={1} onBack={vi.fn()} />);
+    renderPage(api);
 
     expect(await screen.findByText('你好世界')).toBeInTheDocument();
     expect(screen.getByText(/bob@163\.com/)).toBeInTheDocument();
@@ -81,7 +101,7 @@ describe('MailDetailPage', () => {
       ),
     });
 
-    render(<MailDetailPage api={api as never} messageId={1} onBack={vi.fn()} />);
+    renderPage(api);
 
     expect(await screen.findByText('HTML 正文')).toBeInTheDocument();
     expect(screen.queryByText('纯文本正文')).not.toBeInTheDocument();
@@ -93,7 +113,7 @@ describe('MailDetailPage', () => {
       getMessage: vi.fn().mockResolvedValue(detail({ bodyHtml: null, bodyText: '只有纯文本' })),
     });
 
-    render(<MailDetailPage api={api as never} messageId={1} onBack={vi.fn()} />);
+    renderPage(api);
 
     expect(await screen.findByText('只有纯文本')).toBeInTheDocument();
   });
@@ -110,7 +130,7 @@ describe('MailDetailPage', () => {
       ),
     });
 
-    render(<MailDetailPage api={api as never} messageId={1} onBack={vi.fn()} />);
+    renderPage(api);
 
     const link = await screen.findByText('报告.pdf');
     expect(link.closest('a')).toHaveAttribute('href', '/api/v1/messages/1/attachments/11');
@@ -123,7 +143,7 @@ describe('MailDetailPage', () => {
       getMessage: vi.fn().mockResolvedValue(detail({ id: 9, isRead: false })),
     });
 
-    render(<MailDetailPage api={api as never} messageId={9} onBack={vi.fn()} />);
+    renderPage(api);
 
     await waitFor(() => {
       expect(api.markRead).toHaveBeenCalledWith(9, true);
@@ -136,24 +156,23 @@ describe('MailDetailPage', () => {
       getMessage: vi.fn().mockResolvedValue(detail({ id: 9, isRead: true })),
     });
 
-    render(<MailDetailPage api={api as never} messageId={9} onBack={vi.fn()} />);
+    renderPage(api);
 
     await screen.findByText('主题');
     expect(api.markRead).not.toHaveBeenCalled();
   });
 
-  it('点击返回触发 onBack', async () => {
+  it('点击返回触发导航到邮件列表', async () => {
     // 返回按钮回到邮件列表
-    const onBack = vi.fn();
     const api = stubApi();
 
-    render(<MailDetailPage api={api as never} messageId={1} onBack={onBack} />);
+    renderPage(api);
     await screen.findByText('主题');
 
     // 获取所有返回按钮（桌面端和移动端各一个），点击第一个即可
     const backButtons = screen.getAllByRole('button', { name: /返回/ });
     fireEvent.click(backButtons[0]);
-    expect(onBack).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('/accounts/7/messages');
   });
 
   it('附件项渲染图标且下载链接保留 href', async () => {
@@ -166,7 +185,7 @@ describe('MailDetailPage', () => {
         }),
       ),
     });
-    render(<MailDetailPage api={api as never} messageId={1} onBack={vi.fn()} />);
+    renderPage(api);
     const link = (await screen.findByText('报告.pdf')).closest('a')!;
     expect(link).toHaveAttribute('href', '/api/v1/messages/1/attachments/11');
     // 附件列表项内应有图标

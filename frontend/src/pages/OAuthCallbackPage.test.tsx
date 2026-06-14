@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { OAuthCallbackPage } from './OAuthCallbackPage';
 import type { ApiClient, CurrentUser } from '../api/client';
@@ -12,29 +12,8 @@ const mockUser: CurrentUser = {
   hasPassword: true,
 };
 
-function stubApi(overrides: Partial<ApiClient> = {}): ApiClient {
-  return {
-    me: vi.fn().mockResolvedValue(mockUser),
-    login: vi.fn(),
-    logout: vi.fn(),
-    linuxDoLoginUrl: vi.fn(),
-    listAccounts: vi.fn(),
-    listMessages: vi.fn(),
-    refresh: vi.fn(),
-    getMessage: vi.fn(),
-    markRead: vi.fn(),
-    attachmentUrl: vi.fn(),
-    updateDisplayName: vi.fn(),
-    changePassword: vi.fn(),
-    addAccount: vi.fn(),
-    updateAccount: vi.fn(),
-    deleteAccount: vi.fn(),
-    deleteBatch: vi.fn(),
-    testConnection: vi.fn(),
-    testBatch: vi.fn(),
-    importAccounts: vi.fn(),
-    ...overrides,
-  } as unknown as ApiClient;
+function stubApi(): ApiClient {
+  return { me: vi.fn() } as unknown as ApiClient;
 }
 
 const mockNavigate = vi.fn();
@@ -46,45 +25,66 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+// useAuth 状态由各测试通过 setAuthState 注入
+let authState: { user: CurrentUser | null; loading: boolean; error: string | null };
+function setAuthState(state: typeof authState) {
+  authState = state;
+}
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: () => authState,
+}));
+
 describe('OAuthCallbackPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setAuthState({ user: null, loading: true, error: null });
   });
 
-  it('mount 时调用 api.me', async () => {
-    const api = stubApi();
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('AuthContext 加载中时显示加载动画', () => {
+    setAuthState({ user: null, loading: true, error: null });
     render(
       <MemoryRouter>
-        <OAuthCallbackPage api={api} />
+        <OAuthCallbackPage api={stubApi()} />
       </MemoryRouter>
     );
-
     expect(screen.getByText('登录中...')).toBeInTheDocument();
-    await waitFor(() => {
-      expect(api.me).toHaveBeenCalled();
-    });
   });
 
-  it('成功时导航到 /accounts', async () => {
-    const api = stubApi();
+  it('用户已登录时，动画显示满 2 秒后才导航到 /accounts', () => {
+    vi.useFakeTimers();
+    setAuthState({ user: mockUser, loading: false, error: null });
     render(
       <MemoryRouter>
-        <OAuthCallbackPage api={api} />
+        <OAuthCallbackPage api={stubApi()} />
       </MemoryRouter>
     );
 
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/accounts', { replace: true });
+    // 加载动画仍在显示，尚未导航
+    expect(screen.getByText('登录中...')).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    // 未满 2 秒时仍不导航
+    act(() => {
+      vi.advanceTimersByTime(1999);
     });
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    // 满 2 秒后导航
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/accounts', { replace: true });
   });
 
-  it('失败时显示错误和返回登录按钮', async () => {
-    const api = stubApi({
-      me: vi.fn().mockRejectedValue(new Error('验证失败')),
-    });
+  it('加载完成后无用户时显示错误和返回登录按钮', async () => {
+    setAuthState({ user: null, loading: false, error: '验证失败' });
     render(
       <MemoryRouter>
-        <OAuthCallbackPage api={api} />
+        <OAuthCallbackPage api={stubApi()} />
       </MemoryRouter>
     );
 
