@@ -34,18 +34,22 @@ npx vitest run src/pages/LoginPage.test.tsx   # 跑单个测试文件
 
 ## 架构要点
 
-请求流向：React 前端 → REST API（前缀 `/api/v1`）→ Vert.x Web Router（`ApiRouter`）→ Service 层 → Repository（DAO）→ SQLite。
+请求流向：React 前端（react-router）→ REST API（前缀 `/api/v1`）→ Vert.x Web Router（`ApiRouter`）→ Handler → Service 层 → Repository（DAO）→ SQLite。
 
 **分层职责（后端 `com.maildock`）**
-- `MainVerticle` → `WebVerticle`：`WebVerticle.start()` 是依赖装配中心，手动 new 出所有 Repository/Service 并接线（无 DI 框架）。新增 Service 时在此注册。
-- `web/ApiRouter`：构建路由表 + Cookie Session 鉴权中间件 + 统一 failureHandler。Handler 只做参数校验与 JSON 封装，业务逻辑全部下沉到 Service。
-- `service/`：`AuthService`、`LinuxDoOAuthService`、`AccountService`、`MailSyncService`、`MailQueryService`，单一职责。
+- `MainVerticle` → `WebVerticle`：`WebVerticle` 只负责启动 / 停止 HTTP 服务；依赖装配已下沉到 `bootstrap/AppWiring`，新增 Repository / Service / Router 接线时优先改 `bootstrap/`。
+- `bootstrap/`：应用装配层。`AppWiring` 手动 new 出 Repository / Service / Router / StaticHandler，并返回 `AppRuntime`；这里是后端无 DI 框架时的装配中心。
+- `web/ApiRouter`：只负责拼路由表、挂公共中间件与 failureHandler，不再内联具体接口实现。
+- `web/handler/`：按领域拆分 HTTP handler（`AuthApiHandler`、`SessionApiHandler`、`AccountApiHandler`、`MailApiHandler`、`UserApiHandler`）。Handler 只做参数校验、鉴权上下文提取、`executeBlocking` 包装与 JSON / 文件响应封装。
+- `web/support/`：Handler 共享的小型工具（请求体读取、统一 JSON 响应、Cookie 读写、当前用户 / 路径参数提取、用户 JSON 序列化）。
+- `service/`：`AuthService`、`LinuxDoOAuthService`、`AccountService`、`MailSyncService`、`MailQueryService` 为主服务；账号领域又拆出 `AccountConnectionTester`、`AccountImporter`、`AccountDeletionService`，避免 `AccountService` 继续膨胀。
 - `repository/`：DAO 封装 SQLite 读写。
 - `mail/`：IMAP 收取与 MIME 解析。
 - `security/`：`CryptoUtil`（AES-GCM）、`SessionStore`（进程内存 Session）。
+- `storage/`：`AttachmentStorage` 负责附件落盘路径解析、读取与删除，不把文件系统细节散落在 Service 中。
 
 **关键约束（改动时务必遵守）**
-- **事件循环不可阻塞**：所有阻塞操作（JavaMail IMAP、JDBC、磁盘 I/O）必须包在 `vertx.executeBlocking(..., false)` 里。`ApiRouter` 的每个 handler 都遵循这个模式——照抄现有写法。`ordered=false` 允许并行执行。
+- **事件循环不可阻塞**：所有阻塞操作（JavaMail IMAP、JDBC、磁盘 I/O）必须包在 `vertx.executeBlocking(..., false)` 里。现在这个约束主要落实在 `web/handler/*`，新增接口时照抄对应 handler 的现有写法。
 - **SQLite 写串行化**：`Database` 持有单连接 + 一把 `ReentrantLock`。所有写操作必须经 `database.runWrite(() -> ...)` 执行，否则会触发 `SQLITE_BUSY`。读操作不加锁。
 - **授权码绝不外泄**：`mail_account.auth_code_enc` 是 AES-GCM 密文。`accountToJson()` 刻意不含授权码字段；序列化账号时不要加回去。授权码也不得出现在日志中。
 - **用户数据必须隔离**：`app_user` / `user_identity` 是用户与登录身份模型；`mail_account.user_id` 决定账号归属，邮件与附件必须经账号关系限制到当前用户。新增账号、邮件、附件查询或写入时都要显式传入 `currentUserId`，跨用户资源返回 404 或按不存在处理。
@@ -58,7 +62,7 @@ npx vitest run src/pages/LoginPage.test.tsx   # 跑单个测试文件
 
 **依赖注入测试缝**：Service 通过 `ImapClientFactory` 函数式接口接收 IMAP 客户端工厂，生产用 `ImapClient::new`，测试注入假实现或指向 GreenMail——新增涉及外部 IO 的 Service 时沿用此模式。
 
-**前端结构**：无 react-router（虽然 package.json 装了，但 `App.tsx` 用自带状态机 `View` 联合类型在 `loading`/`login`/`accounts`/`profile`/`mailList`/`mailDetail` 间切换）。网络请求走 `api/client.ts` 封装的 `fetch`，所有请求使用 `credentials: 'include'` 依赖 HttpOnly Cookie Session，不在浏览器持久存储里保存登录令牌。新增页面在 `App.tsx` 的 `View` 类型和渲染分支里挂载。登录页默认是 linux.do / 邮箱登录选择页，点击邮箱登录后展开邮箱密码表单。除登录与加载态外，各主视图统一渲染 `components/Header.tsx` 顶栏，右侧 `UserMenu` 提供个人中心、邮件列表入口与退出登录。UI 使用 Tailwind CSS 3.4.19 + `lucide-react` 图标；账号管理支持白色卡片工具栏、桌面表格、移动端卡片、复选框批量选择、批量删除、批量测活、导入/新增弹窗，删除操作有二次确认。`utils/email.ts` 的 `truncateEmail` 用于长邮箱中间省略，必须保留完整邮箱在 `title` 中。收信刷新无论是否有新邮件都会显示 Toast。
+**前端结构**：前端已使用 `react-router-dom`，入口在 `App.tsx`，通过 `BrowserRouter + Routes + ProtectedRoute` 管理 `/login`、`/auth/callback`、`/accounts`、`/accounts/:accountId/messages`、`/accounts/:accountId/messages/:messageId`、`/profile`。网络请求走 `api/client.ts` 封装的 `fetch`，所有请求使用 `credentials: 'include'` 依赖 HttpOnly Cookie Session，不在浏览器持久存储里保存登录令牌。除登录与 OAuth callback 外，各主视图统一渲染 `components/Header.tsx` 顶栏，右侧 `UserMenu` 提供个人中心、邮件列表入口与退出登录。账号页仍由 `pages/AccountsPage.tsx` 承载主流程，但纯逻辑已拆到 `pages/accountsPageModel.ts`，弹窗与行菜单拆到 `pages/accounts/`；新增账号页相关交互时优先沿用这个拆分方式，不要把新职责重新塞回页面文件。UI 使用 Tailwind CSS 3.4.19 + `lucide-react` 图标；账号管理支持白色卡片工具栏、桌面表格、移动端卡片、复选框批量选择、批量删除、批量测活、导入/新增弹窗，删除操作有二次确认。`utils/email.ts` 的 `truncateEmail` 用于长邮箱中间省略，必须保留完整邮箱在 `title` 中。收信刷新无论是否有新邮件都会显示 Toast。
 
 ## 开发策略
 
