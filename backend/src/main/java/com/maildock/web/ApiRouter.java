@@ -88,10 +88,10 @@ public final class ApiRouter {
 
         // Cookie Session 鉴权中间件：保护该前缀下除登录 / OAuth 入口外的所有路由
         router.route(API + "/*").handler(this::authMiddleware);
+        router.post(API + "/auth/logout").handler(this::handleLogout);
 
         // 当前用户与登出（需已登录）
         router.get(API + "/auth/me").handler(this::handleMe);
-        router.post(API + "/auth/logout").handler(this::handleLogout);
 
         registerUserRoutes(router);
         registerAccountRoutes(router);
