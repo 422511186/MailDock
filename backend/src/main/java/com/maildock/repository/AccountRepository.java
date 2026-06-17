@@ -2,7 +2,6 @@ package com.maildock.repository;
 
 import com.maildock.model.Account;
 
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -19,14 +18,9 @@ import java.util.Optional;
 public final class AccountRepository {
 
     private final Database db;
-    private Long compatibilityUserId;
 
     public AccountRepository(Database db) {
         this.db = db;
-    }
-
-    public Account insert(String email, String authCodeEnc) {
-        return insert(compatibilityUserId(), email, authCodeEnc);
     }
 
     /**
@@ -56,18 +50,6 @@ public final class AccountRepository {
         });
     }
 
-    public Optional<Account> findById(long id) {
-        String sql = "SELECT * FROM mail_account WHERE id = ?";
-        try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
-            ps.setLong(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? Optional.of(map(rs)) : Optional.empty();
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("按 id 查询账号失败: " + id, e);
-        }
-    }
-
     /** 按主键查找账号。 */
     public Optional<Account> findById(long userId, long id) {
         String sql = "SELECT * FROM mail_account WHERE user_id = ? AND id = ?";
@@ -82,18 +64,6 @@ public final class AccountRepository {
         }
     }
 
-    public Optional<Account> findByEmail(String email) {
-        String sql = "SELECT * FROM mail_account WHERE email = ? ORDER BY id LIMIT 1";
-        try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
-            ps.setString(1, email);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? Optional.of(map(rs)) : Optional.empty();
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("按邮箱查询账号失败: " + email, e);
-        }
-    }
-
     /** 按邮箱地址查找账号。 */
     public Optional<Account> findByEmail(long userId, String email) {
         String sql = "SELECT * FROM mail_account WHERE user_id = ? AND email = ?";
@@ -105,20 +75,6 @@ public final class AccountRepository {
             }
         } catch (SQLException e) {
             throw new RuntimeException("按邮箱查询账号失败: " + email, e);
-        }
-    }
-
-    public List<Account> listAll() {
-        String sql = "SELECT * FROM mail_account ORDER BY id";
-        List<Account> result = new ArrayList<>();
-        try (PreparedStatement ps = db.connection().prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                result.add(map(rs));
-            }
-            return result;
-        } catch (SQLException e) {
-            throw new RuntimeException("查询账号列表失败", e);
         }
     }
 
@@ -224,59 +180,6 @@ public final class AccountRepository {
         return idx;
     }
 
-    public PagedAccounts query(String email, String status, String sortBy, String sortOrder, int page, int size) {
-        StringBuilder where = new StringBuilder(" WHERE 1=1");
-        List<Object> params = new ArrayList<>();
-        if (email != null && !email.isBlank()) {
-            where.append(" AND LOWER(email) LIKE ?");
-            params.add("%" + email.strip().toLowerCase() + "%");
-        }
-        if ("pending".equals(status)) {
-            where.append(" AND (last_test_at IS NULL OR last_test_at = 0)");
-        } else if ("ok".equals(status)) {
-            where.append(" AND last_test_at > 0 AND last_test_ok = 1");
-        } else if ("fail".equals(status)) {
-            where.append(" AND last_test_at > 0 AND last_test_ok = 0");
-        }
-
-        String orderField = "last_sync_at";
-        if ("lastTestAt".equals(sortBy)) orderField = "last_test_at";
-        else if ("lastSyncAt".equals(sortBy)) orderField = "last_sync_at";
-        String orderDir = "desc".equalsIgnoreCase(sortOrder) ? "DESC" : "ASC";
-        String orderBy = " ORDER BY " + orderField + " " + orderDir;
-
-        long total;
-        String countSql = "SELECT COUNT(*) FROM mail_account" + where;
-        try (PreparedStatement ps = db.connection().prepareStatement(countSql)) {
-            bindParams(ps, params);
-            try (ResultSet rs = ps.executeQuery()) {
-                rs.next();
-                total = rs.getLong(1);
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("统计账号总数失败", e);
-        }
-
-        int safePage = Math.max(1, page);
-        int safeSize = Math.max(1, size);
-        int offset = (safePage - 1) * safeSize;
-        List<Account> items = new ArrayList<>();
-        String pageSql = "SELECT a.*, COALESCE((SELECT COUNT(*) FROM mail_message m WHERE m.account_id = a.id), 0) AS message_count FROM mail_account a" + where + orderBy + " LIMIT ? OFFSET ?";
-        try (PreparedStatement ps = db.connection().prepareStatement(pageSql)) {
-            int idx = bindParams(ps, params);
-            ps.setInt(idx++, safeSize);
-            ps.setInt(idx, offset);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    items.add(map(rs));
-                }
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("分页查询账号失败", e);
-        }
-        return new PagedAccounts(total, items);
-    }
-
     /** 删除账号。 */
     public void delete(long userId, long id) {
         db.runWrite(() -> {
@@ -284,19 +187,6 @@ public final class AccountRepository {
             try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
                 ps.setLong(1, userId);
                 ps.setLong(2, id);
-                ps.executeUpdate();
-                return null;
-            } catch (SQLException e) {
-                throw new RuntimeException("删除账号失败: " + id, e);
-            }
-        });
-    }
-
-    public void delete(long id) {
-        db.runWrite(() -> {
-            String sql = "DELETE FROM mail_account WHERE id = ?";
-            try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
-                ps.setLong(1, id);
                 ps.executeUpdate();
                 return null;
             } catch (SQLException e) {
@@ -313,20 +203,6 @@ public final class AccountRepository {
                 ps.setString(1, authCodeEnc);
                 ps.setLong(2, userId);
                 ps.setLong(3, id);
-                ps.executeUpdate();
-                return null;
-            } catch (SQLException e) {
-                throw new RuntimeException("更新授权码失败: " + id, e);
-            }
-        });
-    }
-
-    public void updateAuthCode(long id, String authCodeEnc) {
-        db.runWrite(() -> {
-            String sql = "UPDATE mail_account SET auth_code_enc = ? WHERE id = ?";
-            try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
-                ps.setString(1, authCodeEnc);
-                ps.setLong(2, id);
                 ps.executeUpdate();
                 return null;
             } catch (SQLException e) {
@@ -353,22 +229,6 @@ public final class AccountRepository {
         });
     }
 
-    public void updateSyncState(long id, long lastUid, long uidValidity, long lastSyncAt) {
-        db.runWrite(() -> {
-            String sql = "UPDATE mail_account SET last_uid = ?, uid_validity = ?, last_sync_at = ? WHERE id = ?";
-            try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
-                ps.setLong(1, lastUid);
-                ps.setLong(2, uidValidity);
-                ps.setLong(3, lastSyncAt);
-                ps.setLong(4, id);
-                ps.executeUpdate();
-                return null;
-            } catch (SQLException e) {
-                throw new RuntimeException("更新同步状态失败: " + id, e);
-            }
-        });
-    }
-
     /** 更新测活状态：last_test_at / last_test_ok / last_test_msg。 */
     public void updateTestStatus(long userId, long id, long lastTestAt, boolean ok, String msg) {
         db.runWrite(() -> {
@@ -383,61 +243,6 @@ public final class AccountRepository {
                 return null;
             } catch (SQLException e) {
                 throw new RuntimeException("更新测活状态失败: " + id, e);
-            }
-        });
-    }
-
-    public void updateTestStatus(long id, long lastTestAt, boolean ok, String msg) {
-        db.runWrite(() -> {
-            String sql = "UPDATE mail_account SET last_test_at = ?, last_test_ok = ?, last_test_msg = ? WHERE id = ?";
-            try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
-                ps.setLong(1, lastTestAt);
-                ps.setInt(2, ok ? 1 : 0);
-                ps.setString(3, msg);
-                ps.setLong(4, id);
-                ps.executeUpdate();
-                return null;
-            } catch (SQLException e) {
-                throw new RuntimeException("更新测活状态失败: " + id, e);
-            }
-        });
-    }
-
-    private long compatibilityUserId() {
-        if (compatibilityUserId != null) {
-            return compatibilityUserId;
-        }
-        return db.runWrite(() -> {
-            String select = "SELECT id FROM app_user ORDER BY id LIMIT 1";
-            try (PreparedStatement ps = db.connection().prepareStatement(select);
-                 ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    compatibilityUserId = rs.getLong(1);
-                    return compatibilityUserId;
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException("查询兼容用户失败", e);
-            }
-
-            long now = System.currentTimeMillis();
-            String insert = """
-                    INSERT INTO app_user
-                        (primary_email, display_name, avatar_url, created_at, updated_at, last_login_at)
-                    VALUES (?, ?, NULL, ?, ?, 0)
-                    """;
-            try (PreparedStatement ps = db.connection().prepareStatement(insert, Statement.RETURN_GENERATED_KEYS)) {
-                ps.setString(1, "compat@example.com");
-                ps.setString(2, "Compatibility User");
-                ps.setLong(3, now);
-                ps.setLong(4, now);
-                ps.executeUpdate();
-                try (ResultSet keys = ps.getGeneratedKeys()) {
-                    keys.next();
-                    compatibilityUserId = keys.getLong(1);
-                    return compatibilityUserId;
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException("创建兼容用户失败", e);
             }
         });
     }

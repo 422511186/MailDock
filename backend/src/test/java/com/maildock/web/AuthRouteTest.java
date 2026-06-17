@@ -205,9 +205,8 @@ class AuthRouteTest {
     }
 
     @Test
-    void linuxdoCallbackRedirectsToConfiguredFrontendUrl(VertxTestContext ctx) throws Exception {
-        // OAuth 回调成功后应重定向到配置的前端地址，而非写死的 "/"，
-        // 便于前后端分离开发时跳回前端开发服务器
+    void linuxdoCallbackRedirectsToFrontendCallbackRoute(VertxTestContext ctx) throws Exception {
+        // OAuth 回调成功后应回到前端 /auth/callback，由 React Router 展示登录中页面并恢复会话
         UserRepository userRepo = new UserRepository(db);
         IdentityRepository identityRepo = new IdentityRepository(db);
         SessionStore sessionStore = new SessionStore();
@@ -227,7 +226,7 @@ class AuthRouteTest {
                 .send()
                 .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
                     assertEquals(302, resp.statusCode());
-                    assertEquals("http://localhost:5173/", resp.getHeader("Location"));
+                    assertEquals("/auth/callback", resp.getHeader("Location"));
                     oauthServer.close();
                     ctx.completeNow();
                 })));

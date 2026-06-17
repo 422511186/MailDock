@@ -2,16 +2,13 @@ package com.maildock.service;
 
 import com.maildock.mail.ImapClient;
 import com.maildock.model.Account;
-import com.maildock.model.Attachment;
-import com.maildock.model.Message;
 import com.maildock.repository.AccountRepository;
 import com.maildock.repository.AttachmentRepository;
 import com.maildock.repository.MessageRepository;
 import com.maildock.security.CryptoUtil;
+import com.maildock.storage.AttachmentStorage;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,11 +40,10 @@ public final class AccountService {
     }
 
     private final AccountRepository accountRepo;
-    private final MessageRepository messageRepo;
-    private final AttachmentRepository attachmentRepo;
     private final CryptoUtil crypto;
-    private final ImapClientFactory clientFactory;
-    private final Path attachmentsDir;
+    private final AccountConnectionTester connectionTester;
+    private final AccountImporter accountImporter;
+    private final AccountDeletionService deletionService;
 
     public AccountService(AccountRepository accountRepo,
                           MessageRepository messageRepo,
@@ -55,12 +51,20 @@ public final class AccountService {
                           CryptoUtil crypto,
                           ImapClientFactory clientFactory,
                           Path attachmentsDir) {
+        this(accountRepo, messageRepo, attachmentRepo, crypto, clientFactory, new AttachmentStorage(attachmentRepo, attachmentsDir));
+    }
+
+    public AccountService(AccountRepository accountRepo,
+                          MessageRepository messageRepo,
+                          AttachmentRepository attachmentRepo,
+                          CryptoUtil crypto,
+                          ImapClientFactory clientFactory,
+                          AttachmentStorage attachmentStorage) {
         this.accountRepo = accountRepo;
-        this.messageRepo = messageRepo;
-        this.attachmentRepo = attachmentRepo;
         this.crypto = crypto;
-        this.clientFactory = clientFactory;
-        this.attachmentsDir = attachmentsDir;
+        this.connectionTester = new AccountConnectionTester(accountRepo, crypto, clientFactory);
+        this.accountImporter = new AccountImporter(accountRepo, crypto, connectionTester);
+        this.deletionService = new AccountDeletionService(accountRepo, messageRepo, attachmentRepo, attachmentStorage);
     }
 
     /**
@@ -76,11 +80,6 @@ public final class AccountService {
         return accountRepo.insert(userId, email, enc);
     }
 
-    public Account createAccount(String email, String authCode) {
-        String enc = crypto.encrypt(authCode);
-        return accountRepo.insert(email, enc);
-    }
-
     /** 解密账号中存储的授权码，返回明文。 */
     public String decryptAuthCode(Account account) {
         return crypto.decrypt(account.authCodeEnc());
@@ -89,10 +88,6 @@ public final class AccountService {
     /** 列出全部账号。 */
     public List<Account> listAccounts(long userId) {
         return accountRepo.listAll(userId);
-    }
-
-    public List<Account> listAccounts() {
-        return accountRepo.listAll();
     }
 
     /**
@@ -109,17 +104,9 @@ public final class AccountService {
         return accountRepo.query(userId, email, status, sortBy, sortOrder, page, size);
     }
 
-    public AccountRepository.PagedAccounts queryAccounts(String email, String status, String sortBy, String sortOrder, int page, int size) {
-        return accountRepo.query(email, status, sortBy, sortOrder, page, size);
-    }
-
     /** 按 id 查找账号。 */
     public Optional<Account> findById(long userId, long id) {
         return accountRepo.findById(userId, id);
-    }
-
-    public Optional<Account> findById(long id) {
-        return accountRepo.findById(id);
     }
 
     /**
@@ -128,36 +115,7 @@ public final class AccountService {
      * @return 是否连通成功
      */
     public boolean testConnection(long userId, long accountId) {
-        Account account = accountRepo.findById(userId, accountId)
-                .orElseThrow(() -> new RuntimeException("账号不存在: " + accountId));
-        return testConnection(userId, account);
-    }
-
-    public boolean testConnection(long accountId) {
-        Account account = accountRepo.findById(accountId)
-                .orElseThrow(() -> new RuntimeException("账号不存在: " + accountId));
-        return testConnection(account.userId(), account);
-    }
-
-    private boolean testConnection(long userId, Account account) {
-        long start = System.currentTimeMillis();
-        boolean ok;
-        String msg;
-        try {
-            ImapClient client = newClient(account);
-            client.testConnection();
-            ok = true;
-            msg = "连接成功";
-        } catch (Exception e) {
-            ok = false;
-            msg = rootMessage(e);
-        }
-        if (userId > 0) {
-            accountRepo.updateTestStatus(userId, account.id(), System.currentTimeMillis(), ok, msg);
-        } else {
-            accountRepo.updateTestStatus(account.id(), System.currentTimeMillis(), ok, msg);
-        }
-        return ok;
+        return connectionTester.testConnection(userId, accountId);
     }
 
     /**
@@ -167,88 +125,14 @@ public final class AccountService {
      * @return 每个账号的测活结果
      */
     public List<TestResult> testBatch(long userId, List<Long> ids) {
-        List<Account> targets;
-        if (ids == null) {
-            targets = accountRepo.listAll(userId);
-        } else {
-            targets = new ArrayList<>();
-            for (Long id : ids) {
-                accountRepo.findById(userId, id).ifPresent(targets::add);
-            }
-        }
-        return testAccounts(userId, targets);
-    }
-
-    public List<TestResult> testBatch(List<Long> ids) {
-        List<Account> targets;
-        if (ids == null) {
-            targets = accountRepo.listAll();
-        } else {
-            targets = new ArrayList<>();
-            for (Long id : ids) {
-                accountRepo.findById(id).ifPresent(targets::add);
-            }
-        }
-        return testAccounts(0L, targets);
-    }
-
-    private List<TestResult> testAccounts(long userId, List<Account> targets) {
-        List<TestResult> results = new ArrayList<>();
-        for (Account account : targets) {
-            long start = System.currentTimeMillis();
-            boolean ok;
-            String msg;
-            try {
-                newClient(account).testConnection();
-                ok = true;
-                msg = "连接成功";
-            } catch (Exception e) {
-                ok = false;
-                msg = rootMessage(e);
-            }
-            long latency = System.currentTimeMillis() - start;
-            if (userId > 0) {
-                accountRepo.updateTestStatus(userId, account.id(), System.currentTimeMillis(), ok, msg);
-            } else {
-                accountRepo.updateTestStatus(account.id(), System.currentTimeMillis(), ok, msg);
-            }
-            results.add(new TestResult(account.id(), account.email(), ok, msg, latency));
-        }
-        return results;
+        return connectionTester.testBatch(userId, ids);
     }
 
     /**
      * 删除账号，并级联清理其邮件、附件记录及落盘附件文件。
      */
     public void deleteAccount(long userId, long accountId) {
-        accountRepo.findById(userId, accountId)
-                .orElseThrow(() -> new RuntimeException("账号不存在: " + accountId));
-        deleteAccountData(accountId);
-        accountRepo.delete(userId, accountId);
-        deleteDirQuietly(attachmentsDir.resolve(String.valueOf(userId)).resolve(String.valueOf(accountId)));
-    }
-
-    public void deleteAccount(long accountId) {
-        Account account = accountRepo.findById(accountId)
-                .orElseThrow(() -> new RuntimeException("账号不存在: " + accountId));
-        deleteAccountData(accountId);
-        accountRepo.delete(accountId);
-        deleteDirQuietly(attachmentsDir.resolve(String.valueOf(accountId)));
-        if (account.userId() > 0) {
-            deleteDirQuietly(attachmentsDir.resolve(String.valueOf(account.userId())).resolve(String.valueOf(accountId)));
-        }
-    }
-
-    private void deleteAccountData(long accountId) {
-        // 先清理该账号下所有邮件的附件（记录 + 文件），再删邮件，最后删账号
-        List<Message> messages = messageRepo.listAllByAccount(accountId);
-        for (Message m : messages) {
-            for (Attachment att : attachmentRepo.findByMessage(m.id())) {
-                deleteFileQuietly(att.filePath());
-            }
-            attachmentRepo.deleteByMessage(m.id());
-        }
-        messageRepo.deleteByAccount(accountId);
+        deletionService.deleteAccount(userId, accountId);
     }
 
     /**
@@ -259,31 +143,7 @@ public final class AccountService {
      * @return 实际删除的账号数量
      */
     public int deleteBatch(long userId, List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return 0;
-        }
-        int deleted = 0;
-        for (Long id : ids) {
-            if (accountRepo.findById(userId, id).isPresent()) {
-                deleteAccount(userId, id);
-                deleted++;
-            }
-        }
-        return deleted;
-    }
-
-    public int deleteBatch(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return 0;
-        }
-        int deleted = 0;
-        for (Long id : ids) {
-            if (accountRepo.findById(id).isPresent()) {
-                deleteAccount(id);
-                deleted++;
-            }
-        }
-        return deleted;
+        return deletionService.deleteBatch(userId, ids);
     }
 
     /**
@@ -295,164 +155,6 @@ public final class AccountService {
      * @param overwrite 已存在邮箱是否覆盖授权码（false 则跳过）
      */
     public ImportResult importFromText(long userId, String text, boolean test, boolean overwrite) {
-        List<ImportItem> items = new ArrayList<>();
-        int total = 0, success = 0, failed = 0, skipped = 0;
-
-        for (String rawLine : text.split("\n")) {
-            String line = rawLine.strip();
-            if (line.isEmpty() || line.startsWith("#")) {
-                continue;
-            }
-            total++;
-
-            String[] parts = line.split("\\s+", 2);
-            if (parts.length < 2 || parts[0].isBlank() || parts[1].isBlank()) {
-                failed++;
-                items.add(new ImportItem(parts.length > 0 ? parts[0] : line, "failed", "格式错误：应为 账号 授权码"));
-                continue;
-            }
-
-            String email = parts[0].strip();
-            String authCode = parts[1].strip();
-
-            try {
-                Optional<Account> existing = accountRepo.findByEmail(userId, email);
-                if (existing.isPresent()) {
-                    if (!overwrite) {
-                        skipped++;
-                        items.add(new ImportItem(email, "skipped", "邮箱已存在，已跳过"));
-                        continue;
-                    }
-                    // 覆盖授权码
-                    accountRepo.updateAuthCode(userId, existing.get().id(), crypto.encrypt(authCode));
-                    if (test) {
-                        testConnection(userId, existing.get().id());
-                    }
-                    success++;
-                    items.add(new ImportItem(email, "success", "已覆盖授权码"));
-                } else {
-                    Account created = accountRepo.insert(userId, email, crypto.encrypt(authCode));
-                    if (test) {
-                        testConnection(userId, created.id());
-                    }
-                    success++;
-                    items.add(new ImportItem(email, "success", "导入成功"));
-                }
-            } catch (Exception e) {
-                failed++;
-                items.add(new ImportItem(email, "failed", rootMessage(e)));
-            }
-        }
-
-        return new ImportResult(total, success, failed, skipped, items);
-    }
-
-    public ImportResult importFromText(String text, boolean test, boolean overwrite) {
-        List<ImportItem> items = new ArrayList<>();
-        int total = 0, success = 0, failed = 0, skipped = 0;
-
-        for (String rawLine : text.split("\n")) {
-            String line = rawLine.strip();
-            if (line.isEmpty() || line.startsWith("#")) {
-                continue;
-            }
-            total++;
-
-            String[] parts = line.split("\\s+", 2);
-            if (parts.length < 2 || parts[0].isBlank() || parts[1].isBlank()) {
-                failed++;
-                items.add(new ImportItem(parts.length > 0 ? parts[0] : line, "failed", "格式错误：应为 账号 授权码"));
-                continue;
-            }
-
-            String email = parts[0].strip();
-            String authCode = parts[1].strip();
-
-            try {
-                Optional<Account> existing = accountRepo.findByEmail(email);
-                if (existing.isPresent()) {
-                    if (!overwrite) {
-                        skipped++;
-                        items.add(new ImportItem(email, "skipped", "邮箱已存在，已跳过"));
-                        continue;
-                    }
-                    accountRepo.updateAuthCode(existing.get().id(), crypto.encrypt(authCode));
-                    if (test) {
-                        testConnection(existing.get().id());
-                    }
-                    success++;
-                    items.add(new ImportItem(email, "success", "已覆盖授权码"));
-                } else {
-                    Account created = accountRepo.insert(email, crypto.encrypt(authCode));
-                    if (test) {
-                        testConnection(created.id());
-                    }
-                    success++;
-                    items.add(new ImportItem(email, "success", "导入成功"));
-                }
-            } catch (Exception e) {
-                failed++;
-                items.add(new ImportItem(email, "failed", rootMessage(e)));
-            }
-        }
-
-        return new ImportResult(total, success, failed, skipped, items);
-    }
-
-    /** 用账号信息（解密授权码）构造 IMAP 客户端。 */
-    private ImapClient newClient(Account account) {
-        String authCode = crypto.decrypt(account.authCodeEnc());
-        boolean useSsl = account.imapPort() == 993;
-        return clientFactory.create(account.imapHost(), account.imapPort(), useSsl, account.email(), authCode);
-    }
-
-    /** 取异常链最底层的可读信息。 */
-    private String rootMessage(Throwable e) {
-        Throwable cur = e;
-        while (cur.getCause() != null && cur.getCause() != cur) {
-            cur = cur.getCause();
-        }
-        String msg = cur.getMessage();
-        return msg != null ? msg : cur.getClass().getSimpleName();
-    }
-
-    /** 删除单个附件文件，忽略异常。 */
-    private void deleteFileQuietly(String filePath) {
-        try {
-            Files.deleteIfExists(attachmentsDir.getParent() == null
-                    ? Path.of(filePath)
-                    : resolveAttachmentPath(filePath));
-        } catch (Exception ignored) {
-        }
-    }
-
-    /** 把库中存的相对路径解析为绝对路径（相对附件根目录的上一级，即包含 attachments 段）。 */
-    private Path resolveAttachmentPath(String storedPath) {
-        // 库里存的是形如 attachments/{accountId}/{messageId}/{filename} 的相对路径
-        Path p = Path.of(storedPath);
-        if (p.isAbsolute()) {
-            return p;
-        }
-        // attachmentsDir 指向 attachments 目录，去掉首段 attachments 再拼接
-        Path base = attachmentsDir;
-        return base.getParent() != null ? base.getParent().resolve(storedPath) : base.resolve(storedPath);
-    }
-
-    /** 递归删除目录，忽略异常。 */
-    private void deleteDirQuietly(Path dir) {
-        try {
-            if (!Files.exists(dir)) {
-                return;
-            }
-            Files.walk(dir)
-                    .sorted((a, b) -> b.getNameCount() - a.getNameCount())
-                    .forEach(p -> {
-                        try {
-                            Files.deleteIfExists(p);
-                        } catch (Exception ignored) {
-                        }
-                    });
-        } catch (Exception ignored) {
-        }
+        return accountImporter.importFromText(userId, text, test, overwrite);
     }
 }

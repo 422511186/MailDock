@@ -9,8 +9,8 @@ import com.maildock.mail.ParsedAttachment;
 import com.maildock.mail.ParsedMail;
 import com.maildock.model.Account;
 import com.maildock.model.Message;
+import com.maildock.storage.AttachmentStorage;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
@@ -39,7 +39,7 @@ public final class MailSyncService {
     private final com.maildock.repository.AttachmentRepository attachmentRepo;
     private final com.maildock.security.CryptoUtil crypto;
     private final ImapClientFactory clientFactory;
-    private final Path attachmentsDir;
+    private final AttachmentStorage attachmentStorage;
 
     public MailSyncService(com.maildock.repository.AccountRepository accountRepo,
                            com.maildock.repository.MessageRepository messageRepo,
@@ -47,24 +47,21 @@ public final class MailSyncService {
                            com.maildock.security.CryptoUtil crypto,
                            ImapClientFactory clientFactory,
                            Path attachmentsDir) {
+        this(accountRepo, messageRepo, attachmentRepo, crypto, clientFactory, new AttachmentStorage(attachmentRepo, attachmentsDir));
+    }
+
+    public MailSyncService(com.maildock.repository.AccountRepository accountRepo,
+                           com.maildock.repository.MessageRepository messageRepo,
+                           com.maildock.repository.AttachmentRepository attachmentRepo,
+                           com.maildock.security.CryptoUtil crypto,
+                           ImapClientFactory clientFactory,
+                           AttachmentStorage attachmentStorage) {
         this.accountRepo = accountRepo;
         this.messageRepo = messageRepo;
         this.attachmentRepo = attachmentRepo;
         this.crypto = crypto;
         this.clientFactory = clientFactory;
-        this.attachmentsDir = attachmentsDir;
-    }
-
-    /**
-     * 增量刷新某账号的 INBOX，拉取并存储新邮件。
-     *
-     * @param accountId 账号 id
-     * @return 本次新入库的邮件数量
-     */
-    public int refresh(long accountId) {
-        Account account = accountRepo.findById(accountId)
-                .orElseThrow(() -> new RuntimeException("账号不存在: " + accountId));
-        return refresh(account.userId(), account);
+        this.attachmentStorage = attachmentStorage;
     }
 
     public int refresh(long userId, long accountId) {
@@ -108,11 +105,7 @@ public final class MailSyncService {
         }
 
         // 更新增量游标与同步时间
-        if (userId > 0) {
-            accountRepo.updateSyncState(userId, accountId, maxUid, result.uidValidity(), System.currentTimeMillis());
-        } else {
-            accountRepo.updateSyncState(accountId, maxUid, result.uidValidity(), System.currentTimeMillis());
-        }
+        accountRepo.updateSyncState(userId, accountId, maxUid, result.uidValidity(), System.currentTimeMillis());
         return newCount;
     }
 
@@ -130,29 +123,8 @@ public final class MailSyncService {
                 hasAttach, false, parsed.bodyText() != null ? parsed.bodyText().length() : 0L, 0L);
         Message saved = messageRepo.insert(toInsert);
 
-        // 落盘附件并记录
         for (ParsedAttachment att : parsed.attachments()) {
-            storeAttachment(userId, accountId, saved.id(), att);
+            attachmentStorage.store(userId, accountId, saved.id(), att);
         }
-    }
-
-    /** 将单个附件落盘到 attachments/{userId}/{accountId}/{messageId}/，并写入元数据。 */
-    private void storeAttachment(long userId, long accountId, long messageId, ParsedAttachment att) throws Exception {
-        String safeName = FilenameSanitizer.sanitize(att.filename());
-
-        // 落盘目录：{attachmentsDir}/{userId}/{accountId}/{messageId}/
-        Path dir = attachmentsDir.resolve(String.valueOf(userId))
-                .resolve(String.valueOf(accountId))
-                .resolve(String.valueOf(messageId));
-        Files.createDirectories(dir);
-        Path target = dir.resolve(safeName);
-        Files.write(target, att.content());
-
-        // 库中存相对路径：attachments/{userId}/{accountId}/{messageId}/{safeName}
-        String relativePath = attachmentsDir.getFileName()
-                + "/" + userId + "/" + accountId + "/" + messageId + "/" + safeName;
-
-        attachmentRepo.insert(messageId, safeName, att.contentType(),
-                (long) att.content().length, relativePath);
     }
 }
