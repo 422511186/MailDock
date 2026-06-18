@@ -2,6 +2,7 @@ package com.maildock.service;
 
 import com.maildock.model.Attachment;
 import com.maildock.model.Message;
+import com.maildock.model.MessageFilter;
 import com.maildock.repository.AttachmentRepository;
 import com.maildock.repository.MessageRepository;
 import com.maildock.storage.AttachmentStorage;
@@ -49,6 +50,16 @@ public final class MailQueryService {
     public PagedMessages list(long userId, long accountId, int page, int size) {
         List<Message> items = messageRepo.listByAccountForUser(userId, accountId, page, size);
         long total = messageRepo.countByAccountForUser(userId, accountId);
+        return new PagedMessages(items, total);
+    }
+
+    /**
+     * 跨账号聚合搜索当前用户的邮件，按过滤条件分页返回当前页与总数。
+     * 用户隔离与过滤逻辑由 {@link MessageRepository} 强制，本方法仅作薄封装。
+     */
+    public PagedMessages search(long userId, MessageFilter filter, int page, int size) {
+        List<Message> items = messageRepo.searchForUser(userId, filter, page, size);
+        long total = messageRepo.countSearchForUser(userId, filter);
         return new PagedMessages(items, total);
     }
 

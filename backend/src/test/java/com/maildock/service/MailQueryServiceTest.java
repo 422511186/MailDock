@@ -3,6 +3,7 @@ package com.maildock.service;
 import com.maildock.model.Account;
 import com.maildock.model.Attachment;
 import com.maildock.model.Message;
+import com.maildock.model.MessageFilter;
 import com.maildock.model.User;
 import com.maildock.repository.AccountRepository;
 import com.maildock.repository.AttachmentRepository;
@@ -179,5 +180,54 @@ class MailQueryServiceTest {
                 "attachments/" + userB.id() + "/" + otherAccountId + "/" + otherMessage.id() + "/a.pdf");
 
         assertThrows(RuntimeException.class, () -> service.loadAttachment(userA.id(), otherMessage.id(), att.id()));
+    }
+
+    @Test
+    void searchWithoutFilterReturnsAllUsersMessagesAcrossAccounts() {
+        // 无过滤条件：返回该用户全部账号的邮件，total 与 items 一致
+        long secondAccountId = accountRepo.insert(userA.id(), "owner2@163.com", "enc").id();
+        insertMessage(1, "项目周报", 1700000001000L);
+        insertMessage(2, "会议纪要", 1700000002000L);
+        insertMessageFor(secondAccountId, 3, "发票通知", 1700000003000L);
+        // 另一个用户的邮件不应出现
+        insertMessageFor(otherAccountId, 99, "别人的邮件", 1700000004000L);
+
+        MessageFilter filter = new MessageFilter(null, null, null, null, null, null, null, null);
+        MailQueryService.PagedMessages page = service.search(userA.id(), filter, 1, 20);
+
+        assertEquals(3, page.total());
+        assertEquals(3, page.items().size());
+        assertTrue(page.items().stream().noneMatch(m -> m.subject().equals("别人的邮件")));
+    }
+
+    @Test
+    void searchByKeywordReturnsNarrowedSubset() {
+        // 关键字过滤（长度 >= 3 走全文检索）：仅返回命中的子集
+        insertMessage(1, "项目周报最终版", 1700000001000L);
+        insertMessage(2, "会议纪要", 1700000002000L);
+        insertMessageFor(otherAccountId, 99, "项目周报别人的", 1700000003000L);
+
+        MessageFilter filter = new MessageFilter("项目周报", null, null, null, null, null, null, null);
+        MailQueryService.PagedMessages page = service.search(userA.id(), filter, 1, 20);
+
+        assertEquals(1, page.total());
+        assertEquals(1, page.items().size());
+        assertEquals("项目周报最终版", page.items().get(0).subject());
+    }
+
+    @Test
+    void searchByAccountIdReturnsOnlyThatAccount() {
+        // 账号过滤：只返回指定账号的邮件，total 与 items 一致
+        long secondAccountId = accountRepo.insert(userA.id(), "owner2@163.com", "enc").id();
+        insertMessage(1, "账号一", 1700000001000L);
+        insertMessageFor(secondAccountId, 2, "账号二甲", 1700000002000L);
+        insertMessageFor(secondAccountId, 3, "账号二乙", 1700000003000L);
+
+        MessageFilter filter = new MessageFilter(null, secondAccountId, null, null, null, null, null, null);
+        MailQueryService.PagedMessages page = service.search(userA.id(), filter, 1, 20);
+
+        assertEquals(2, page.total());
+        assertEquals(2, page.items().size());
+        assertTrue(page.items().stream().allMatch(m -> m.accountId() == secondAccountId));
     }
 }
