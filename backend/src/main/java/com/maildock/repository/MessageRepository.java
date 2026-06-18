@@ -1,6 +1,7 @@
 package com.maildock.repository;
 
 import com.maildock.model.Message;
+import com.maildock.model.MessageFilter;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -262,6 +263,123 @@ public final class MessageRepository {
                 throw new RuntimeException("按用户标记已读失败: " + messageId, e);
             }
         });
+    }
+
+    /**
+     * 跨账号搜索当前用户的邮件，支持关键字 / 账号 / 已读 / 附件 / 时间范围过滤与排序分页。
+     *
+     * <p>关键字长度 >= 3 走 FTS5 全文索引（含正文），< 3 回退主题 / 发件人 LIKE。
+     * 用户隔离强制 {@code a.user_id = ?}，跨用户邮件不会出现。
+     */
+    public List<Message> searchForUser(long userId, MessageFilter f, int page, int size) {
+        List<Object> params = new ArrayList<>();
+        String join = ftsJoin(f);
+        String where = buildWhere(userId, f, params);
+        String orderBy = orderBy(f);
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, size);
+        String sql = "SELECT m.* FROM mail_message m JOIN mail_account a ON a.id = m.account_id"
+                + join + where + orderBy + " LIMIT ? OFFSET ?";
+        params.add(safeSize);
+        params.add((long) (safePage - 1) * safeSize);
+        List<Message> result = new ArrayList<>();
+        try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+            bindParams(ps, params);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    result.add(map(rs));
+                }
+            }
+            return result;
+        } catch (SQLException e) {
+            throw new RuntimeException("跨账号搜索邮件失败: user=" + userId, e);
+        }
+    }
+
+    /** 统计当前用户满足过滤条件的邮件总数，用于分页。 */
+    public long countSearchForUser(long userId, MessageFilter f) {
+        List<Object> params = new ArrayList<>();
+        String join = ftsJoin(f);
+        String where = buildWhere(userId, f, params);
+        String sql = "SELECT COUNT(*) FROM mail_message m JOIN mail_account a ON a.id = m.account_id"
+                + join + where;
+        try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+            bindParams(ps, params);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getLong(1);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("统计搜索邮件总数失败: user=" + userId, e);
+        }
+    }
+
+    /** 关键字非空白且去空格后长度 >= 3 时走 FTS5 全文索引。 */
+    private boolean usesFts(MessageFilter f) {
+        return f.keyword() != null && !f.keyword().isBlank() && f.keyword().strip().length() >= 3;
+    }
+
+    /** 仅在使用 FTS 时拼接 FTS 表 JOIN。 */
+    private String ftsJoin(MessageFilter f) {
+        return usesFts(f) ? " JOIN mail_message_fts fts ON fts.rowid = m.id" : "";
+    }
+
+    /** 把关键字包成 FTS5 短语并转义内部双引号，防止 FTS5 语法注入。 */
+    private String ftsPhrase(String keyword) {
+        return "\"" + keyword.strip().replace("\"", "\"\"") + "\"";
+    }
+
+    /** 构造 WHERE 子句并按顺序填充动态参数，强制用户隔离。 */
+    private String buildWhere(long userId, MessageFilter f, List<Object> params) {
+        StringBuilder where = new StringBuilder(" WHERE a.user_id = ?");
+        params.add(userId);
+        if (f.keyword() != null && !f.keyword().isBlank()) {
+            if (usesFts(f)) {
+                where.append(" AND fts.mail_message_fts MATCH ?");
+                params.add(ftsPhrase(f.keyword()));
+            } else {
+                where.append(" AND (m.subject LIKE ? OR m.from_addr LIKE ?)");
+                String like = "%" + f.keyword().strip() + "%";
+                params.add(like);
+                params.add(like);
+            }
+        }
+        if (f.accountId() != null) {
+            where.append(" AND m.account_id = ?");
+            params.add(f.accountId());
+        }
+        if (f.isRead() != null) {
+            where.append(" AND m.is_read = ?");
+            params.add(f.isRead() ? 1 : 0);
+        }
+        if (f.hasAttach() != null) {
+            where.append(" AND m.has_attach = ?");
+            params.add(f.hasAttach() ? 1 : 0);
+        }
+        if (f.startDate() != null) {
+            where.append(" AND m.received_at >= ?");
+            params.add(f.startDate());
+        }
+        if (f.endDate() != null) {
+            where.append(" AND m.received_at <= ?");
+            params.add(f.endDate());
+        }
+        return where.toString();
+    }
+
+    /** 排序字段 / 方向白名单校验，默认 received_at DESC。 */
+    private String orderBy(MessageFilter f) {
+        String field = "sent_at".equals(f.sortBy()) ? "sent_at" : "received_at";
+        String dir = "asc".equalsIgnoreCase(f.sortOrder()) ? "ASC" : "DESC";
+        return " ORDER BY m." + field + " " + dir;
+    }
+
+    /** 依次绑定动态参数（mirror AccountRepository）。 */
+    private void bindParams(PreparedStatement ps, List<Object> params) throws SQLException {
+        int idx = 1;
+        for (Object p : params) {
+            ps.setObject(idx++, p);
+        }
     }
 
     /** 把结果集当前行映射为 Message。 */

@@ -2,6 +2,7 @@ package com.maildock.repository;
 
 import com.maildock.model.Account;
 import com.maildock.model.Message;
+import com.maildock.model.MessageFilter;
 import com.maildock.model.User;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -170,5 +171,154 @@ class MessageRepositoryTest {
 
         assertThrows(RuntimeException.class, () -> repo.markReadForUser(userA.id(), other.id(), true));
         assertFalse(repo.findById(other.id()).orElseThrow().isRead());
+    }
+
+    /** 构造一封可定制 body/has_attach/is_read/received_at 的邮件，用于搜索测试。 */
+    private Message rich(long accountId, long uid, String subject, String fromAddr,
+                         String bodyText, boolean hasAttach, boolean isRead, long receivedAt) {
+        return new Message(
+                0, accountId, uid, "<mid-" + uid + "@163.com>", subject,
+                fromAddr, "owner@163.com", null,
+                1700000000000L, receivedAt,
+                bodyText, "<p>" + bodyText + "</p>",
+                hasAttach, isRead, 123L, 0L);
+    }
+
+    private static final MessageFilter NO_FILTER =
+            new MessageFilter(null, null, null, null, null, null, null, null);
+
+    @Test
+    void searchForUserNoFilterReturnsOnlyOwnMessages() {
+        repo.insert(sampleForAccount(accountId, 1, "own one"));
+        repo.insert(sampleForAccount(accountId, 2, "own two"));
+        repo.insert(sampleForAccount(otherAccountId, 3, "b one"));
+
+        List<Message> results = repo.searchForUser(userA.id(), NO_FILTER, 1, 20);
+        assertEquals(2, results.size());
+        assertTrue(results.stream().allMatch(m -> m.accountId() == accountId));
+        assertEquals(2, repo.countSearchForUser(userA.id(), NO_FILTER));
+    }
+
+    @Test
+    void searchForUserFullTextMatchesBody() {
+        repo.insert(rich(accountId, 1, "subject one", "alice@163.com",
+                "本季度报表数据汇总", false, false, 1000L));
+        repo.insert(rich(accountId, 2, "subject two", "bob@163.com",
+                "无关内容", false, false, 2000L));
+
+        MessageFilter f = new MessageFilter("季度报表", null, null, null, null, null, null, null);
+        List<Message> results = repo.searchForUser(userA.id(), f, 1, 20);
+        assertEquals(1, results.size());
+        assertEquals(1, results.get(0).uid());
+        assertEquals(1, repo.countSearchForUser(userA.id(), f));
+    }
+
+    @Test
+    void searchForUserShortKeywordFallsBackToSubjectFromLike() {
+        // body 含 "hi"，但主题/发件人不含 → 短关键字（<3）不应命中正文
+        repo.insert(rich(accountId, 1, "greeting", "x@163.com", "say hi there", false, false, 1000L));
+        // 主题含 "hi" → 应命中
+        repo.insert(rich(accountId, 2, "ship it", "y@163.com", "unrelated", false, false, 2000L));
+
+        MessageFilter f = new MessageFilter("hi", null, null, null, null, null, null, null);
+        List<Message> results = repo.searchForUser(userA.id(), f, 1, 20);
+        assertEquals(1, results.size());
+        assertEquals(2, results.get(0).uid());
+    }
+
+    @Test
+    void searchForUserAccountIdFilter() {
+        long secondAccount = accountRepo.insert(userA.id(), "second@163.com", "enc").id();
+        repo.insert(sampleForAccount(accountId, 1, "first acct"));
+        repo.insert(sampleForAccount(secondAccount, 2, "second acct"));
+
+        MessageFilter f = new MessageFilter(null, secondAccount, null, null, null, null, null, null);
+        List<Message> results = repo.searchForUser(userA.id(), f, 1, 20);
+        assertEquals(1, results.size());
+        assertEquals(secondAccount, results.get(0).accountId());
+    }
+
+    @Test
+    void searchForUserIsReadFilter() {
+        repo.insert(rich(accountId, 1, "read msg", "x@163.com", "b", false, true, 1000L));
+        repo.insert(rich(accountId, 2, "unread msg", "x@163.com", "b", false, false, 2000L));
+
+        MessageFilter f = new MessageFilter(null, null, false, null, null, null, null, null);
+        List<Message> results = repo.searchForUser(userA.id(), f, 1, 20);
+        assertEquals(1, results.size());
+        assertFalse(results.get(0).isRead());
+    }
+
+    @Test
+    void searchForUserHasAttachFilter() {
+        repo.insert(rich(accountId, 1, "with att", "x@163.com", "b", true, false, 1000L));
+        repo.insert(rich(accountId, 2, "no att", "x@163.com", "b", false, false, 2000L));
+
+        MessageFilter f = new MessageFilter(null, null, null, true, null, null, null, null);
+        List<Message> results = repo.searchForUser(userA.id(), f, 1, 20);
+        assertEquals(1, results.size());
+        assertTrue(results.get(0).hasAttach());
+    }
+
+    @Test
+    void searchForUserDateRange() {
+        repo.insert(rich(accountId, 1, "old", "x@163.com", "b", false, false, 1000L));
+        repo.insert(rich(accountId, 2, "mid", "x@163.com", "b", false, false, 2000L));
+        repo.insert(rich(accountId, 3, "new", "x@163.com", "b", false, false, 3000L));
+
+        // startDate only
+        MessageFilter start = new MessageFilter(null, null, null, null, 2000L, null, null, null);
+        assertEquals(2, repo.searchForUser(userA.id(), start, 1, 20).size());
+        // endDate only
+        MessageFilter end = new MessageFilter(null, null, null, null, null, 2000L, null, null);
+        assertEquals(2, repo.searchForUser(userA.id(), end, 1, 20).size());
+        // both
+        MessageFilter both = new MessageFilter(null, null, null, null, 2000L, 2000L, null, null);
+        List<Message> mid = repo.searchForUser(userA.id(), both, 1, 20);
+        assertEquals(1, mid.size());
+        assertEquals(2, mid.get(0).uid());
+    }
+
+    @Test
+    void searchForUserSortWhitelist() {
+        repo.insert(rich(accountId, 1, "a", "x@163.com", "b", false, false, 1000L));
+        repo.insert(rich(accountId, 2, "c", "x@163.com", "b", false, false, 3000L));
+        repo.insert(rich(accountId, 3, "b", "x@163.com", "b", false, false, 2000L));
+
+        // received_at asc
+        MessageFilter asc = new MessageFilter(null, null, null, null, null, null, "received_at", "asc");
+        List<Message> ascRes = repo.searchForUser(userA.id(), asc, 1, 20);
+        assertEquals(1000L, ascRes.get(0).receivedAt());
+        assertEquals(3000L, ascRes.get(2).receivedAt());
+
+        // illegal sortBy → default received_at DESC, no exception
+        MessageFilter bad = new MessageFilter(null, null, null, null, null, null, "body_text; DROP", "nonsense");
+        List<Message> badRes = assertDoesNotThrow(() -> repo.searchForUser(userA.id(), bad, 1, 20));
+        assertEquals(3000L, badRes.get(0).receivedAt());
+        assertEquals(1000L, badRes.get(2).receivedAt());
+    }
+
+    @Test
+    void searchForUserFtsSyntaxCharsDoNotThrow() {
+        repo.insert(rich(accountId, 1, "subject", "x@163.com", "some body text", false, false, 1000L));
+
+        MessageFilter f = new MessageFilter("a\"b*", null, null, null, null, null, null, null);
+        assertDoesNotThrow(() -> repo.searchForUser(userA.id(), f, 1, 20));
+        assertDoesNotThrow(() -> repo.countSearchForUser(userA.id(), f));
+    }
+
+    @Test
+    void searchForUserPagination() {
+        for (int i = 1; i <= 5; i++) {
+            repo.insert(rich(accountId, i, "msg" + i, "x@163.com", "b", false, false, 1000L + i));
+        }
+        List<Message> page1 = repo.searchForUser(userA.id(), NO_FILTER, 1, 2);
+        assertEquals(2, page1.size());
+        List<Message> page2 = repo.searchForUser(userA.id(), NO_FILTER, 2, 2);
+        assertEquals(2, page2.size());
+        List<Message> page3 = repo.searchForUser(userA.id(), NO_FILTER, 3, 2);
+        assertEquals(1, page3.size());
+        // no overlap between pages (default DESC by received_at)
+        assertNotEquals(page1.get(0).id(), page2.get(0).id());
     }
 }
