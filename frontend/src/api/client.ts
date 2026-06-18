@@ -142,6 +142,20 @@ export interface PagedAccounts {
   items: Account[];
 }
 
+/** 聚合邮件查询条件，全部可选。 */
+export interface MessageQuery {
+  keyword?: string;
+  accountId?: number;
+  isRead?: boolean;
+  hasAttach?: boolean;
+  startDate?: number;
+  endDate?: number;
+  sortBy?: 'receivedAt' | 'sentAt' | string;
+  sortOrder?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
 /** MailDock API 客户端。受保护请求依赖后端 HttpOnly Cookie Session。 */
 export class ApiClient {
   /** 恢复当前登录用户。 */
@@ -258,6 +272,22 @@ export class ApiClient {
   /** 邮件详情。 */
   getMessage(id: number): Promise<MessageDetail> {
     return this.request<MessageDetail>(`/messages/${id}`, { method: 'GET' });
+  }
+
+  /** 跨账号聚合邮件搜索，全部条件可选，返回 { total, items }。 */
+  searchMessages(query: MessageQuery = {}): Promise<PagedMessages> {
+    const params = new URLSearchParams();
+    if (query.keyword && query.keyword.trim()) params.set('keyword', query.keyword.trim());
+    if (query.accountId != null) params.set('accountId', String(query.accountId));
+    if (query.isRead != null) params.set('isRead', String(query.isRead));
+    if (query.hasAttach != null) params.set('hasAttach', String(query.hasAttach));
+    if (query.startDate != null) params.set('startDate', String(query.startDate));
+    if (query.endDate != null) params.set('endDate', String(query.endDate));
+    if (query.sortBy) params.set('sortBy', query.sortBy);
+    if (query.sortOrder) params.set('sortOrder', query.sortOrder);
+    params.set('page', String(query.page ?? 1));
+    params.set('size', String(query.size ?? 20));
+    return this.request<PagedMessages>(`/messages?${params.toString()}`, { method: 'GET' });
   }
 
   /** 标记已读 / 未读。 */

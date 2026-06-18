@@ -165,4 +165,71 @@ describe('ApiClient', () => {
     expect(init.headers['Content-Type']).toContain('text/plain');
     expect(init.body).toContain('a@163.com');
   });
+
+  it('searchMessages 空查询使用默认分页', async () => {
+    const client = new ApiClient();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ total: 0, items: [] }));
+
+    await client.searchMessages();
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/v1/messages?page=1&size=20');
+    expect(init.method).toBe('GET');
+    expect(init.credentials).toBe('include');
+  });
+
+  it('searchMessages 序列化全部查询条件', async () => {
+    const client = new ApiClient();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ total: 0, items: [] }));
+
+    await client.searchMessages({
+      keyword: '发票',
+      accountId: 7,
+      isRead: false,
+      hasAttach: true,
+      startDate: 1000,
+      endDate: 2000,
+      sortBy: 'sentAt',
+      sortOrder: 'asc',
+      page: 3,
+      size: 50,
+    });
+
+    const [url] = fetchMock.mock.calls[0];
+    const params = new URLSearchParams(url.split('?')[1]);
+    expect(params.get('keyword')).toBe('发票');
+    expect(params.get('accountId')).toBe('7');
+    expect(params.get('isRead')).toBe('false');
+    expect(params.get('hasAttach')).toBe('true');
+    expect(params.get('startDate')).toBe('1000');
+    expect(params.get('endDate')).toBe('2000');
+    expect(params.get('sortBy')).toBe('sentAt');
+    expect(params.get('sortOrder')).toBe('asc');
+    expect(params.get('page')).toBe('3');
+    expect(params.get('size')).toBe('50');
+  });
+
+  it('searchMessages 忽略空白 keyword', async () => {
+    const client = new ApiClient();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ total: 0, items: [] }));
+
+    await client.searchMessages({ keyword: '   ' });
+
+    const [url] = fetchMock.mock.calls[0];
+    const params = new URLSearchParams(url.split('?')[1]);
+    expect(params.has('keyword')).toBe(false);
+  });
+
+  it('searchMessages 解析返回 { total, items }', async () => {
+    const client = new ApiClient();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ total: 1, items: [{ id: 9, subject: '主题' }] }),
+    );
+
+    const paged = await client.searchMessages({ keyword: '主题' });
+
+    expect(paged.total).toBe(1);
+    expect(paged.items).toHaveLength(1);
+    expect(paged.items[0].subject).toBe('主题');
+  });
 });
