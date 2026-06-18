@@ -136,6 +136,33 @@ public final class Database {
                     FOREIGN KEY (message_id) REFERENCES mail_message(id)
                 )
                 """,
+                """
+                CREATE VIRTUAL TABLE IF NOT EXISTS mail_message_fts USING fts5(
+                    subject, from_addr, body_text,
+                    content='mail_message', content_rowid='id',
+                    tokenize='trigram'
+                )
+                """,
+                """
+                CREATE TRIGGER IF NOT EXISTS mail_message_ai AFTER INSERT ON mail_message BEGIN
+                    INSERT INTO mail_message_fts(rowid, subject, from_addr, body_text)
+                    VALUES (new.id, new.subject, new.from_addr, new.body_text);
+                END
+                """,
+                """
+                CREATE TRIGGER IF NOT EXISTS mail_message_ad AFTER DELETE ON mail_message BEGIN
+                    INSERT INTO mail_message_fts(mail_message_fts, rowid, subject, from_addr, body_text)
+                    VALUES ('delete', old.id, old.subject, old.from_addr, old.body_text);
+                END
+                """,
+                """
+                CREATE TRIGGER IF NOT EXISTS mail_message_au AFTER UPDATE ON mail_message BEGIN
+                    INSERT INTO mail_message_fts(mail_message_fts, rowid, subject, from_addr, body_text)
+                    VALUES ('delete', old.id, old.subject, old.from_addr, old.body_text);
+                    INSERT INTO mail_message_fts(rowid, subject, from_addr, body_text)
+                    VALUES (new.id, new.subject, new.from_addr, new.body_text);
+                END
+                """,
                 "CREATE INDEX IF NOT EXISTS idx_identity_user ON user_identity(user_id)",
                 "CREATE INDEX IF NOT EXISTS idx_account_user ON mail_account(user_id, id)",
                 "CREATE INDEX IF NOT EXISTS idx_msg_account_received ON mail_message(account_id, received_at DESC)",
