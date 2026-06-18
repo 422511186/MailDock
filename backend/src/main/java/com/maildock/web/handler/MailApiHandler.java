@@ -2,6 +2,7 @@ package com.maildock.web.handler;
 
 import com.maildock.model.Attachment;
 import com.maildock.model.Message;
+import com.maildock.model.MessageFilter;
 import com.maildock.service.MailQueryService;
 import com.maildock.service.MailSyncService;
 import com.maildock.web.support.RequestBodies;
@@ -33,6 +34,7 @@ public final class MailApiHandler {
     public void registerRoutes(Router router, String apiPrefix) {
         router.post(apiPrefix + "/accounts/:id/refresh").handler(this::handleRefresh);
         router.get(apiPrefix + "/accounts/:id/messages").handler(this::handleListMessages);
+        router.get(apiPrefix + "/messages").handler(this::handleSearchMessages);
         router.get(apiPrefix + "/messages/:id").handler(this::handleMessageDetail);
         router.get(apiPrefix + "/messages/:id/attachments/:attId").handler(this::handleDownloadAttachment);
         router.patch(apiPrefix + "/messages/:id/read").handler(this::handleMarkRead);
@@ -59,6 +61,34 @@ public final class MailApiHandler {
         int page = parseIntOr(ctx.request().getParam("page"), 1);
         int size = parseIntOr(ctx.request().getParam("size"), 20);
         vertx.executeBlocking(() -> mailQueryService.list(userId, accountId, page, size), false)
+                .onComplete(ar -> {
+                    if (ar.failed()) {
+                        ctx.fail(ar.cause());
+                        return;
+                    }
+                    MailQueryService.PagedMessages paged = ar.result();
+                    JsonArray items = new JsonArray();
+                    for (Message message : paged.items()) {
+                        items.add(messageSummaryJson(message));
+                    }
+                    json(ctx, 200, new JsonObject().put("total", paged.total()).put("items", items));
+                });
+    }
+
+    private void handleSearchMessages(RoutingContext ctx) {
+        long userId = currentUserId(ctx);
+        MessageFilter filter = new MessageFilter(
+                ctx.request().getParam("keyword"),
+                parseLongOrNull(ctx.request().getParam("accountId")),
+                parseBoolOrNull(ctx.request().getParam("isRead")),
+                parseBoolOrNull(ctx.request().getParam("hasAttach")),
+                parseLongOrNull(ctx.request().getParam("startDate")),
+                parseLongOrNull(ctx.request().getParam("endDate")),
+                ctx.request().getParam("sortBy"),
+                ctx.request().getParam("sortOrder"));
+        int page = parseIntOr(ctx.request().getParam("page"), 1);
+        int size = parseIntOr(ctx.request().getParam("size"), 20);
+        vertx.executeBlocking(() -> mailQueryService.search(userId, filter, page, size), false)
                 .onComplete(ar -> {
                     if (ar.failed()) {
                         ctx.fail(ar.cause());
@@ -163,6 +193,33 @@ public final class MailApiHandler {
                 .put("hasAttach", m.hasAttach())
                 .put("isRead", m.isRead())
                 .put("attachments", atts);
+    }
+
+    /** 解析可空 long 查询参数；空白或非法返回 null。 */
+    private static Long parseLongOrNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.strip());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** 解析可空 boolean 查询参数；仅接受 true/false（忽略大小写），其余返回 null。 */
+    private static Boolean parseBoolOrNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String v = value.strip();
+        if ("true".equalsIgnoreCase(v)) {
+            return Boolean.TRUE;
+        }
+        if ("false".equalsIgnoreCase(v)) {
+            return Boolean.FALSE;
+        }
+        return null;
     }
 
 }

@@ -64,6 +64,8 @@ class MailApiHandlerTest {
     private Database db;
     private AccountRepository accountRepo;
     private MessageRepository messageRepo;
+    private CryptoUtil crypto;
+    private AuthService authService;
     private Path dbFile;
     private Path attachmentsDir;
     private int port;
@@ -91,6 +93,8 @@ class MailApiHandlerTest {
         AuthService.LoginResult login = authService.loginWithEmailPassword("alice@example.com", "init-pass").orElseThrow();
         userAId = login.user().id();
         cookie = "maildock_session=" + login.sessionToken();
+        this.crypto = crypto;
+        this.authService = authService;
 
         try {
             greenMail.getUserManager().createUser(EMAIL, EMAIL, AUTH_CODE);
@@ -240,6 +244,131 @@ class MailApiHandlerTest {
                     ctx.completeNow();
                 })));
         assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void searchMessagesNoParamsReturnsAllOwnMessagesAcrossAccounts(VertxTestContext ctx) throws Exception {
+        long secondAccountId = accountRepo.insert(userAId, "second@example.com", crypto.encrypt(AUTH_CODE)).id();
+        messageRepo.insert(sample(accountId, 1, "First Subject", "a@x.com", "hello body one", false, false, 1000L));
+        messageRepo.insert(sample(secondAccountId, 2, "Second Subject", "b@x.com", "hello body two", true, true, 2000L));
+
+        client.get(port, "localhost", ApiRouter.API + "/messages")
+                .putHeader("Cookie", cookie)
+                .send()
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(200, resp.statusCode());
+                    JsonObject body = resp.bodyAsJsonObject();
+                    assertEquals(2, body.getLong("total"));
+                    JsonArray items = body.getJsonArray("items");
+                    assertEquals(2, items.size());
+                    assertNotNull(items.getJsonObject(0).getLong("accountId"));
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void searchMessagesByKeywordMatchesBody(VertxTestContext ctx) throws Exception {
+        messageRepo.insert(sample(accountId, 1, "报表", "a@x.com", "本季度报表数据汇总", false, false, 1000L));
+        messageRepo.insert(sample(accountId, 2, "闲聊", "b@x.com", "今天天气不错出去走走", false, false, 2000L));
+
+        client.get(port, "localhost", ApiRouter.API + "/messages?keyword=" + url("季度报表"))
+                .putHeader("Cookie", cookie)
+                .send()
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(200, resp.statusCode());
+                    JsonObject body = resp.bodyAsJsonObject();
+                    assertEquals(1, body.getLong("total"));
+                    JsonArray items = body.getJsonArray("items");
+                    assertEquals(1, items.size());
+                    assertEquals(1L, items.getJsonObject(0).getLong("uid"));
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void searchMessagesAppliesFiltersAndPagination(VertxTestContext ctx) throws Exception {
+        long secondAccountId = accountRepo.insert(userAId, "second@example.com", crypto.encrypt(AUTH_CODE)).id();
+        // account A: one read with attach, one unread
+        messageRepo.insert(sample(accountId, 1, "A read attach", "a@x.com", "body", true, true, 1000L));
+        messageRepo.insert(sample(accountId, 2, "A unread", "b@x.com", "body", false, false, 2000L));
+        // account B: one unread no attach
+        messageRepo.insert(sample(secondAccountId, 3, "B unread", "c@x.com", "body", false, false, 3000L));
+
+        // filter by accountId + isRead=true → only the first message
+        client.get(port, "localhost",
+                        ApiRouter.API + "/messages?accountId=" + accountId + "&isRead=true&hasAttach=true")
+                .putHeader("Cookie", cookie)
+                .send()
+                .compose(resp -> {
+                    ctx.verify(() -> {
+                        assertEquals(200, resp.statusCode());
+                        JsonObject body = resp.bodyAsJsonObject();
+                        assertEquals(1, body.getLong("total"));
+                        assertEquals(1L, body.getJsonArray("items").getJsonObject(0).getLong("uid"));
+                    });
+                    // pagination: size=1 page=1 over all 3, sorted received_at ASC → uid 1 first
+                    return client.get(port, "localhost",
+                                    ApiRouter.API + "/messages?page=1&size=1&sortBy=received_at&sortOrder=asc")
+                            .putHeader("Cookie", cookie)
+                            .send();
+                })
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(200, resp.statusCode());
+                    JsonObject body = resp.bodyAsJsonObject();
+                    assertEquals(3, body.getLong("total"));
+                    JsonArray items = body.getJsonArray("items");
+                    assertEquals(1, items.size());
+                    assertEquals(1L, items.getJsonObject(0).getLong("uid"));
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void searchMessagesIsolatedPerUser(VertxTestContext ctx) throws Exception {
+        messageRepo.insert(sample(accountId, 1, "Owner Subject", "a@x.com", "body", false, false, 1000L));
+
+        // second user with own session, no messages
+        authService.ensureDefaultEmailUser("bob@example.com", "bob-pass");
+        AuthService.LoginResult bobLogin =
+                authService.loginWithEmailPassword("bob@example.com", "bob-pass").orElseThrow();
+        String bobCookie = "maildock_session=" + bobLogin.sessionToken();
+
+        client.get(port, "localhost", ApiRouter.API + "/messages")
+                .putHeader("Cookie", bobCookie)
+                .send()
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(200, resp.statusCode());
+                    JsonObject body = resp.bodyAsJsonObject();
+                    assertEquals(0, body.getLong("total"));
+                    assertEquals(0, body.getJsonArray("items").size());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void searchMessagesRequiresAuthentication(VertxTestContext ctx) throws Exception {
+        client.get(port, "localhost", ApiRouter.API + "/messages")
+                .send()
+                .onComplete(ctx.succeeding(resp -> ctx.verify(() -> {
+                    assertEquals(401, resp.statusCode());
+                    ctx.completeNow();
+                })));
+        assertTrue(ctx.awaitCompletion(10, TimeUnit.SECONDS));
+    }
+
+    private static String url(String value) {
+        return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private static Message sample(long accountId, long uid, String subject, String from,
+                                  String body, boolean read, boolean hasAttach, long receivedAt) {
+        return new Message(0, accountId, uid, "<mid-" + accountId + "-" + uid + ">", subject,
+                from, EMAIL, null, receivedAt, receivedAt, body, null,
+                hasAttach, read, 100L, 0L);
     }
 
     private void deliver(String subject, String body) throws Exception {
