@@ -5,6 +5,7 @@ import {
   countAccountLines,
   emailToAvatarGradient,
   formatRelativeTime,
+  runBatchRefresh,
   statusDot,
   statusOf,
 } from './accountsPageModel';
@@ -70,5 +71,83 @@ describe('accountsPageModel', () => {
     `;
 
     expect(countAccountLines(text)).toBe(2);
+  });
+});
+
+describe('runBatchRefresh', () => {
+  it('refreshes each id once in the same order as input', async () => {
+    const calls: number[] = [];
+    const refresh = vi.fn(async (id: number) => {
+      calls.push(id);
+      return { newCount: 0 };
+    });
+
+    await runBatchRefresh(refresh, [3, 1, 2]);
+
+    expect(refresh).toHaveBeenCalledTimes(3);
+    expect(calls).toEqual([3, 1, 2]);
+  });
+
+  it('reports incrementing progress after each id completes', async () => {
+    const refresh = vi.fn(async () => ({ newCount: 0 }));
+    const progress: Array<[number, number]> = [];
+
+    await runBatchRefresh(refresh, [10, 20, 30], (done, total) => {
+      progress.push([done, total]);
+    });
+
+    expect(progress).toEqual([
+      [1, 3],
+      [2, 3],
+      [3, 3],
+    ]);
+  });
+
+  it('summarizes success count and sums new mail totals', async () => {
+    const refresh = vi.fn(async (id: number) => ({ newCount: id }));
+
+    const summary = await runBatchRefresh(refresh, [2, 3, 5]);
+
+    expect(summary).toEqual({
+      successCount: 3,
+      failCount: 0,
+      newTotal: 10,
+      failures: [],
+    });
+  });
+
+  it('counts failures without aborting the remaining ids', async () => {
+    const calls: number[] = [];
+    const refresh = vi.fn(async (id: number) => {
+      calls.push(id);
+      if (id === 2) throw new Error('boom');
+      return { newCount: 1 };
+    });
+
+    const summary = await runBatchRefresh(refresh, [1, 2, 3]);
+
+    expect(calls).toEqual([1, 2, 3]);
+    expect(summary).toEqual({
+      successCount: 2,
+      failCount: 1,
+      newTotal: 2,
+      failures: [{ id: 2, message: 'boom' }],
+    });
+  });
+
+  it('runs serially, awaiting each id before starting the next', async () => {
+    let active = 0;
+    let maxActive = 0;
+    const refresh = vi.fn(async () => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await Promise.resolve();
+      active -= 1;
+      return { newCount: 0 };
+    });
+
+    await runBatchRefresh(refresh, [1, 2, 3]);
+
+    expect(maxActive).toBe(1);
   });
 });

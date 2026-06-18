@@ -65,3 +65,42 @@ export function countAccountLines(text: string): number {
     .map((l) => l.trim())
     .filter((l) => l && !l.startsWith('#')).length;
 }
+
+/** 批量收信单项失败记录。 */
+export interface BatchRefreshFailure {
+  id: number;
+  message: string;
+}
+
+/** 批量收信汇总。 */
+export interface BatchRefreshSummary {
+  successCount: number;
+  failCount: number;
+  newTotal: number;
+  failures: BatchRefreshFailure[];
+}
+
+/**
+ * 串行对一组账号触发收信。逐个 await，单个失败不中断其余；
+ * 每完成一个调用 onProgress 上报进度。纯逻辑，便于单测与两页共用。
+ */
+export async function runBatchRefresh(
+  refresh: (id: number) => Promise<{ newCount: number }>,
+  ids: number[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<BatchRefreshSummary> {
+  const summary: BatchRefreshSummary = { successCount: 0, failCount: 0, newTotal: 0, failures: [] };
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    try {
+      const res = await refresh(id);
+      summary.successCount += 1;
+      summary.newTotal += res.newCount ?? 0;
+    } catch (e) {
+      summary.failCount += 1;
+      summary.failures.push({ id, message: (e as Error).message });
+    }
+    onProgress?.(i + 1, ids.length);
+  }
+  return summary;
+}
