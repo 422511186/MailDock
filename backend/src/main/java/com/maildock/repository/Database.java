@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.locks.ReentrantLock;
@@ -174,6 +175,41 @@ public final class Database {
             }
         } catch (SQLException e) {
             throw new RuntimeException("初始化数据库表结构失败", e);
+        }
+    }
+
+    /**
+     * 启动时按需回填 FTS 索引：当邮件表已有数据但全文索引为空（例如从无 FTS 的旧版本升级而来）时，
+     * 一次性重建 mail_message_fts。正常情况下两者计数一致，直接跳过，避免每次启动都重建。
+     *
+     * <p>注意 mail_message_fts 是外部内容（external-content）表，{@code count(*)} 会回落到内容表
+     * mail_message，无法反映索引是否真的已建立；因此用 FTS5 影子表 mail_message_fts_docsize 的行数
+     * 来表示“真正已索引的文档数”。
+     */
+    public void backfillFtsIfNeeded() {
+        long mailCount = countRows("mail_message");
+        long indexedCount = countRows("mail_message_fts_docsize");
+        if (mailCount == indexedCount) {
+            return;
+        }
+        runWrite(() -> {
+            try (Statement st = connection.createStatement()) {
+                st.execute("INSERT INTO mail_message_fts(mail_message_fts) VALUES('rebuild')");
+                return null;
+            } catch (SQLException e) {
+                throw new RuntimeException("回填 FTS 索引失败", e);
+            }
+        });
+    }
+
+    /** 统计指定表的行数。 */
+    private long countRows(String table) {
+        try (Statement st = connection.createStatement();
+             ResultSet rs = st.executeQuery("SELECT count(*) FROM " + table)) {
+            rs.next();
+            return rs.getLong(1);
+        } catch (SQLException e) {
+            throw new RuntimeException("统计行数失败: " + table, e);
         }
     }
 

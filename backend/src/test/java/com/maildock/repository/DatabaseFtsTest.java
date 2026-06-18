@@ -172,4 +172,63 @@ class DatabaseFtsTest {
             throw new RuntimeException(e);
         }
     }
+
+    private long mailCount() {
+        try (Statement st = db.connection().createStatement();
+             ResultSet rs = st.executeQuery("SELECT count(*) FROM mail_message")) {
+            rs.next();
+            return rs.getLong(1);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 已真正索引的文档数。mail_message_fts 是外部内容表，对其做 count(*) 会回落到内容表，
+     * 无法反映索引是否为空；用 FTS5 影子表 docsize 的行数来表示真实索引规模。
+     */
+    private long indexedCount() {
+        try (Statement st = db.connection().createStatement();
+             ResultSet rs = st.executeQuery("SELECT count(*) FROM mail_message_fts_docsize")) {
+            rs.next();
+            return rs.getLong(1);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    void backfillRebuildsMissingIndexThenIsNoOp() {
+        insertMessage();
+        // 模拟“升级后 FTS 索引为空”的场景：清空外部内容 FTS 索引
+        db.runWrite(() -> {
+            try (Statement st = db.connection().createStatement()) {
+                st.execute("INSERT INTO mail_message_fts(mail_message_fts) VALUES('delete-all')");
+                return null;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+        assertEquals(0, indexedCount(), "清空后 FTS 索引应为空");
+        assertEquals(1, mailCount(), "邮件表仍有一封邮件");
+
+        db.backfillFtsIfNeeded();
+
+        assertEquals(mailCount(), indexedCount(), "回填后已索引文档数应与邮件表一致");
+        assertEquals(1, indexedCount());
+
+        String sql = "SELECT m.id FROM mail_message m "
+                + "JOIN mail_message_fts f ON f.rowid = m.id "
+                + "WHERE mail_message_fts MATCH '\"测试邮件\"'";
+        try (Statement st = db.connection().createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            assertTrue(rs.next(), "回填后中文子串应重新可搜索");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        // 再次调用应为 no-op：计数已一致，不报错、数量不变
+        assertDoesNotThrow(() -> db.backfillFtsIfNeeded());
+        assertEquals(1, indexedCount(), "二次调用应为 no-op，数量不变");
+    }
 }

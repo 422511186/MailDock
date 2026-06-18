@@ -33,6 +33,7 @@ public final class AppWiring implements AppRuntimeFactory {
     public AppRuntime create(Vertx vertx, AppConfig config) {
         Database database = new Database("jdbc:sqlite:" + config.dbPath());
         database.initSchema();
+        database.backfillFtsIfNeeded();
 
         UserRepository userRepo = new UserRepository(database);
         IdentityRepository identityRepo = new IdentityRepository(database);
