@@ -7,6 +7,7 @@ import { LoginPage } from './pages/LoginPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { AccountsPage } from './pages/AccountsPage';
 import { MailListPage } from './pages/MailListPage';
+import { AggregateMailPage } from './pages/AggregateMailPage';
 import { MailDetailPage } from './pages/MailDetailPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { Header } from './components/Header';
@@ -32,6 +33,12 @@ export function App({ api }: AppProps) {
                 <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
                   <Header />
                   <AccountsPage api={api} />
+                </div>
+              } />
+              <Route path="/messages" element={
+                <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+                  <Header />
+                  <AggregateMailPage api={api} />
                 </div>
               } />
               <Route path="/accounts/:accountId/messages" element={

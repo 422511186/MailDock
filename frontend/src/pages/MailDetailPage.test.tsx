@@ -162,8 +162,8 @@ describe('MailDetailPage', () => {
     expect(api.markRead).not.toHaveBeenCalled();
   });
 
-  it('点击返回触发导航到邮件列表', async () => {
-    // 返回按钮回到邮件列表
+  it('点击返回触发浏览器历史回退', async () => {
+    // 返回按钮通过 navigate(-1) 回到来源页（聚合页或账号邮件列表）
     const api = stubApi();
 
     renderPage(api);
@@ -172,7 +172,7 @@ describe('MailDetailPage', () => {
     // 获取所有返回按钮（桌面端和移动端各一个），点击第一个即可
     const backButtons = screen.getAllByRole('button', { name: /返回/ });
     fireEvent.click(backButtons[0]);
-    expect(mockNavigate).toHaveBeenCalledWith('/accounts/7/messages');
+    expect(mockNavigate).toHaveBeenCalledWith(-1);
   });
 
   it('附件项渲染图标且下载链接保留 href', async () => {

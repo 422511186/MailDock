@@ -23,7 +23,7 @@ function formatSize(bytes: number): string {
 
 /** 邮件详情页：展示头部信息与正文（HTML 优先），列出附件，打开时自动标记已读。 */
 export function MailDetailPage({ api }: MailDetailPageProps) {
-  const { accountId, messageId } = useParams<{ accountId: string; messageId: string }>();
+  const { messageId } = useParams<{ accountId: string; messageId: string }>();
   const navigate = useNavigate();
   const [message, setMessage] = useState<MessageDetail | null>(null);
   const [error, setError] = useState('');
@@ -60,7 +60,7 @@ export function MailDetailPage({ api }: MailDetailPageProps) {
       <div className="mb-4 hidden sm:mb-6 sm:block">
         <button
           type="button"
-          onClick={() => navigate(`/accounts/${accountId}/messages`)}
+          onClick={() => navigate(-1)}
           className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           aria-label="返回"
         >
@@ -73,7 +73,7 @@ export function MailDetailPage({ api }: MailDetailPageProps) {
       <div className="mb-4 flex items-center justify-between sm:hidden">
         <button
           type="button"
-          onClick={() => navigate(`/accounts/${accountId}/messages`)}
+          onClick={() => navigate(-1)}
           className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
           aria-label="返回"
         >

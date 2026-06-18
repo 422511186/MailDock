@@ -127,7 +127,7 @@ export function UserMenu({ user }: UserMenuProps) {
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                navigate('/accounts');
+                navigate('/messages');
               }}
             >
               <Mail className="h-5 w-5 text-slate-400 dark:text-slate-500" aria-hidden="true" />

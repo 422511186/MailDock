@@ -262,13 +262,13 @@ describe('UserMenu', () => {
     expect(screen.getByRole('menuitem', { name: '明亮模式' })).toBeInTheDocument();
   });
 
-  it('点击邮件列表触发导航到 /accounts 并关闭菜单', () => {
+  it('点击邮件列表触发导航到 /messages 并关闭菜单', () => {
     renderMenu(
       <UserMenu user={user()} />
     );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     fireEvent.click(screen.getByRole('menuitem', { name: '邮件列表' }));
-    expect(mockNavigate).toHaveBeenCalledWith('/accounts');
+    expect(mockNavigate).toHaveBeenCalledWith('/messages');
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
