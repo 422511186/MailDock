@@ -45,6 +45,7 @@ function stubApi(overrides: Record<string, unknown> = {}) {
     testBatch: vi.fn().mockResolvedValue({ results: [] }),
     deleteBatch: vi.fn().mockResolvedValue(undefined),
     importText: vi.fn().mockResolvedValue({ total: 0, success: 0, failed: 0, skipped: 0, results: [] }),
+    refresh: vi.fn().mockResolvedValue({ newCount: 0, syncedAt: 0 }),
     ...overrides,
   };
 }
@@ -1172,5 +1173,142 @@ describe('AccountsPage', () => {
     const rows = document.querySelectorAll('tbody tr');
     expect(rows[0]).not.toHaveClass('hover:bg-slate-50/50');
     expect(rows[0]).not.toHaveClass('hover:bg-slate-50');
+  });
+
+  // ===== 批量收信（Task 10） =====
+
+  it('选中账号后点击批量收信：逐个收选中账号、刷新列表、清空选择并提示汇总', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(
+        paged([
+          account({ id: 1, email: 'a@163.com' }),
+          account({ id: 2, email: 'b@163.com' }),
+        ]),
+      ),
+      refresh: vi.fn().mockResolvedValue({ newCount: 3, syncedAt: 0 }),
+    });
+
+    renderPage(api as never);
+    await screen.findAllByText('a@163.com');
+
+    // 选中两个账号
+    fireEvent.click(screen.getAllByRole('checkbox', { name: '选择 a@163.com' })[0]);
+    fireEvent.click(screen.getAllByRole('checkbox', { name: '选择 b@163.com' })[0]);
+
+    const listCallsBefore = api.listAccounts.mock.calls.length;
+    const refreshBtns = screen.getAllByRole('button', { name: /批量收信/ });
+    fireEvent.click(refreshBtns[0]);
+
+    // 逐个收选中账号
+    await waitFor(() => {
+      expect(api.refresh).toHaveBeenCalledTimes(2);
+    });
+    expect(api.refresh).toHaveBeenCalledWith(1);
+    expect(api.refresh).toHaveBeenCalledWith(2);
+
+    // 收信后刷新列表（再次调用 listAccounts），但不应为了取全量 id 而额外调用
+    await waitFor(() => {
+      expect(api.listAccounts.mock.calls.length).toBeGreaterThan(listCallsBefore);
+    });
+
+    // 清空选择
+    await waitFor(() => {
+      expect(screen.getAllByRole('checkbox', { name: '选择 a@163.com' })[0]).toHaveAttribute(
+        'aria-checked',
+        'false',
+      );
+    });
+
+    // 汇总 Toast：成功 2/2、新增 6
+    await waitFor(() => {
+      const toasts = document.querySelectorAll('.toast.success');
+      const t = Array.from(toasts).find((el) => el.textContent?.includes('收信完成'));
+      expect(t).toBeTruthy();
+      expect(t?.textContent).toContain('成功 2/2');
+      expect(t?.textContent).toContain('新增 6');
+    });
+  });
+
+  it('未选中任何账号时点击批量收信：取全量账号 id 并逐个收信', async () => {
+    // 列表页只展示当前页，但「收全部」需取全量 id（用较大 size 再查一次）
+    const listAccounts = vi
+      .fn()
+      .mockResolvedValueOnce(paged([account({ id: 1, email: 'a@163.com' })], 3))
+      .mockResolvedValueOnce(
+        paged(
+          [
+            account({ id: 1, email: 'a@163.com' }),
+            account({ id: 2, email: 'b@163.com' }),
+            account({ id: 3, email: 'c@163.com' }),
+          ],
+          3,
+        ),
+      )
+      .mockResolvedValue(paged([account({ id: 1, email: 'a@163.com' })], 3));
+    const api = stubApi({
+      listAccounts,
+      refresh: vi.fn().mockResolvedValue({ newCount: 1, syncedAt: 0 }),
+    });
+
+    renderPage(api as never);
+    await screen.findAllByText('a@163.com');
+
+    // 未选中：按钮可点击
+    const refreshBtns = screen.getAllByRole('button', { name: /批量收信/ });
+    expect(refreshBtns[0]).not.toBeDisabled();
+    fireEvent.click(refreshBtns[0]);
+
+    // 取全量 id 后逐个收信（3 个账号）
+    await waitFor(() => {
+      expect(api.refresh).toHaveBeenCalledTimes(3);
+    });
+    expect(api.refresh).toHaveBeenCalledWith(1);
+    expect(api.refresh).toHaveBeenCalledWith(2);
+    expect(api.refresh).toHaveBeenCalledWith(3);
+
+    // 取全量 id 时用了较大的 size
+    const sizes = listAccounts.mock.calls.map((c: any[]) => c[0]?.size);
+    expect(sizes.some((s: number) => s >= 100)).toBe(true);
+
+    await waitFor(() => {
+      const toasts = Array.from(document.querySelectorAll('.toast.success'));
+      const t = toasts.reverse().find((el) => el.textContent?.includes('成功 3/3'));
+      expect(t?.textContent).toContain('成功 3/3');
+    });
+  });
+
+  it('批量收信完成后按钮重新可用', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'a@163.com' })])),
+      refresh: vi.fn().mockResolvedValue({ newCount: 0, syncedAt: 0 }),
+    });
+
+    renderPage(api as never);
+    await screen.findAllByText('a@163.com');
+
+    fireEvent.click(screen.getAllByRole('checkbox', { name: '选择 a@163.com' })[0]);
+    const refreshBtns = screen.getAllByRole('button', { name: /批量收信/ });
+    fireEvent.click(refreshBtns[0]);
+
+    await waitFor(() => {
+      expect(api.refresh).toHaveBeenCalledTimes(1);
+    });
+    // 完成后按钮恢复可用
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /批量收信/ })[0]).not.toBeDisabled();
+    });
+  });
+
+  it('移动端工具栏含批量收信按钮', async () => {
+    const api = stubApi({
+      listAccounts: vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })])),
+    });
+    const { container } = renderPage(api as never);
+    await screen.findAllByText('alice@163.com');
+
+    const mobileToolbar = container.querySelector('[data-testid="mobile-toolbar"]');
+    const refreshBtn = mobileToolbar!.querySelector('[aria-label="移动端批量收信"]');
+    expect(refreshBtn).toBeInTheDocument();
+    expect(refreshBtn).toHaveClass('flex-1');
   });
 });

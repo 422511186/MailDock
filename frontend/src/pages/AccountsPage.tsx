@@ -8,6 +8,7 @@ import {
   Mail,
   Search,
   CheckCircle,
+  RefreshCw,
 } from 'lucide-react';
 import type {
   Account,
@@ -17,6 +18,7 @@ import {
   DEFAULT_PAGE_SIZE,
   emailToAvatarGradient,
   formatRelativeTime,
+  runBatchRefresh,
   statusDot,
   statusOf,
 } from './accountsPageModel';
@@ -115,6 +117,31 @@ export function AccountsPage({ api }: AccountsPageProps) {
   /** 打开批量测活确认弹窗（未选中则 ids 为空，表示测全部）。 */
   function handleTestBatch() {
     setTestTarget({ type: 'batch', ids: selectedIds });
+  }
+
+  /** 批量收信：选中则收选中项，未选中则收当前用户全部账号。 */
+  async function handleRefreshBatch() {
+    setError('');
+    setBusy(true);
+    try {
+      let ids = selectedIds;
+      if (ids.length === 0) {
+        // 未选中：收当前用户全部账号（取全量 id，而非当前页）
+        const all = await api.listAccounts({ size: 1000 });
+        ids = all.items.map((a) => a.id);
+      }
+      const summary = await runBatchRefresh(api.refresh.bind(api), ids);
+      await reload();
+      setSelectedIds([]);
+      const failPart = summary.failCount > 0 ? `，失败 ${summary.failCount}` : '';
+      showToast(
+        `✓ 收信完成：成功 ${summary.successCount}/${ids.length}，新增 ${summary.newTotal} 封${failPart}`,
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   /** 执行测活（确认弹窗「确认测活」回调）。 */
@@ -285,6 +312,17 @@ export function AccountsPage({ api }: AccountsPageProps) {
             </button>
             <button
               type="button"
+              disabled={busy}
+              onClick={() => void handleRefreshBatch()}
+              className="inline-flex h-[40px] w-[120px] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+            >
+              <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+                批量收信{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
+              </span>
+            </button>
+            <button
+              type="button"
               disabled={selectedIds.length === 0 || busy}
               onClick={handleDeleteBatch}
               className="inline-flex h-[40px] w-[120px] items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-rose-500/30 transition hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -370,6 +408,16 @@ export function AccountsPage({ api }: AccountsPageProps) {
             >
               <CheckCircle className="h-4 w-4" aria-hidden="true" />
               <span>测活{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}</span>
+            </button>
+            <button
+              type="button"
+              aria-label="移动端批量收信"
+              disabled={busy}
+              onClick={() => void handleRefreshBatch()}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              <span>收信{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}</span>
             </button>
             <button
               type="button"
