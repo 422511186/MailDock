@@ -92,12 +92,13 @@ describe('UserMenu', () => {
     expect(menu).not.toHaveTextContent('alice@example.com');
   });
 
-  it('菜单包含个人中心 / 邮件列表 / 退出登录三个菜单项', () => {
+  it('菜单包含个人中心 / 邮箱账号 / 邮件列表 / 退出登录菜单项', () => {
     renderMenu(
       <UserMenu user={user()} />
     );
     fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
     expect(screen.getByRole('menuitem', { name: '个人中心' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: '邮箱账号' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: '邮件列表' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: '退出登录' })).toBeInTheDocument();
   });
@@ -260,6 +261,16 @@ describe('UserMenu', () => {
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
     // 切换后菜单仍打开，标签变为“明亮模式”
     expect(screen.getByRole('menuitem', { name: '明亮模式' })).toBeInTheDocument();
+  });
+
+  it('点击邮箱账号触发导航到 /accounts 并关闭菜单', () => {
+    renderMenu(
+      <UserMenu user={user()} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: '用户菜单' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '邮箱账号' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/accounts');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
   it('点击邮件列表触发导航到 /messages 并关闭菜单', () => {

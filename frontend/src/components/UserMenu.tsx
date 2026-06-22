@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserCircle, Mail, LogOut, ChevronDown, Moon, Sun } from 'lucide-react';
+import { UserCircle, Inbox, Mail, LogOut, ChevronDown, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import type { CurrentUser } from '../api/client';
@@ -120,6 +120,18 @@ export function UserMenu({ user }: UserMenuProps) {
             >
               <UserCircle className="h-5 w-5 text-slate-400 dark:text-slate-500" aria-hidden="true" />
               <span>个人中心</span>
+            </button>
+            <button
+              type="button"
+              className="flex w-full appearance-none items-center gap-3 border-none bg-transparent px-2 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700/60"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                navigate('/accounts');
+              }}
+            >
+              <Inbox className="h-5 w-5 text-slate-400 dark:text-slate-500" aria-hidden="true" />
+              <span>邮箱账号</span>
             </button>
             <button
               type="button"
