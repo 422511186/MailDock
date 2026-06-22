@@ -1,13 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, Search, RefreshCw, Paperclip } from 'lucide-react';
 import type { Account, ApiClient, MessageSummary } from '../api/client';
 import { truncateEmail } from '../utils/email';
 import { runBatchRefresh } from './accountsPageModel';
-import { DEFAULT_FILTER, toMessageQuery, type AggregateFilterState } from './aggregateMailPageModel';
-
-/** 默认每页条数。 */
-const DEFAULT_PAGE_SIZE = 20;
+import {
+  filterFromParams,
+  pageFromParams,
+  paramsFromState,
+  sizeFromParams,
+  toMessageQuery,
+  type AggregateFilterState,
+} from './aggregateMailPageModel';
 
 interface AggregateMailPageProps {
   /** API 客户端。 */
@@ -60,35 +64,41 @@ function showToast(title: string, desc: string) {
 /** 聚合邮件管理页：跨账号搜索、过滤、分页查看邮件，支持一键收取全部账号。 */
 export function AggregateMailPage({ api }: AggregateMailPageProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<MessageSummary[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  const [filter, setFilter] = useState<AggregateFilterState>(DEFAULT_FILTER);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
 
-  /** 按指定页与当前过滤态搜索邮件。 */
-  const load = useCallback(
-    async (targetPage: number, f: AggregateFilterState = filter, size: number = pageSize) => {
+  // 视图状态以 URL 查询参数为唯一真相：过滤态 + 页码 + 每页条数。
+  // 用 URL 字符串记忆，保证无关 state 变化（如 accounts 加载）不会改变这些引用，避免重复搜索。
+  const search = searchParams.toString();
+  const filter = useMemo(() => filterFromParams(searchParams), [search]);
+  const page = useMemo(() => pageFromParams(searchParams), [search]);
+  const pageSize = useMemo(() => sizeFromParams(searchParams), [search]);
+
+  // 关键词输入框的即时缓冲：随 URL 的 q 初始化，仅在提交时写回 URL。
+  const [keywordInput, setKeywordInput] = useState(filter.keyword);
+
+  /** 按当前 URL 视图状态搜索邮件（供 effect 与刷新后显式调用）。 */
+  const reload = useCallback(
+    async (f: AggregateFilterState = filter, targetPage: number = page, size: number = pageSize) => {
       setError('');
       try {
         const res = await api.searchMessages(toMessageQuery(f, targetPage, size));
         setItems(res.items);
         setTotal(res.total);
-        setPage(targetPage);
       } catch (e) {
         setError((e as Error).message);
       }
     },
-    [api, filter, pageSize],
+    [api, filter, page, pageSize],
   );
 
-  // 进入页面：加载账号列表（用于下拉、徽章与收取全部）与第一页邮件
+  // 进入页面：加载账号列表（用于下拉、徽章与收取全部）
   useEffect(() => {
-    window.scrollTo(0, 0);
     void (async () => {
       try {
         const res = await api.listAccounts({ size: 100 });
@@ -97,25 +107,43 @@ export function AggregateMailPage({ api }: AggregateMailPageProps) {
         setError((e as Error).message);
       }
     })();
-    void load(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [api]);
 
-  /** 更新过滤态某字段并立即以第 1 页重新搜索。 */
+  // URL（过滤/页码/每页）变化时滚动到顶部并搜索
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    void reload();
+  }, [reload]);
+
+  /** 合并过滤态补丁并写入 URL（重置 page 为 1）。 */
   const updateFilter = useCallback(
     (patch: Partial<AggregateFilterState>) => {
-      const next = { ...filter, ...patch };
-      setFilter(next);
-      void load(1, next);
+      setSearchParams(paramsFromState({ ...filter, ...patch }, 1, pageSize));
     },
-    [filter, load],
+    [filter, pageSize, setSearchParams],
   );
 
-  /** 提交关键字搜索。 */
+  /** 提交关键字搜索：把输入缓冲写入 URL（重置 page 为 1）。 */
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    void load(1);
+    updateFilter({ keyword: keywordInput });
   };
+
+  /** 只改页码并写入 URL。 */
+  const goToPage = useCallback(
+    (targetPage: number) => {
+      setSearchParams(paramsFromState(filter, targetPage, pageSize));
+    },
+    [filter, pageSize, setSearchParams],
+  );
+
+  /** 改每页条数：重置 page 为 1 并写入 URL。 */
+  const changePageSize = useCallback(
+    (size: number) => {
+      setSearchParams(paramsFromState(filter, 1, size));
+    },
+    [filter, setSearchParams],
+  );
 
   /** 收取全部账号：串行 refresh，进度回显，完成后重新搜索并提示。 */
   const handleRefreshAll = useCallback(async () => {
@@ -127,7 +155,8 @@ export function AggregateMailPage({ api }: AggregateMailPageProps) {
       const s = await runBatchRefresh(api.refresh.bind(api), ids, (done, t) =>
         setProgress(`正在收取 ${done}/${t}`),
       );
-      await load(1);
+      // 收取后重新搜索当前视图（URL 不变，effect 不重跑，故显式重拉）
+      await reload();
       showToast(
         '收取完成',
         `成功 ${s.successCount}/${ids.length}，新增 ${s.newTotal} 封${s.failCount ? `，失败 ${s.failCount}` : ''}`,
@@ -138,7 +167,7 @@ export function AggregateMailPage({ api }: AggregateMailPageProps) {
       setProgress('');
       setBusy(false);
     }
-  }, [accounts, api, load]);
+  }, [accounts, api, reload]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -173,8 +202,8 @@ export function AggregateMailPage({ api }: AggregateMailPageProps) {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                 <input
                   type="search"
-                  value={filter.keyword}
-                  onChange={(e) => setFilter((p) => ({ ...p, keyword: e.target.value }))}
+                  value={keywordInput}
+                  onChange={(e) => setKeywordInput(e.target.value)}
                   placeholder="搜索主题 / 发件人 / 正文"
                   aria-label="搜索关键字"
                   className="w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 pl-9 pr-3 py-2 text-sm"
@@ -335,10 +364,7 @@ export function AggregateMailPage({ api }: AggregateMailPageProps) {
                     aria-label="每页条数"
                     value={pageSize}
                     onChange={(e) => {
-                      const next = Number(e.target.value);
-                      setPageSize(next);
-                      setPage(1);
-                      void load(1, filter, next);
+                      changePageSize(Number(e.target.value));
                     }}
                     className="rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 px-2 py-1 text-sm"
                   >
@@ -352,10 +378,10 @@ export function AggregateMailPage({ api }: AggregateMailPageProps) {
                 </label>
               </div>
               <div className="flex gap-2">
-                <button type="button" onClick={() => void load(page - 1)} disabled={page <= 1}>
+                <button type="button" onClick={() => goToPage(page - 1)} disabled={page <= 1}>
                   上一页
                 </button>
-                <button type="button" onClick={() => void load(page + 1)} disabled={page >= totalPages}>
+                <button type="button" onClick={() => goToPage(page + 1)} disabled={page >= totalPages}>
                   下一页
                 </button>
               </div>

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus,
   Upload,
@@ -31,6 +31,12 @@ import type { TestTarget } from './accounts/ConfirmTestModal';
 import { ImportModal } from './accounts/ImportModal';
 import { RowMenu } from './accounts/RowMenu';
 
+/** 允许的每页条数白名单。 */
+const PAGE_SIZES = [10, 20, 50, 100];
+
+/** 允许的排序字段白名单（与排序下拉一致）。 */
+const SORT_FIELDS = ['lastSyncAt', 'lastTestAt'];
+
 /**
  * 账号管理页：白色卡片工具栏（搜索 + 状态/排序 + 批量按钮 + 已选中提示条）、
  * 白色卡片表格（彩色头像 + 状态徽章带圆点 + 三点菜单），
@@ -38,19 +44,33 @@ import { RowMenu } from './accounts/RowMenu';
  */
 export function AccountsPage({ api }: AccountsPageProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
-  // 查询条件
-  const [searchInput, setSearchInput] = useState('');
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<AccountStatusFilter | ''>('');
+  // 视图状态以 URL 查询参数为唯一真相：page/size/email(q)/status/sort/dir。
+  // 用 URL 字符串记忆，保证无关 state 变化不会改变这些引用，避免重复请求。
+  const search = searchParams.toString();
+  const view = useMemo(() => {
+    const pageRaw = parseInt(searchParams.get('page') ?? '', 10);
+    const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? pageRaw : 1;
+    const sizeRaw = parseInt(searchParams.get('size') ?? '', 10);
+    const pageSize = PAGE_SIZES.includes(sizeRaw) ? sizeRaw : DEFAULT_PAGE_SIZE;
+    const email = searchParams.get('q') ?? '';
+    const statusRaw = searchParams.get('status');
+    const status: AccountStatusFilter | '' =
+      statusRaw === 'pending' || statusRaw === 'ok' || statusRaw === 'fail' ? statusRaw : '';
+    const sortBy = SORT_FIELDS.includes(searchParams.get('sort') ?? '')
+      ? (searchParams.get('sort') as string)
+      : 'lastSyncAt';
+    const sortOrder: 'asc' | 'desc' = searchParams.get('dir') === 'asc' ? 'asc' : 'desc';
+    return { page, pageSize, email, status, sortBy, sortOrder };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+  const { page, pageSize, email, status, sortBy, sortOrder } = view;
 
-  // 排序
-  const [sortBy, setSortBy] = useState('lastSyncAt');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  // 搜索框即时输入缓冲：随 URL 的 q 初始化，仅在提交时写回 URL。
+  const [searchInput, setSearchInput] = useState(email);
 
   // 弹窗开关
   const [showAdd, setShowAdd] = useState(false);
@@ -69,7 +89,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
   const [busy, setBusy] = useState(false);
   const [testingId, setTestingId] = useState<number | null>(null);
 
-  /** 按当前条件加载账号列表。 */
+  /** 按当前 URL 视图状态加载账号列表。 */
   const reload = useCallback(async () => {
     try {
       const result = await api.listAccounts({
@@ -91,17 +111,54 @@ export function AccountsPage({ api }: AccountsPageProps) {
     void reload();
   }, [reload]);
 
+  /** 用补丁更新 URL 查询参数；除翻页外的变更都把 page 重置为 1。 */
+  const patchParams = useCallback(
+    (patch: Record<string, string | null>, resetPage = true) => {
+      setSearchParams((prev) => {
+        const sp = new URLSearchParams(prev);
+        for (const [k, v] of Object.entries(patch)) {
+          if (v == null || v === '') sp.delete(k);
+          else sp.set(k, v);
+        }
+        if (resetPage) sp.delete('page');
+        return sp;
+      });
+    },
+    [setSearchParams],
+  );
+
   /** 提交搜索：回到第 1 页并应用邮箱条件。 */
-  async function handleSearch(e?: FormEvent) {
+  function handleSearch(e?: FormEvent) {
     e?.preventDefault();
-    setPage(1);
-    setEmail(searchInput.trim());
+    patchParams({ q: searchInput.trim() || null });
   }
 
   /** 切换状态过滤：回到第 1 页。 */
   function handleStatusChange(value: string) {
-    setPage(1);
-    setStatus(value as AccountStatusFilter | '');
+    patchParams({ status: value || null });
+  }
+
+  /** 切换排序：回到第 1 页。 */
+  function handleSortChange(field: string, order: 'asc' | 'desc') {
+    patchParams({
+      sort: field === 'lastSyncAt' ? null : field,
+      dir: order === 'desc' ? null : order,
+    });
+  }
+
+  /** 翻页：只改 page（=1 时删除）。 */
+  function goToPage(targetPage: number) {
+    setSearchParams((prev) => {
+      const sp = new URLSearchParams(prev);
+      if (targetPage <= 1) sp.delete('page');
+      else sp.set('page', String(targetPage));
+      return sp;
+    });
+  }
+
+  /** 改每页条数：回到第 1 页并写入 size（=默认值时删除）。 */
+  function changePageSize(size: number) {
+    patchParams({ size: size === DEFAULT_PAGE_SIZE ? null : String(size) });
   }
 
   /** 打开单个删除确认弹窗。 */
@@ -286,8 +343,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
             value={`${sortBy}-${sortOrder}`}
             onChange={(e) => {
               const [field, order] = e.target.value.split('-');
-              setSortBy(field);
-              setSortOrder(order as 'asc' | 'desc');
+              handleSortChange(field, order as 'asc' | 'desc');
             }}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/40"
           >
@@ -385,8 +441,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
               value={`${sortBy}-${sortOrder}`}
               onChange={(e) => {
                 const [field, order] = e.target.value.split('-');
-                setSortBy(field);
-                setSortOrder(order as 'asc' | 'desc');
+                handleSortChange(field, order as 'asc' | 'desc');
               }}
               className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/40"
             >
@@ -734,8 +789,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
               aria-label="每页条数"
               value={pageSize}
               onChange={(e) => {
-                setPage(1);
-                setPageSize(Number(e.target.value));
+                changePageSize(Number(e.target.value));
               }}
               className="rounded-lg border border-slate-200 px-2 py-1 text-sm dark:border-slate-800 dark:bg-slate-800 dark:text-slate-100"
             >
@@ -751,7 +805,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={() => goToPage(page - 1)}
             disabled={page <= 1}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
           >
@@ -759,7 +813,7 @@ export function AccountsPage({ api }: AccountsPageProps) {
           </button>
           <button
             type="button"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onClick={() => goToPage(page + 1)}
             disabled={page >= totalPages}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
           >

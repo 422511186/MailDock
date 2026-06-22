@@ -1,8 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AggregateMailPage } from './AggregateMailPage';
 import type { Account, MessageSummary } from '../api/client';
+
+/** 探针：渲染当前 URL 查询串，便于断言视图状态写入 URL。 */
+function LocationProbe() {
+  const loc = useLocation();
+  return <div data-testid="search">{loc.search}</div>;
+}
 
 /** 构造一条邮件摘要。 */
 function summary(overrides: Partial<MessageSummary> = {}): MessageSummary {
@@ -62,6 +68,25 @@ function renderPage(api: any) {
     <MemoryRouter initialEntries={['/messages']}>
       <Routes>
         <Route path="/messages" element={<AggregateMailPage api={api} />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
+/** 在指定 URL（可带查询串）下渲染，并附带 URL 探针。 */
+function renderAt(api: any, entry: string) {
+  return render(
+    <MemoryRouter initialEntries={[entry]}>
+      <Routes>
+        <Route
+          path="/messages"
+          element={
+            <>
+              <AggregateMailPage api={api} />
+              <LocationProbe />
+            </>
+          }
+        />
       </Routes>
     </MemoryRouter>
   );
@@ -216,5 +241,57 @@ describe('AggregateMailPage', () => {
     await waitFor(() => {
       expect(document.querySelector('.fixed.right-4.top-20')).toBeInTheDocument();
     });
+  });
+
+  it('深链恢复：带 page/关键词/筛选查询串进入时按其加载并回显', async () => {
+    const searchMessages = vi.fn().mockResolvedValue({ total: 100, items: [summary({ id: 1, subject: '深链邮件' })] });
+    const api = stubApi({ searchMessages });
+
+    renderAt(api, '/messages?page=2&q=发票&read=unread');
+    await screen.findAllByText('深链邮件');
+
+    expect(searchMessages).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 2, keyword: '发票', isRead: false }),
+    );
+    // 关键词输入框回显
+    expect((screen.getByPlaceholderText('搜索主题 / 发件人 / 正文') as HTMLInputElement).value).toBe('发票');
+    // 已读下拉回显未读
+    expect((screen.getByLabelText('已读状态') as HTMLSelectElement).value).toBe('unread');
+  });
+
+  it('翻页把 page 写入 URL', async () => {
+    const searchMessages = vi.fn().mockResolvedValue({ total: 50, items: [summary({ id: 1, subject: '翻页邮件' })] });
+    const api = stubApi({ searchMessages });
+
+    renderAt(api, '/messages');
+    await screen.findAllByText('翻页邮件');
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('search').textContent).toContain('page=2');
+    });
+    await waitFor(() =>
+      expect(searchMessages).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 })),
+    );
+  });
+
+  it('在非第 1 页改筛选时把 page 重置为 1 并写入 URL', async () => {
+    const searchMessages = vi.fn().mockResolvedValue({ total: 100, items: [summary({ id: 1, subject: '筛选邮件' })] });
+    const api = stubApi({ searchMessages });
+
+    renderAt(api, '/messages?page=3');
+    await screen.findAllByText('筛选邮件');
+
+    fireEvent.change(screen.getByLabelText('已读状态'), { target: { value: 'read' } });
+
+    await waitFor(() => {
+      const s = screen.getByTestId('search').textContent ?? '';
+      expect(s).toContain('read=read');
+      expect(s).not.toContain('page=3');
+    });
+    await waitFor(() =>
+      expect(searchMessages).toHaveBeenLastCalledWith(expect.objectContaining({ isRead: true, page: 1 })),
+    );
   });
 });

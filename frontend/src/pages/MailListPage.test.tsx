@@ -1,8 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { MailListPage } from './MailListPage';
 import type { MessageSummary } from '../api/client';
+
+/** 探针：把当前 URL 查询串渲染出来，便于断言视图状态已写入 URL。 */
+function LocationProbe() {
+  const loc = useLocation();
+  return <div data-testid="search">{loc.search}</div>;
+}
 
 /** 构造一条邮件摘要。 */
 function summary(overrides: Partial<MessageSummary> = {}): MessageSummary {
@@ -44,6 +50,25 @@ function renderPage(api: any, accountId = '7') {
     <MemoryRouter initialEntries={[`/accounts/${accountId}/messages`]}>
       <Routes>
         <Route path="/accounts/:accountId/messages" element={<MailListPage api={api} />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
+/** 在指定 URL（可带查询串）下渲染，并附带 URL 探针。 */
+function renderAt(api: any, entry: string) {
+  return render(
+    <MemoryRouter initialEntries={[entry]}>
+      <Routes>
+        <Route
+          path="/accounts/:accountId/messages"
+          element={
+            <>
+              <MailListPage api={api} />
+              <LocationProbe />
+            </>
+          }
+        />
       </Routes>
     </MemoryRouter>
   );
@@ -495,5 +520,50 @@ describe('MailListPage', () => {
 
     // Toast 应该包含描述"暂无新邮件"
     expect(screen.getAllByText('暂无新邮件').length).toBeGreaterThan(0);
+  });
+
+  it('深链恢复：带 page/size 查询串进入时按该页码与每页条数加载', async () => {
+    const listMessages = vi.fn().mockResolvedValue({ total: 100, items: [summary({ id: 1, subject: '某封' })] });
+    const api = stubApi({ listMessages });
+
+    renderAt(api, '/accounts/7/messages?page=3&size=50');
+    await screen.findAllByText('某封');
+
+    expect(listMessages).toHaveBeenLastCalledWith(7, 3, 50);
+    // 控件回显第 3 页与每页 50
+    expect(screen.getAllByText(/第 3 \//).length).toBeGreaterThan(0);
+    expect((screen.getAllByLabelText('每页条数')[0] as HTMLSelectElement).value).toBe('50');
+  });
+
+  it('翻页把 page 写入 URL', async () => {
+    const listMessages = vi.fn().mockResolvedValue({ total: 50, items: [summary({ id: 1, subject: '邮件x' })] });
+    const api = stubApi({ listMessages });
+
+    renderAt(api, '/accounts/7/messages');
+    await screen.findAllByText('邮件x');
+
+    fireEvent.click(screen.getAllByRole('button', { name: '下一页' })[0]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('search').textContent).toContain('page=2');
+    });
+    await waitFor(() => expect(listMessages).toHaveBeenLastCalledWith(7, 2, expect.any(Number)));
+  });
+
+  it('改每页条数把 page 重置为 1 并写入 size', async () => {
+    const listMessages = vi.fn().mockResolvedValue({ total: 200, items: [summary({ id: 1, subject: '邮件y' })] });
+    const api = stubApi({ listMessages });
+
+    renderAt(api, '/accounts/7/messages?page=4');
+    await screen.findAllByText('邮件y');
+
+    fireEvent.change(screen.getAllByLabelText('每页条数')[0], { target: { value: '50' } });
+
+    await waitFor(() => {
+      const s = screen.getByTestId('search').textContent ?? '';
+      expect(s).toContain('size=50');
+      expect(s).not.toContain('page=4');
+    });
+    await waitFor(() => expect(listMessages).toHaveBeenLastCalledWith(7, 1, 50));
   });
 });

@@ -1,8 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { AccountsPage } from './AccountsPage';
 import type { Account, PagedAccounts } from '../api/client';
+
+/** 探针：渲染当前 URL 查询串，便于断言视图状态写入 URL。 */
+function LocationProbe() {
+  const loc = useLocation();
+  return <div data-testid="search">{loc.search}</div>;
+}
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -55,6 +61,16 @@ function renderPage(api: any) {
   return render(
     <MemoryRouter>
       <AccountsPage api={api} />
+    </MemoryRouter>
+  );
+}
+
+/** 在指定 URL（可带查询串）下渲染，并附带 URL 探针。 */
+function renderAt(api: any, entry: string) {
+  return render(
+    <MemoryRouter initialEntries={[entry]}>
+      <AccountsPage api={api} />
+      <LocationProbe />
     </MemoryRouter>
   );
 }
@@ -959,6 +975,68 @@ describe('AccountsPage', () => {
         expect.objectContaining({ size: 50, page: 1 }),
       );
     });
+  });
+
+  it('深链恢复：带 page/email/status/排序查询串进入时按其加载并回显', async () => {
+    const listAccounts = vi
+      .fn()
+      .mockResolvedValue(paged([account({ id: 1, email: 'alice@163.com' })], 80));
+    const api = stubApi({ listAccounts });
+
+    renderAt(api as never, '/accounts?page=2&q=ali&status=fail&sort=lastTestAt&dir=asc');
+    await screen.findAllByText('alice@163.com');
+
+    expect(listAccounts).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        page: 2,
+        email: 'ali',
+        status: 'fail',
+        sortBy: 'lastTestAt',
+        sortOrder: 'asc',
+      }),
+    );
+    // 搜索框与下拉回显
+    expect((screen.getAllByPlaceholderText('搜索邮箱地址...')[0] as HTMLInputElement).value).toBe('ali');
+    expect((screen.getAllByLabelText('状态过滤')[0] as HTMLSelectElement).value).toBe('fail');
+    expect((screen.getAllByLabelText('排序方式')[0] as HTMLSelectElement).value).toBe('lastTestAt-asc');
+  });
+
+  it('翻页把 page 写入 URL', async () => {
+    const listAccounts = vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'a@163.com' })], 80));
+    const api = stubApi({ listAccounts });
+
+    renderAt(api as never, '/accounts');
+    await screen.findAllByText('a@163.com');
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('search').textContent).toContain('page=2');
+    });
+    await waitFor(() =>
+      expect(listAccounts).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 })),
+    );
+  });
+
+  it('在非第 1 页改状态筛选时把 page 重置为 1 并写入 URL', async () => {
+    const listAccounts = vi.fn().mockResolvedValue(paged([account({ id: 1, email: 'a@163.com' })], 80));
+    const api = stubApi({ listAccounts });
+
+    renderAt(api as never, '/accounts?page=3');
+    await screen.findAllByText('a@163.com');
+
+    fireEvent.change(screen.getAllByLabelText('状态过滤')[0], { target: { value: 'ok' } });
+
+    await waitFor(() => {
+      const s = screen.getByTestId('search').textContent ?? '';
+      expect(s).toContain('status=ok');
+      expect(s).not.toContain('page=3');
+    });
+    await waitFor(() =>
+      expect(listAccounts).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: 'ok', page: 1 }),
+      ),
+    );
   });
 
   it('工具栏在白色卡片容器内', async () => {

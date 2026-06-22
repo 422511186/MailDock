@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { RefreshCw, Paperclip, ChevronLeft, Mail } from 'lucide-react';
 import type { ApiClient, MessageSummary } from '../api/client';
 
 /** 默认每页条数。 */
 const DEFAULT_PAGE_SIZE = 20;
+
+/** 允许的每页条数白名单。 */
+const PAGE_SIZES = [10, 20, 50, 100];
 
 interface MailListPageProps {
   /** API 客户端。 */
@@ -38,37 +41,68 @@ function getEmailInitial(email: string): string {
 export function MailListPage({ api }: MailListPageProps) {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<MessageSummary[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const lastRefreshTime = useRef(0);
 
   const accountIdNum = accountId ? parseInt(accountId, 10) : 0;
 
-  /** 拉取指定页邮件。 */
-  const load = useCallback(
-    async (targetPage: number) => {
+  // 视图状态以 URL 查询参数为唯一真相：page、size。缺省即回退到默认值。
+  const pageParam = parseInt(searchParams.get('page') ?? '', 10);
+  const page = Number.isFinite(pageParam) && pageParam >= 1 ? pageParam : 1;
+  const sizeParam = parseInt(searchParams.get('size') ?? '', 10);
+  const pageSize = PAGE_SIZES.includes(sizeParam) ? sizeParam : DEFAULT_PAGE_SIZE;
+
+  /** 按当前 URL 视图状态拉取邮件（供 effect 与刷新后显式调用）。 */
+  const reload = useCallback(
+    async (targetPage: number = page, size: number = pageSize) => {
       setError('');
       try {
-        const res = await api.listMessages(accountIdNum, targetPage, pageSize);
+        const res = await api.listMessages(accountIdNum, targetPage, size);
         setItems(res.items);
         setTotal(res.total);
-        setPage(targetPage);
       } catch (e) {
         setError((e as Error).message);
       }
     },
-    [api, accountIdNum, pageSize],
+    [api, accountIdNum, page, pageSize],
   );
 
-  // 进入页面或切换账号时加载第一页并滚动到顶部
+  // URL（page/size）或账号变化时加载并滚动到顶部
   useEffect(() => {
     window.scrollTo(0, 0);
-    void load(1);
-  }, [load]);
+    void reload();
+  }, [reload]);
+
+  /** 只改 page 查询参数（=1 时删除以保持 URL 干净）。 */
+  const goToPage = useCallback(
+    (targetPage: number) => {
+      setSearchParams((prev) => {
+        const sp = new URLSearchParams(prev);
+        if (targetPage <= 1) sp.delete('page');
+        else sp.set('page', String(targetPage));
+        return sp;
+      });
+    },
+    [setSearchParams],
+  );
+
+  /** 改每页条数：重置 page 为 1 并写入 size（=默认值时删除）。 */
+  const changePageSize = useCallback(
+    (size: number) => {
+      setSearchParams((prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.delete('page');
+        if (size === DEFAULT_PAGE_SIZE) sp.delete('size');
+        else sp.set('size', String(size));
+        return sp;
+      });
+    },
+    [setSearchParams],
+  );
 
   /** 点击刷新：触发增量同步后重新加载当前列表。 */
   const handleRefresh = useCallback(async () => {
@@ -117,13 +151,15 @@ export function MailListPage({ api }: MailListPageProps) {
 
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 3000);
-      await load(1);
+      // 回到第 1 页查看最新邮件；若本就在第 1 页，URL 不变、effect 不重跑，故显式重拉。
+      goToPage(1);
+      await reload(1);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
-  }, [api, accountId, load]);
+  }, [api, accountIdNum, goToPage, reload]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -255,8 +291,7 @@ export function MailListPage({ api }: MailListPageProps) {
                     aria-label="每页条数"
                     value={pageSize}
                     onChange={(e) => {
-                      setPage(1);
-                      setPageSize(Number(e.target.value));
+                      changePageSize(Number(e.target.value));
                     }}
                     className="rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 px-2 py-1 text-sm"
                   >
@@ -272,14 +307,14 @@ export function MailListPage({ api }: MailListPageProps) {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => void load(page - 1)}
+                  onClick={() => goToPage(page - 1)}
                   disabled={page <= 1}
                 >
                   上一页
                 </button>
                 <button
                   type="button"
-                  onClick={() => void load(page + 1)}
+                  onClick={() => goToPage(page + 1)}
                   disabled={page >= totalPages}
                 >
                   下一页
@@ -349,8 +384,7 @@ export function MailListPage({ api }: MailListPageProps) {
                   aria-label="每页条数"
                   value={pageSize}
                   onChange={(e) => {
-                    setPage(1);
-                    setPageSize(Number(e.target.value));
+                    changePageSize(Number(e.target.value));
                   }}
                   className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
                 >
@@ -366,14 +400,14 @@ export function MailListPage({ api }: MailListPageProps) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => void load(page - 1)}
+                onClick={() => goToPage(page - 1)}
                 disabled={page <= 1}
               >
                 上一页
               </button>
               <button
                 type="button"
-                onClick={() => void load(page + 1)}
+                onClick={() => goToPage(page + 1)}
                 disabled={page >= totalPages}
               >
                 下一页

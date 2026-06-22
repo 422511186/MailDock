@@ -52,3 +52,64 @@ export function toMessageQuery(filter: AggregateFilterState, page: number, size:
   if (end !== undefined) q.endDate = end;
   return q;
 }
+
+/** 默认每页条数。 */
+export const DEFAULT_PAGE_SIZE = 20;
+
+/** 允许的每页条数白名单。 */
+export const PAGE_SIZES = [10, 20, 50, 100];
+
+/** 从 URL 查询参数解析出过滤态（缺省回退默认值）。 */
+export function filterFromParams(sp: URLSearchParams): AggregateFilterState {
+  const readState = sp.get('read');
+  const attachState = sp.get('attach');
+  const accountRaw = sp.get('account');
+  const accountId = accountRaw && /^\d+$/.test(accountRaw) ? Number(accountRaw) : 'all';
+  const sortBy = sp.get('sort') === 'sent_at' ? 'sent_at' : 'received_at';
+  const sortOrder = sp.get('dir') === 'asc' ? 'asc' : 'desc';
+  return {
+    keyword: sp.get('q') ?? '',
+    accountId,
+    readState: readState === 'read' || readState === 'unread' ? readState : 'all',
+    attachState: attachState === 'with' || attachState === 'without' ? attachState : 'all',
+    startDate: sp.get('from') ?? '',
+    endDate: sp.get('to') ?? '',
+    sortBy,
+    sortOrder,
+  };
+}
+
+/** 从 URL 解析页码（>=1，缺省 1）。 */
+export function pageFromParams(sp: URLSearchParams): number {
+  const n = parseInt(sp.get('page') ?? '', 10);
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
+/** 从 URL 解析每页条数（白名单内，缺省默认值）。 */
+export function sizeFromParams(sp: URLSearchParams): number {
+  const n = parseInt(sp.get('size') ?? '', 10);
+  return PAGE_SIZES.includes(n) ? n : DEFAULT_PAGE_SIZE;
+}
+
+/**
+ * 把过滤态 + 页码 + 每页条数序列化为 URLSearchParams（等于默认值的项不写入，保持 URL 干净）。
+ */
+export function paramsFromState(
+  filter: AggregateFilterState,
+  page: number,
+  size: number,
+): URLSearchParams {
+  const sp = new URLSearchParams();
+  const kw = filter.keyword.trim();
+  if (kw) sp.set('q', kw);
+  if (filter.accountId !== 'all') sp.set('account', String(filter.accountId));
+  if (filter.readState !== 'all') sp.set('read', filter.readState);
+  if (filter.attachState !== 'all') sp.set('attach', filter.attachState);
+  if (filter.startDate) sp.set('from', filter.startDate);
+  if (filter.endDate) sp.set('to', filter.endDate);
+  if (filter.sortBy !== DEFAULT_FILTER.sortBy) sp.set('sort', filter.sortBy);
+  if (filter.sortOrder !== DEFAULT_FILTER.sortOrder) sp.set('dir', filter.sortOrder);
+  if (page > 1) sp.set('page', String(page));
+  if (size !== DEFAULT_PAGE_SIZE) sp.set('size', String(size));
+  return sp;
+}
