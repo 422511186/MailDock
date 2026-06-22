@@ -80,4 +80,4 @@ npx vitest run src/pages/LoginPage.test.tsx   # 跑单个测试文件
 
 ## 非目标（首期不做）
 
-邮件发送（SMTP）、自动定时刷新/实时推送、INBOX 以外的文件夹、多用户/权限分级、163 以外的邮箱服务商。
+邮件发送（SMTP）、自动定时刷新/实时推送、INBOX 以外的文件夹、163 以外的邮箱服务商。
