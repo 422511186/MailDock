@@ -60,7 +60,12 @@ public final class AttachmentStorage {
         if (path.isAbsolute()) {
             throw new SecurityException("绝对路径不允许: " + storedPath);
         }
-        Path normalized = path.normalize();
+        String normalized = path.normalize().toString();
+        // 兼容旧格式：如果 storedPath 以 attachmentsDir 文件名开头（如 "attachments/..."），去掉前缀
+        String dirName = attachmentsDir.getFileName().toString();
+        if (normalized.startsWith(dirName + "/")) {
+            normalized = normalized.substring(dirName.length() + 1);
+        }
         // attachmentsDir 已在构造时解析为绝对路径，直接作为基准
         Path resolved = attachmentsDir.resolve(normalized);
         // Security: verify resolved path is still under attachmentsDir

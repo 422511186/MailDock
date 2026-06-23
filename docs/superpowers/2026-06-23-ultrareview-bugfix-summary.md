@@ -106,15 +106,15 @@
 
 #### H4 — 异常消息泄露到客户端
 - **问题描述**: failure handler 将 `t.getMessage()` 直接放入 JSON 响应，可能暴露 SQL 错误、文件路径等敏感信息。
-- **修复方案**: 消息包含 `/`、`\`、`com.`、`java.` 时替换为通用错误信息。
+- **修复方案**: 改用精确正则匹配 Java 异常模式（类名、文件路径、堆栈），仅过滤敏感信息，保留业务提示。
 - **修改文件**: `ApiRouter.java`
-- **提交**: `c4b2dca`
+- **提交**: `c4b2dca`, `50bb497`
 
 #### H5 — AttachmentStorage 双重前缀
 - **问题描述**: 单段相对路径（如 `"attachments"`）时 `getParent()` 返回 null，导致路径解析为 `attachments/attachments/...`。
-- **修复方案**: 使用 `attachmentsDir` 直接作为基准路径，配合路径穿越防护。
+- **修复方案**: 构造时解析为绝对路径，`resolve()` 直接用 `attachmentsDir` 作为基准。同时兼容旧格式路径（以 `attachments/` 开头的自动去掉前缀）。
 - **修改文件**: `AttachmentStorage.java`
-- **提交**: `424c643`
+- **提交**: `424c643`, `c931ae3`
 
 #### H6 — 数据库连接泄漏
 - **问题描述**: `initSchema()` 或 `backfillFtsIfNeeded()` 抛异常时，Database 连接未关闭。
@@ -230,6 +230,8 @@
 ## 提交历史
 
 ```
+c931ae3 fix: backward-compatible resolve() for old attachment paths + README docs
+50bb497 fix: address PR review comments - CORS config, path traversal, exception filter, rollback cleanup
 628caf4 docs: add ultrareview bugfix summary with fix status for all 88 issues
 47f25cf fix(backend): use HttpMethod enum for CorsHandler allowedMethods
 90b47a4 fix(backend): roll back message insert on attachment store failure
