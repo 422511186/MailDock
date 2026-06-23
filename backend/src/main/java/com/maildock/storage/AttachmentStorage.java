@@ -31,10 +31,15 @@ public final class AttachmentStorage {
 
         Path target = dir.resolve(safeName);
         Files.write(target, att.content());
-
-        String relativePath = attachmentsDir.getFileName()
-                + "/" + userId + "/" + accountId + "/" + messageId + "/" + safeName;
-        return attachmentRepo.insert(messageId, safeName, att.contentType(), att.content().length, relativePath);
+        try {
+            String relativePath = attachmentsDir.getFileName()
+                    + "/" + userId + "/" + accountId + "/" + messageId + "/" + safeName;
+            return attachmentRepo.insert(messageId, safeName, att.contentType(), att.content().length, relativePath);
+        } catch (Exception e) {
+            // Clean up orphan file on DB failure
+            try { Files.deleteIfExists(target); } catch (Exception ignored) {}
+            throw e;
+        }
     }
 
     public byte[] read(String storedPath) throws Exception {
@@ -42,12 +47,27 @@ public final class AttachmentStorage {
     }
 
     public Path resolve(String storedPath) {
+        if (storedPath == null || storedPath.isBlank()) {
+            throw new IllegalArgumentException("storedPath 不能为空");
+        }
         Path path = Path.of(storedPath);
         if (path.isAbsolute()) {
-            return path;
+            throw new SecurityException("绝对路径不允许: " + storedPath);
         }
-        Path base = attachmentsDir.getParent() != null ? attachmentsDir.getParent() : attachmentsDir;
-        return base.resolve(storedPath);
+        Path normalized = path.normalize();
+        Path resolved;
+        Path parent = attachmentsDir.getParent();
+        if (parent != null) {
+            resolved = parent.resolve(normalized);
+        } else {
+            resolved = attachmentsDir.resolve(normalized);
+        }
+        // Security: verify resolved path is under attachmentsDir's parent (or attachmentsDir itself)
+        Path anchor = parent != null ? parent : attachmentsDir;
+        if (!resolved.normalize().startsWith(anchor.normalize())) {
+            throw new SecurityException("路径穿越: " + storedPath);
+        }
+        return resolved;
     }
 
     public void deleteStoredFileQuietly(String storedPath) {
@@ -66,14 +86,15 @@ public final class AttachmentStorage {
             if (!Files.exists(dir)) {
                 return;
             }
-            Files.walk(dir)
-                    .sorted((a, b) -> b.getNameCount() - a.getNameCount())
-                    .forEach(path -> {
-                        try {
-                            Files.deleteIfExists(path);
-                        } catch (Exception ignored) {
-                        }
-                    });
+            try (var stream = Files.walk(dir)) {
+                stream.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                        .forEach(path -> {
+                            try {
+                                Files.deleteIfExists(path);
+                            } catch (Exception ignored) {
+                            }
+                        });
+            }
         } catch (Exception ignored) {
         }
     }
