@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Paperclip, Download, ChevronLeft } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import type { ApiClient, MessageDetail } from '../api/client';
 
 interface MailDetailPageProps {
@@ -105,7 +106,7 @@ export function MailDetailPage({ api }: MailDetailPageProps) {
           {message.bodyHtml ? (
             <div
               className="mail-body overflow-x-auto"
-              dangerouslySetInnerHTML={{ __html: message.bodyHtml }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message.bodyHtml) }}
             />
           ) : (
             <pre className="mail-body overflow-x-auto">{message.bodyText}</pre>
