@@ -55,6 +55,11 @@ public final class ImapClient {
             IMAPFolder imapFolder = (IMAPFolder) inbox;
             long uidValidity = imapFolder.getUIDValidity();
 
+            // lastUid 已达 Long 上限时不可能有更大 UID，直接返回空结果
+            if (lastUid == Long.MAX_VALUE) {
+                return new ImapFetchResult(uidValidity, List.of());
+            }
+
             // 拉取 UID 在 (lastUid, MAXUID] 区间的邮件
             Message[] msgs = imapFolder.getMessagesByUID(lastUid + 1, IMAPFolder.MAXUID);
 
