@@ -332,11 +332,13 @@ export class ApiClient {
       headers,
       body,
       credentials: 'include',
+      signal: AbortSignal.timeout(30000),
     });
 
-    // Session 过期时触发回调
+    // Session 过期时触发回调，提前返回避免重复抛错
     if (resp.status === 401 && onSessionExpired) {
       onSessionExpired();
+      return undefined as T;
     }
 
     if (!resp.ok) {
