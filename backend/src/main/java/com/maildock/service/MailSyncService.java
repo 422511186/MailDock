@@ -84,14 +84,17 @@ public final class MailSyncService {
 
         // 先以 lastUid 拉取；若 UIDVALIDITY 改变则重置为 0 再拉一次
         ImapFetchResult result = client.fetchSince(lastUid);
-        if (knownValidity != 0 && result.uidValidity() != knownValidity) {
-            System.err.printf("账号 %d 的 UIDVALIDITY 由 %d 变为 %d，执行全量重新同步%n",
+        boolean validityChanged = (knownValidity != 0 && result.uidValidity() != knownValidity);
+        if (validityChanged) {
+            System.err.printf("账号 %d 的 UIDVALIDITY 由 %d 变为 %d，删除旧数据并执行全量重新同步%n",
                     accountId, knownValidity, result.uidValidity());
+            messageRepo.deleteByAccount(accountId);
+            attachmentStorage.deleteAccountDirectoryQuietly(userId, accountId);
             result = client.fetchSince(0);
         }
 
         int newCount = 0;
-        long maxUid = lastUid;
+        long maxUid = validityChanged ? 0 : lastUid;
         for (ImapMessage im : result.messages()) {
             try {
                 storeMessage(userId, accountId, im);
