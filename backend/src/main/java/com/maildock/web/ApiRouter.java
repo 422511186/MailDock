@@ -14,6 +14,7 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.ext.web.handler.CorsHandler;
 
 import java.time.Duration;
@@ -74,7 +75,7 @@ public final class ApiRouter {
         // CORS
         router.route().handler(CorsHandler.create()
                 .addRelativeOrigin(".*")
-                .allowedMethods(Set.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"))
+                .allowedMethods(Set.of(HttpMethod.GET, HttpMethod.POST, HttpMethod.PATCH, HttpMethod.DELETE, HttpMethod.OPTIONS))
                 .allowedHeaders(Set.of("Content-Type", "Authorization"))
                 .allowCredentials(true));
 
