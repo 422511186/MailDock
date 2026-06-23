@@ -226,6 +226,20 @@ public final class MessageRepository {
         });
     }
 
+    /** 按主键删除单封邮件，用于 storeMessage 回滚。 */
+    public void deleteById(long id) {
+        db.runWrite(() -> {
+            String sql = "DELETE FROM mail_message WHERE id = ?";
+            try (PreparedStatement ps = db.connection().prepareStatement(sql)) {
+                ps.setLong(1, id);
+                ps.executeUpdate();
+                return null;
+            } catch (SQLException e) {
+                throw new RuntimeException("删除邮件失败: id=" + id, e);
+            }
+        });
+    }
+
     /** 标记邮件已读 / 未读。 */
     public void markRead(long id, boolean read) {
         db.runWrite(() -> {

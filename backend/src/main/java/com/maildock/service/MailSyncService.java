@@ -126,8 +126,14 @@ public final class MailSyncService {
                 hasAttach, false, parsed.bodyText() != null ? parsed.bodyText().length() : 0L, 0L);
         Message saved = messageRepo.insert(toInsert);
 
-        for (ParsedAttachment att : parsed.attachments()) {
-            attachmentStorage.store(userId, accountId, saved.id(), att);
+        try {
+            for (ParsedAttachment att : parsed.attachments()) {
+                attachmentStorage.store(userId, accountId, saved.id(), att);
+            }
+        } catch (Exception e) {
+            // 附件存储失败时删除已插入的邮件记录，避免残留脏数据
+            messageRepo.deleteById(saved.id());
+            throw e;
         }
     }
 }
