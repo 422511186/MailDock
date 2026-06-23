@@ -269,7 +269,8 @@ class MailRouteTest {
                 .resolve(String.valueOf(m.id()));
         Files.createDirectories(dir);
         Files.write(dir.resolve("a.pdf"), data);
-        String relPath = attachmentsDir.getFileName() + "/" + userAId + "/" + accountId + "/" + m.id() + "/a.pdf";
+        // 新格式: userId/accountId/messageId/safeName（不再包含 attachmentsDir 文件名）
+        String relPath = userAId + "/" + accountId + "/" + m.id() + "/a.pdf";
         Attachment att = attachmentRepo.insert(m.id(), "a.pdf", "application/pdf", (long) data.length, relPath);
 
         client.get(port, "localhost", ApiRouter.API + "/messages/" + m.id() + "/attachments/" + att.id())
@@ -294,7 +295,8 @@ class MailRouteTest {
                 .resolve(String.valueOf(m.id()));
         Files.createDirectories(dir);
         Files.write(dir.resolve("b.pdf"), data);
-        String relPath = attachmentsDir.getFileName() + "/" + userBId + "/" + otherAccountId + "/" + m.id() + "/b.pdf";
+        // 新格式: userId/accountId/messageId/safeName（不再包含 attachmentsDir 文件名）
+        String relPath = userBId + "/" + otherAccountId + "/" + m.id() + "/b.pdf";
         Attachment att = attachmentRepo.insert(m.id(), "b.pdf", "application/pdf", (long) data.length, relPath);
 
         client.get(port, "localhost", ApiRouter.API + "/messages/" + m.id() + "/attachments/" + att.id())

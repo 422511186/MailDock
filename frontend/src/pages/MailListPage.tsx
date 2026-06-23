@@ -121,33 +121,37 @@ export function MailListPage({ api }: MailListPageProps) {
       const toast = document.createElement('div');
       toast.className = 'flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/40 p-4 shadow-lg shadow-emerald-100/50 animate-slide-in-right fixed right-4 top-20 z-40 max-w-sm';
 
+      // Icon container
+      const iconDiv = document.createElement('div');
+      iconDiv.innerHTML = '<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>';
+
+      // Text container
+      const textDiv = document.createElement('div');
+      textDiv.className = 'flex-1';
+
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'font-medium text-emerald-800 dark:text-emerald-300';
+      titleDiv.textContent = '收信完成';
+
+      const descDiv = document.createElement('div');
+      descDiv.className = 'mt-0.5 text-sm text-emerald-700 dark:text-emerald-400';
+
       if (res.newCount > 0) {
-        toast.innerHTML = `
-          <div class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <div class="flex-1">
-            <div class="font-medium text-emerald-800 dark:text-emerald-300">收信完成</div>
-            <div class="mt-0.5 text-sm text-emerald-700 dark:text-emerald-400">新增 ${res.newCount} 封邮件</div>
-          </div>
-        `;
+        iconDiv.className = 'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white';
+        descDiv.textContent = `新增 ${res.newCount} 封邮件`;
       } else {
-        toast.innerHTML = `
-          <div class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-400 text-white">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <div class="flex-1">
-            <div class="font-medium text-slate-700 dark:text-slate-200">收信完成</div>
-            <div class="mt-0.5 text-sm text-slate-600 dark:text-slate-400">暂无新邮件</div>
-          </div>
-        `;
+        iconDiv.className = 'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-400 text-white';
+        titleDiv.className = 'font-medium text-slate-700 dark:text-slate-200';
+        descDiv.className = 'mt-0.5 text-sm text-slate-600 dark:text-slate-400';
+        descDiv.textContent = '暂无新邮件';
         // 无新邮件时使用 slate 背景
         toast.className = 'flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900 p-4 shadow-lg shadow-slate-100/50 animate-slide-in-right fixed right-4 top-20 z-40 max-w-sm';
       }
+
+      textDiv.appendChild(titleDiv);
+      textDiv.appendChild(descDiv);
+      toast.appendChild(iconDiv);
+      toast.appendChild(textDiv);
 
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 3000);

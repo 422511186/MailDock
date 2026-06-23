@@ -200,7 +200,7 @@ class MailSyncServiceTest {
         assertEquals("report.pdf", att.filename());
 
         // 落盘文件应存在且内容一致
-        Path filePath = attachmentsDir.getParent().resolve(att.filePath());
+        Path filePath = attachmentsDir.resolve(att.filePath());
         assertTrue(Files.exists(filePath), "附件文件应已落盘: " + filePath);
         assertArrayEquals(data, Files.readAllBytes(filePath));
     }
@@ -239,7 +239,8 @@ class MailSyncServiceTest {
 
         Message stored = messageRepo.listByAccount(accountId, 1, 10).get(0);
         Attachment att = attachmentRepo.findByMessage(stored.id()).get(0);
-        String expectedPrefix = attachmentsDir.getFileName() + "/" + userA.id() + "/" + accountId + "/";
+        // 新格式: userId/accountId/messageId/safeName（不再包含 attachmentsDir 文件名）
+        String expectedPrefix = userA.id() + "/" + accountId + "/";
         assertTrue(att.filePath().startsWith(expectedPrefix), "实际路径: " + att.filePath());
     }
 }

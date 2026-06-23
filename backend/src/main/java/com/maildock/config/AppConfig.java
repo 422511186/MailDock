@@ -36,6 +36,7 @@ import java.util.Properties;
  * @param httpPort              HTTP 监听端口
  * @param dbPath                SQLite 数据库文件路径
  * @param attachmentsDir        附件落盘根目录
+ * @param corsOrigins           CORS 允许的来源（逗号分隔），默认 http://localhost:5173
  */
 public record AppConfig(
         String secretKey,
@@ -59,7 +60,8 @@ public record AppConfig(
         int httpProxyPort,
         int httpPort,
         String dbPath,
-        String attachmentsDir) {
+        String attachmentsDir,
+        String corsOrigins) {
 
     private static final int KEY_LENGTH_BYTES = 32;
     private static final int DEFAULT_PORT = 8080;
@@ -73,11 +75,8 @@ public record AppConfig(
      * @throws IllegalStateException 密钥缺失或长度非 32 字节
      */
     public static AppConfig from(Map<String, String> env) {
-        // 优先环境变量，缺失时尝试从 maildock.properties 读取
-        Map<String, String> config = env;
-        if (env.get("MAILDOCK_SECRET_KEY") == null || env.get("MAILDOCK_SECRET_KEY").isBlank()) {
-            config = loadPropertiesFile("maildock.properties", env);
-        }
+        // Always load properties file first, then overlay env vars (env takes priority)
+        Map<String, String> config = loadPropertiesFile("maildock.properties", env);
 
         String secretKey = config.get("MAILDOCK_SECRET_KEY");
         if (secretKey == null || secretKey.isBlank()) {
@@ -109,6 +108,7 @@ public record AppConfig(
         int httpPort = parsePort(config.get("MAILDOCK_HTTP_PORT"));
         String dbPath = orDefault(config.get("MAILDOCK_DB_PATH"), DEFAULT_DB_PATH);
         String attachmentsDir = orDefault(config.get("MAILDOCK_ATTACHMENTS_DIR"), DEFAULT_ATTACHMENTS_DIR);
+        String corsOrigins = orDefault(config.get("MAILDOCK_CORS_ORIGINS"), "http://localhost:5173");
 
         return new AppConfig(
                 secretKey,
@@ -132,7 +132,8 @@ public record AppConfig(
                 httpProxyPort,
                 httpPort,
                 dbPath,
-                attachmentsDir);
+                attachmentsDir,
+                corsOrigins);
     }
 
     /** 解析端口，非法或缺省时回退到默认端口，避免启动崩溃。 */
@@ -181,7 +182,9 @@ public record AppConfig(
         }
         try {
             Properties props = new Properties();
-            props.load(Files.newBufferedReader(path));
+            try (var reader = Files.newBufferedReader(path)) {
+                props.load(reader);
+            }
             Map<String, String> merged = new java.util.HashMap<>(env);
             props.forEach((k, v) -> merged.putIfAbsent(k.toString(), v.toString()));
             return merged;

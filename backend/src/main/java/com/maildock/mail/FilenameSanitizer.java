@@ -39,7 +39,8 @@ public final class FilenameSanitizer {
         StringBuilder sb = new StringBuilder(name.length());
         for (int i = 0; i < name.length(); i++) {
             char c = name.charAt(i);
-            if (!Character.isISOControl(c) && !Character.isWhitespace(c)) {
+            if (!Character.isISOControl(c) && !Character.isWhitespace(c)
+                    && c != '*' && c != '?' && c != '"' && c != '<' && c != '>' && c != '|' && c != ':') {
                 sb.append(c);
             }
         }
@@ -50,6 +51,16 @@ public final class FilenameSanitizer {
             start++;
         }
         String cleaned = sb.substring(start);
+
+        // Check Windows reserved names
+        String baseName = cleaned.contains(".") ? cleaned.substring(0, cleaned.indexOf('.')) : cleaned;
+        String[] reserved = {"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "CLOCK$"};
+        for (String r : reserved) {
+            if (baseName.equalsIgnoreCase(r)) {
+                cleaned = "_" + cleaned;
+                break;
+            }
+        }
 
         return cleaned.isBlank() ? DEFAULT_NAME : cleaned;
     }

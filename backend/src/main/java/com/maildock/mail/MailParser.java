@@ -23,6 +23,8 @@ import java.util.List;
  */
 public final class MailParser {
 
+    private static final int MAX_DEPTH = 100;
+
     private MailParser() {
     }
 
@@ -46,7 +48,7 @@ public final class MailParser {
 
             // 用可变容器收集递归解析结果
             BodyAccumulator acc = new BodyAccumulator();
-            walk(msg, acc);
+            walk(msg, acc, 0);
 
             return new ParsedMail(
                     subject,
@@ -66,7 +68,8 @@ public final class MailParser {
     /**
      * 递归遍历邮件的各个部分，将正文与附件累积到 {@link BodyAccumulator}。
      */
-    private static void walk(Part part, BodyAccumulator acc) throws Exception {
+    private static void walk(Part part, BodyAccumulator acc, int depth) throws Exception {
+        if (depth > MAX_DEPTH) return;
         if (isAttachment(part)) {
             acc.attachments.add(readAttachment(part));
             return;
@@ -75,16 +78,16 @@ public final class MailParser {
         Object content = part.getContent();
         if (content instanceof Multipart multipart) {
             for (int i = 0; i < multipart.getCount(); i++) {
-                walk(multipart.getBodyPart(i), acc);
+                walk(multipart.getBodyPart(i), acc, depth + 1);
             }
         } else if (part.isMimeType("text/plain")) {
             // 取第一个纯文本部分作为正文
             if (acc.text == null) {
-                acc.text = asString(content);
+                acc.text = asString(content, part);
             }
         } else if (part.isMimeType("text/html")) {
             if (acc.html == null) {
-                acc.html = asString(content);
+                acc.html = asString(content, part);
             }
         }
     }
@@ -124,7 +127,7 @@ public final class MailParser {
     /**
      * 将正文内容转换为字符串。
      */
-    private static String asString(Object content) throws Exception {
+    private static String asString(Object content, Part part) throws Exception {
         if (content instanceof String s) {
             return s;
         }
@@ -132,10 +135,39 @@ public final class MailParser {
             try (in) {
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                 in.transferTo(out);
-                return out.toString();
+                String charset = extractCharset(part);
+                return out.toString(charset);
             }
         }
         return content != null ? content.toString() : null;
+    }
+
+    /**
+     * 从 Content-Type 头提取 charset 参数。
+     */
+    private static String extractCharset(Part part) {
+        try {
+            String contentType = part.getContentType();
+            if (contentType != null) {
+                // Parse charset from Content-Type header
+                String lower = contentType.toLowerCase();
+                int idx = lower.indexOf("charset=");
+                if (idx >= 0) {
+                    String charset = contentType.substring(idx + 8).trim();
+                    // Remove quotes and parameters
+                    if (charset.startsWith("\"")) charset = charset.substring(1);
+                    int end = charset.indexOf('"');
+                    if (end > 0) charset = charset.substring(0, end);
+                    end = charset.indexOf(';');
+                    if (end > 0) charset = charset.substring(0, end);
+                    // Validate charset exists
+                    if (java.nio.charset.Charset.isSupported(charset)) {
+                        return charset;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return "UTF-8";
     }
 
     /**

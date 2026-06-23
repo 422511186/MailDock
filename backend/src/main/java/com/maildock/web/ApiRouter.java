@@ -14,8 +14,11 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.core.http.HttpMethod;
+import io.vertx.ext.web.handler.CorsHandler;
 
 import java.time.Duration;
+import java.util.Set;
 /**
  * 构建 REST API 的路由表。把路由构建逻辑独立出来，便于测试注入各 service 并用 WebClient 直接打路由。
  *
@@ -37,6 +40,7 @@ public final class ApiRouter {
     private final MailApiHandler mailApiHandler;
     private final UserApiHandler userApiHandler;
     private final SessionApiHandler sessionApiHandler;
+    private final String corsOrigins;
 
     public ApiRouter(Vertx vertx,
                      AuthService authService,
@@ -44,7 +48,7 @@ public final class ApiRouter {
                      MailSyncService mailSyncService,
                      MailQueryService mailQueryService) {
         this(vertx, authService, null, accountService, mailSyncService, mailQueryService,
-                false, Duration.ofHours(24), "/");
+                false, Duration.ofHours(24), "/", "http://localhost:5173");
     }
 
     public ApiRouter(Vertx vertx,
@@ -55,7 +59,8 @@ public final class ApiRouter {
                      MailQueryService mailQueryService,
                      boolean sessionCookieSecure,
                      Duration sessionTtl,
-                     String frontendUrl) {
+                     String frontendUrl,
+                     String corsOrigins) {
         this.vertx = vertx;
         this.authApiHandler = new AuthApiHandler(
                 vertx, authService, linuxDoOAuthService, sessionCookieSecure, sessionTtl);
@@ -63,12 +68,34 @@ public final class ApiRouter {
         this.mailApiHandler = new MailApiHandler(vertx, mailSyncService, mailQueryService);
         this.userApiHandler = new UserApiHandler(vertx, authService);
         this.sessionApiHandler = new SessionApiHandler(vertx, authService, sessionCookieSecure);
+        this.corsOrigins = corsOrigins;
     }
 
     /** 构建并返回配置好的 Router。 */
     public Router build() {
         Router router = Router.router(vertx);
-        router.route().handler(BodyHandler.create());
+
+        // CORS - 使用配置的允许来源，而非通配符
+        CorsHandler corsHandler = CorsHandler.create()
+                .allowedMethods(Set.of(HttpMethod.GET, HttpMethod.POST, HttpMethod.PATCH, HttpMethod.DELETE, HttpMethod.OPTIONS))
+                .allowedHeaders(Set.of("Content-Type", "Authorization"))
+                .allowCredentials(true);
+        // 逐个添加允许的来源
+        for (String origin : corsOrigins.split(",")) {
+            corsHandler.addRelativeOrigin(origin.trim());
+        }
+        router.route().handler(corsHandler);
+
+        router.route().handler(BodyHandler.create().setBodyLimit(10 * 1024 * 1024));
+
+        // Security headers
+        router.route().handler(ctx -> {
+            ctx.response().headers()
+                    .add("X-Content-Type-Options", "nosniff")
+                    .add("X-Frame-Options", "DENY")
+                    .add("Referrer-Policy", "strict-origin-when-cross-origin");
+            ctx.next();
+        });
 
         // 认证路由（无需 Session）
         authApiHandler.registerPublicRoutes(router, API);
@@ -107,7 +134,21 @@ public final class ApiRouter {
     private void handleFailure(RoutingContext ctx) {
         Throwable t = ctx.failure();
         int status = ctx.statusCode() > 0 ? ctx.statusCode() : 500;
-        String message = t != null && t.getMessage() != null ? t.getMessage() : "服务器内部错误";
+        String message;
+        if (t != null && t.getMessage() != null) {
+            // Sanitize: only filter messages that look like Java stack traces or class references
+            String msg = t.getMessage();
+            // Filter Java exception patterns: class names (com.xxx.Yyy), file paths (.java:xx), stack traces
+            if (msg.matches(".*\\b(com|org|net|io|java|javax)\\.[a-zA-Z]+\\..*")
+                    || msg.matches(".*\\.java:\\d+.*")
+                    || msg.contains("at com.maildock.") || msg.contains("at java.")) {
+                message = "服务器内部错误";
+            } else {
+                message = msg;
+            }
+        } else {
+            message = "服务器内部错误";
+        }
         if (!ctx.response().ended()) {
             ctx.response()
                     .setStatusCode(status)

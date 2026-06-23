@@ -87,6 +87,9 @@ MAILDOCK_DB_PATH=data/maildock.db
 
 # 可选：附件目录（默认 data/attachments）
 MAILDOCK_ATTACHMENTS_DIR=data/attachments
+
+# 可选：CORS 允许的来源（逗号分隔），默认 http://localhost:5173
+MAILDOCK_CORS_ORIGINS=http://localhost:5173
 ```
 
 ### 启动后端

@@ -37,6 +37,9 @@ const PAGE_SIZES = [10, 20, 50, 100];
 /** 允许的排序字段白名单（与排序下拉一致）。 */
 const SORT_FIELDS = ['lastSyncAt', 'lastTestAt'];
 
+/** 批量刷新时最多拉取的账号数量。 */
+const MAX_BATCH_SIZE = 1000;
+
 /**
  * 账号管理页：白色卡片工具栏（搜索 + 状态/排序 + 批量按钮 + 已选中提示条）、
  * 白色卡片表格（彩色头像 + 状态徽章带圆点 + 三点菜单），
@@ -72,6 +75,11 @@ export function AccountsPage({ api }: AccountsPageProps) {
   // 搜索框即时输入缓冲：随 URL 的 q 初始化，仅在提交时写回 URL。
   const [searchInput, setSearchInput] = useState(email);
 
+  // Sync search input with URL param (e.g., browser back/forward)
+  useEffect(() => {
+    setSearchInput(email);
+  }, [email]);
+
   // 弹窗开关
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -84,6 +92,11 @@ export function AccountsPage({ api }: AccountsPageProps) {
 
   // 批量选择
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  // Clear selections when filters change
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [search]);
 
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -184,7 +197,13 @@ export function AccountsPage({ api }: AccountsPageProps) {
       let ids = selectedIds;
       if (ids.length === 0) {
         // 未选中：收当前用户全部账号（取全量 id，而非当前页）
-        const all = await api.listAccounts({ size: 1000 });
+        // Warn if there might be more accounts than we can fetch
+        if (total > MAX_BATCH_SIZE) {
+          if (!window.confirm(`共有 ${total} 个账号，但最多只能刷新 ${MAX_BATCH_SIZE} 个。是否继续？`)) {
+            return;
+          }
+        }
+        const all = await api.listAccounts({ size: MAX_BATCH_SIZE });
         ids = all.items.map((a) => a.id);
       }
       const summary = await runBatchRefresh(api.refresh.bind(api), ids);
