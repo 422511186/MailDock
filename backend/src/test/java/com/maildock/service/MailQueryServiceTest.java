@@ -126,11 +126,12 @@ class MailQueryServiceTest {
         // 读取附件：附件确实属于该邮件时返回文件内容
         Message m = insertMessage(1, "带附件", 1700000001000L);
         byte[] data = "FILE-DATA".getBytes();
-        // 落盘文件
-        Path dir = attachmentsDir.resolve(String.valueOf(accountId)).resolve(String.valueOf(m.id()));
+        // 落盘文件 - 注意：路径格式是 userId/accountId/messageId/filename
+        Path dir = attachmentsDir.resolve(String.valueOf(userA.id())).resolve(String.valueOf(accountId)).resolve(String.valueOf(m.id()));
         Files.createDirectories(dir);
         Files.write(dir.resolve("a.pdf"), data);
-        String relPath = attachmentsDir.getFileName() + "/" + accountId + "/" + m.id() + "/a.pdf";
+        // 新格式: userId/accountId/messageId/safeName（不再包含 attachmentsDir 文件名）
+        String relPath = userA.id() + "/" + accountId + "/" + m.id() + "/a.pdf";
         Attachment att = attachmentRepo.insert(m.id(), "a.pdf", "application/pdf", (long) data.length, relPath);
 
         byte[] loaded = service.loadAttachment(userA.id(), m.id(), att.id());

@@ -70,7 +70,8 @@ class AttachmentStorageTest {
         Attachment saved = storage.store(userId, accountId, messageId, parsed);
 
         assertEquals("report.pdf", saved.filename());
-        assertTrue(saved.filePath().startsWith(attachmentsDir.getFileName() + "/" + userId + "/" + accountId + "/" + messageId + "/"));
+        // relativePath 格式: userId/accountId/messageId/safeName（不再包含 attachmentsDir 文件名）
+        assertTrue(saved.filePath().startsWith(userId + "/" + accountId + "/" + messageId + "/"));
         Path absolutePath = storage.resolve(saved.filePath());
         assertTrue(Files.exists(absolutePath));
         assertArrayEquals(parsed.content(), Files.readAllBytes(absolutePath));
@@ -85,8 +86,9 @@ class AttachmentStorageTest {
         Path file = dir.resolve("invoice.pdf");
         Files.writeString(file, "invoice");
 
+        // 新格式: userId/accountId/messageId/invoice.pdf（不再包含 attachmentsDir 文件名）
         Path resolved = storage.resolve(
-                attachmentsDir.getFileName() + "/" + userId + "/" + accountId + "/" + messageId + "/invoice.pdf");
+                userId + "/" + accountId + "/" + messageId + "/invoice.pdf");
 
         assertEquals(file, resolved);
     }

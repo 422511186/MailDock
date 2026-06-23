@@ -131,8 +131,11 @@ public final class MailSyncService {
                 attachmentStorage.store(userId, accountId, saved.id(), att);
             }
         } catch (Exception e) {
-            // 附件存储失败时删除已插入的邮件记录，避免残留脏数据
+            // 附件存储失败时删除已插入的邮件记录和已存储的附件文件
             messageRepo.deleteById(saved.id());
+            attachmentStorage.deleteDirectoryQuietly(
+                    java.nio.file.Path.of(attachmentStorage.getAttachmentsDir().toString(),
+                            String.valueOf(userId), String.valueOf(accountId), String.valueOf(saved.id())));
             throw e;
         }
     }

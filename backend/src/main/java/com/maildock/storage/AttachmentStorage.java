@@ -19,7 +19,13 @@ public final class AttachmentStorage {
 
     public AttachmentStorage(AttachmentRepository attachmentRepo, Path attachmentsDir) {
         this.attachmentRepo = attachmentRepo;
-        this.attachmentsDir = attachmentsDir;
+        // 解析为绝对路径，确保路径穿越防护在相对路径配置下也有效
+        this.attachmentsDir = attachmentsDir.toAbsolutePath().normalize();
+    }
+
+    /** 返回附件根目录的绝对路径，用于清理操作。 */
+    public Path getAttachmentsDir() {
+        return attachmentsDir;
     }
 
     public Attachment store(long userId, long accountId, long messageId, ParsedAttachment att) throws Exception {
@@ -32,8 +38,8 @@ public final class AttachmentStorage {
         Path target = dir.resolve(safeName);
         Files.write(target, att.content());
         try {
-            String relativePath = attachmentsDir.getFileName()
-                    + "/" + userId + "/" + accountId + "/" + messageId + "/" + safeName;
+            // relativePath 不再包含 attachmentsDir 文件名，直接用 userId/accountId/messageId/safeName
+            String relativePath = userId + "/" + accountId + "/" + messageId + "/" + safeName;
             return attachmentRepo.insert(messageId, safeName, att.contentType(), att.content().length, relativePath);
         } catch (Exception e) {
             // Clean up orphan file on DB failure
@@ -55,16 +61,10 @@ public final class AttachmentStorage {
             throw new SecurityException("绝对路径不允许: " + storedPath);
         }
         Path normalized = path.normalize();
-        Path resolved;
-        Path parent = attachmentsDir.getParent();
-        if (parent != null) {
-            resolved = parent.resolve(normalized);
-        } else {
-            resolved = attachmentsDir.resolve(normalized);
-        }
-        // Security: verify resolved path is under attachmentsDir's parent (or attachmentsDir itself)
-        Path anchor = parent != null ? parent : attachmentsDir;
-        if (!resolved.normalize().startsWith(anchor.normalize())) {
+        // attachmentsDir 已在构造时解析为绝对路径，直接作为基准
+        Path resolved = attachmentsDir.resolve(normalized);
+        // Security: verify resolved path is still under attachmentsDir
+        if (!resolved.normalize().startsWith(attachmentsDir)) {
             throw new SecurityException("路径穿越: " + storedPath);
         }
         return resolved;

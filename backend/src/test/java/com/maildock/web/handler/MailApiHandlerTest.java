@@ -211,7 +211,8 @@ class MailApiHandlerTest {
                 .resolve(String.valueOf(message.id()));
         Files.createDirectories(dir);
         Files.write(dir.resolve("a.pdf"), data);
-        String filePath = attachmentsDir.getFileName() + "/" + userAId + "/" + accountId + "/" + message.id() + "/a.pdf";
+        // 新格式: userId/accountId/messageId/safeName（不再包含 attachmentsDir 文件名）
+        String filePath = userAId + "/" + accountId + "/" + message.id() + "/a.pdf";
         Attachment attachment = new AttachmentRepository(db)
                 .insert(message.id(), "a.pdf", "application/pdf", data.length, filePath);
 

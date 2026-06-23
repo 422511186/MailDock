@@ -215,7 +215,7 @@ class AuthRouteTest {
         LinuxDoOAuthService.StartResult start = oauth.start();
 
         Router router = new ApiRouter(vertx, authService, oauth, null, null, null,
-                false, Duration.ofHours(1), "http://localhost:5173/").build();
+                false, Duration.ofHours(1), "http://localhost:5173/", "http://localhost:5173").build();
         HttpServer oauthServer = vertx.createHttpServer().requestHandler(router);
         int oauthPort = oauthServer.listen(0).toCompletionStage().toCompletableFuture()
                 .get(10, TimeUnit.SECONDS).actualPort();

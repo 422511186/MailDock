@@ -73,7 +73,8 @@ public final class AppWiring implements AppRuntimeFactory {
                     mailQueryService,
                     config.sessionCookieSecure(),
                     Duration.ofHours(config.sessionTtlHours()),
-                    config.frontendUrl()).build();
+                    config.frontendUrl(),
+                    config.corsOrigins()).build();
 
             StaticHandler staticHandler = StaticHandler.create("webroot")
                     .setIndexPage("index.html")

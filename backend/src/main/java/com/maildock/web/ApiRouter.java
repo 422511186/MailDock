@@ -40,6 +40,7 @@ public final class ApiRouter {
     private final MailApiHandler mailApiHandler;
     private final UserApiHandler userApiHandler;
     private final SessionApiHandler sessionApiHandler;
+    private final String corsOrigins;
 
     public ApiRouter(Vertx vertx,
                      AuthService authService,
@@ -47,7 +48,7 @@ public final class ApiRouter {
                      MailSyncService mailSyncService,
                      MailQueryService mailQueryService) {
         this(vertx, authService, null, accountService, mailSyncService, mailQueryService,
-                false, Duration.ofHours(24), "/");
+                false, Duration.ofHours(24), "/", "http://localhost:5173");
     }
 
     public ApiRouter(Vertx vertx,
@@ -58,7 +59,8 @@ public final class ApiRouter {
                      MailQueryService mailQueryService,
                      boolean sessionCookieSecure,
                      Duration sessionTtl,
-                     String frontendUrl) {
+                     String frontendUrl,
+                     String corsOrigins) {
         this.vertx = vertx;
         this.authApiHandler = new AuthApiHandler(
                 vertx, authService, linuxDoOAuthService, sessionCookieSecure, sessionTtl);
@@ -66,18 +68,23 @@ public final class ApiRouter {
         this.mailApiHandler = new MailApiHandler(vertx, mailSyncService, mailQueryService);
         this.userApiHandler = new UserApiHandler(vertx, authService);
         this.sessionApiHandler = new SessionApiHandler(vertx, authService, sessionCookieSecure);
+        this.corsOrigins = corsOrigins;
     }
 
     /** 构建并返回配置好的 Router。 */
     public Router build() {
         Router router = Router.router(vertx);
 
-        // CORS
-        router.route().handler(CorsHandler.create()
-                .addRelativeOrigin(".*")
+        // CORS - 使用配置的允许来源，而非通配符
+        CorsHandler corsHandler = CorsHandler.create()
                 .allowedMethods(Set.of(HttpMethod.GET, HttpMethod.POST, HttpMethod.PATCH, HttpMethod.DELETE, HttpMethod.OPTIONS))
                 .allowedHeaders(Set.of("Content-Type", "Authorization"))
-                .allowCredentials(true));
+                .allowCredentials(true);
+        // 逐个添加允许的来源
+        for (String origin : corsOrigins.split(",")) {
+            corsHandler.addRelativeOrigin(origin.trim());
+        }
+        router.route().handler(corsHandler);
 
         router.route().handler(BodyHandler.create().setBodyLimit(10 * 1024 * 1024));
 
@@ -129,10 +136,12 @@ public final class ApiRouter {
         int status = ctx.statusCode() > 0 ? ctx.statusCode() : 500;
         String message;
         if (t != null && t.getMessage() != null) {
-            // Sanitize: only pass through messages that look like intentional business messages
+            // Sanitize: only filter messages that look like Java stack traces or class references
             String msg = t.getMessage();
-            // Strip file paths, Java class references, and stack trace fragments
-            if (msg.contains("/") || msg.contains("\\") || msg.contains("com.") || msg.contains("java.")) {
+            // Filter Java exception patterns: class names (com.xxx.Yyy), file paths (.java:xx), stack traces
+            if (msg.matches(".*\\b(com|org|net|io|java|javax)\\.[a-zA-Z]+\\..*")
+                    || msg.matches(".*\\.java:\\d+.*")
+                    || msg.contains("at com.maildock.") || msg.contains("at java.")) {
                 message = "服务器内部错误";
             } else {
                 message = msg;
