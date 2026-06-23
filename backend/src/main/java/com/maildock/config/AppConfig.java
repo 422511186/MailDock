@@ -73,11 +73,8 @@ public record AppConfig(
      * @throws IllegalStateException 密钥缺失或长度非 32 字节
      */
     public static AppConfig from(Map<String, String> env) {
-        // 优先环境变量，缺失时尝试从 maildock.properties 读取
-        Map<String, String> config = env;
-        if (env.get("MAILDOCK_SECRET_KEY") == null || env.get("MAILDOCK_SECRET_KEY").isBlank()) {
-            config = loadPropertiesFile("maildock.properties", env);
-        }
+        // Always load properties file first, then overlay env vars (env takes priority)
+        Map<String, String> config = loadPropertiesFile("maildock.properties", env);
 
         String secretKey = config.get("MAILDOCK_SECRET_KEY");
         if (secretKey == null || secretKey.isBlank()) {
@@ -181,7 +178,9 @@ public record AppConfig(
         }
         try {
             Properties props = new Properties();
-            props.load(Files.newBufferedReader(path));
+            try (var reader = Files.newBufferedReader(path)) {
+                props.load(reader);
+            }
             Map<String, String> merged = new java.util.HashMap<>(env);
             props.forEach((k, v) -> merged.putIfAbsent(k.toString(), v.toString()));
             return merged;
