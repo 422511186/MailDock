@@ -14,8 +14,10 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.ext.web.handler.CorsHandler;
 
 import java.time.Duration;
+import java.util.Set;
 /**
  * 构建 REST API 的路由表。把路由构建逻辑独立出来，便于测试注入各 service 并用 WebClient 直接打路由。
  *
@@ -68,7 +70,24 @@ public final class ApiRouter {
     /** 构建并返回配置好的 Router。 */
     public Router build() {
         Router router = Router.router(vertx);
-        router.route().handler(BodyHandler.create());
+
+        // CORS
+        router.route().handler(CorsHandler.create()
+                .addRelativeOrigin(".*")
+                .allowedMethods(Set.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"))
+                .allowedHeaders(Set.of("Content-Type", "Authorization"))
+                .allowCredentials(true));
+
+        router.route().handler(BodyHandler.create().setBodyLimit(10 * 1024 * 1024));
+
+        // Security headers
+        router.route().handler(ctx -> {
+            ctx.response().headers()
+                    .add("X-Content-Type-Options", "nosniff")
+                    .add("X-Frame-Options", "DENY")
+                    .add("Referrer-Policy", "strict-origin-when-cross-origin");
+            ctx.next();
+        });
 
         // 认证路由（无需 Session）
         authApiHandler.registerPublicRoutes(router, API);
@@ -107,7 +126,19 @@ public final class ApiRouter {
     private void handleFailure(RoutingContext ctx) {
         Throwable t = ctx.failure();
         int status = ctx.statusCode() > 0 ? ctx.statusCode() : 500;
-        String message = t != null && t.getMessage() != null ? t.getMessage() : "服务器内部错误";
+        String message;
+        if (t != null && t.getMessage() != null) {
+            // Sanitize: only pass through messages that look like intentional business messages
+            String msg = t.getMessage();
+            // Strip file paths, Java class references, and stack trace fragments
+            if (msg.contains("/") || msg.contains("\\") || msg.contains("com.") || msg.contains("java.")) {
+                message = "服务器内部错误";
+            } else {
+                message = msg;
+            }
+        } else {
+            message = "服务器内部错误";
+        }
         if (!ctx.response().ended()) {
             ctx.response()
                     .setStatusCode(status)
